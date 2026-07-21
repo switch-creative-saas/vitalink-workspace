@@ -1,0 +1,663 @@
+/**
+ * VitaLink Sentinel Theme System
+ * Public Health Surveillance Dashboard - WHO/CDC-grade Visual Design
+ * Supports Light, Dark, and System modes with semantic design tokens
+ */
+
+@layer base {
+  /* ============================================
+     SENTINEL DESIGN TOKENS - LIGHT MODE
+     ============================================ */
+  :root {
+    /* Background Hierarchy */
+    --sentinel-bg-main: #F5F7FB;
+    --sentinel-bg-surface: #FFFFFF;
+    --sentinel-bg-elevated: #F8FAFC;
+    --sentinel-bg-hover: #F1F5F9;
+    --sentinel-bg-active: #E2E8F0;
+
+    /* Text Colors - High Contrast */
+    --sentinel-text-primary: #0F172A;
+    --sentinel-text-secondary: #475569;
+    --sentinel-text-muted: #64748B;
+    --sentinel-text-placeholder: #94A3B8;
+    --sentinel-text-inverse: #F8FAFC;
+
+    /* Border & Divider */
+    --sentinel-border-subtle: rgba(15, 23, 42, 0.06);
+    --sentinel-border-default: rgba(15, 23, 42, 0.08);
+    --sentinel-border-strong: rgba(15, 23, 42, 0.12);
+    --sentinel-border-focus: rgba(79, 70, 229, 0.5);
+
+    /* Accent Colors - VitaLink Brand + Medical Semantics */
+    --sentinel-accent-purple: #6D28D9;
+    --sentinel-accent-purple-light: #7C3AED;
+    --sentinel-accent-purple-dark: #4C1D95;
+    --sentinel-accent-blue: #1E4ED8;
+    --sentinel-accent-cyan: #06B6D4;
+    --sentinel-accent-teal: #14B8A6;
+
+    /* Status Colors */
+    --sentinel-success: #10B981;
+    --sentinel-success-light: #D1FAE5;
+    --sentinel-success-bg: rgba(16, 185, 129, 0.08);
+    --sentinel-warning: #F59E0B;
+    --sentinel-warning-light: #FEF3C7;
+    --sentinel-warning-bg: rgba(245, 158, 11, 0.08);
+    --sentinel-danger: #EF4444;
+    --sentinel-danger-light: #FEE2E2;
+    --sentinel-danger-bg: rgba(239, 68, 68, 0.08);
+    --sentinel-info: #3B82F6;
+    --sentinel-info-light: #DBEAFE;
+    --sentinel-info-bg: rgba(59, 130, 246, 0.08);
+
+    /* Chart Colors */
+    --sentinel-chart-purple: #8B5CF6;
+    --sentinel-chart-pink: #EC4899;
+    --sentinel-chart-blue: #3B82F6;
+    --sentinel-chart-cyan: #06B6D4;
+    --sentinel-chart-green: #10B981;
+    --sentinel-chart-amber: #F59E0B;
+    --sentinel-chart-red: #EF4444;
+
+    /* Shadows - Elevation Hierarchy */
+    --sentinel-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --sentinel-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+    --sentinel-shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.06), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+    --sentinel-shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+    --sentinel-shadow-glow-purple: 0 0 20px rgba(79, 70, 229, 0.3);
+    --sentinel-shadow-glow-amber: 0 0 20px rgba(245, 158, 11, 0.3);
+
+    /* Spacing */
+    --sentinel-radius-sm: 8px;
+    --sentinel-radius-md: 12px;
+    --sentinel-radius-lg: 16px;
+    --sentinel-radius-xl: 24px;
+    --sentinel-radius-full: 9999px;
+
+    /* Typography */
+    --sentinel-font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+    /* Transitions */
+    --sentinel-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    --sentinel-transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    --sentinel-transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Glass Effect - Light Mode */
+    --sentinel-glass-bg: rgba(255, 255, 255, 0.72);
+    --sentinel-glass-border: rgba(15, 23, 42, 0.08);
+    --sentinel-glass-backdrop: blur(20px) saturate(180%);
+
+    /* Hero Gradient */
+    --sentinel-hero-gradient: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #2563EB 100%);
+    --sentinel-hero-overlay: rgba(15, 23, 42, 0.4);
+
+    /* Badge/Chip Colors */
+    --sentinel-badge-green-bg: rgba(16, 185, 129, 0.12);
+    --sentinel-badge-green-border: rgba(16, 185, 129, 0.3);
+    --sentinel-badge-green-text: #059669;
+    --sentinel-badge-amber-bg: rgba(245, 158, 11, 0.12);
+    --sentinel-badge-amber-border: rgba(245, 158, 11, 0.3);
+    --sentinel-badge-amber-text: #D97706;
+    --sentinel-badge-blue-bg: rgba(59, 130, 246, 0.12);
+    --sentinel-badge-blue-border: rgba(59, 130, 246, 0.3);
+    --sentinel-badge-blue-text: #2563EB;
+    --sentinel-badge-red-bg: rgba(239, 68, 68, 0.12);
+    --sentinel-badge-red-border: rgba(239, 68, 68, 0.3);
+    --sentinel-badge-red-text: #DC2626;
+
+    /* Tab Colors */
+    --sentinel-tab-inactive-bg: transparent;
+    --sentinel-tab-inactive-text: #64748B;
+    --sentinel-tab-active-bg: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+    --sentinel-tab-active-text: #FFFFFF;
+    --sentinel-tab-border: rgba(15, 23, 42, 0.08);
+
+    /* Table Colors */
+    --sentinel-table-header-bg: #F8FAFC;
+    --sentinel-table-row-hover: #F1F5F9;
+    --sentinel-table-border: rgba(15, 23, 42, 0.06);
+
+    /* Chart Specific - SVG compatible */
+    --sentinel-chart-grid: rgba(15, 23, 42, 0.08);
+    --sentinel-chart-tooltip-bg: #FFFFFF;
+    --sentinel-chart-tooltip-border: rgba(15, 23, 42, 0.12);
+    --sentinel-chart-tooltip-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.1);
+    --sentinel-chart-axis: #64748B;
+  }
+
+  /* ============================================
+     DARK MODE OVERRIDES
+     ============================================ */
+  .dark-theme {
+    /* Background Hierarchy */
+    --sentinel-bg-main: #071028;
+    --sentinel-bg-surface: #0F172A;
+    --sentinel-bg-elevated: #162033;
+    --sentinel-bg-hover: #1E293B;
+    --sentinel-bg-active: #334155;
+
+    /* Text Colors - High Contrast */
+    --sentinel-text-primary: #F8FAFC;
+    --sentinel-text-secondary: #CBD5E1;
+    --sentinel-text-muted: #94A3B8;
+    --sentinel-text-placeholder: #64748B;
+    --sentinel-text-inverse: #0F172A;
+
+    /* Border & Divider */
+    --sentinel-border-subtle: rgba(255, 255, 255, 0.04);
+    --sentinel-border-default: rgba(255, 255, 255, 0.06);
+    --sentinel-border-strong: rgba(255, 255, 255, 0.1);
+    --sentinel-border-focus: rgba(99, 102, 241, 0.5);
+
+    /* Accent Colors - Brighter for dark */
+    --sentinel-accent-purple: #6366F1;
+    --sentinel-accent-purple-light: #818CF8;
+    --sentinel-accent-purple-dark: #4F46E5;
+    --sentinel-accent-blue: #3B82F6;
+    --sentinel-accent-cyan: #22D3EE;
+    --sentinel-accent-teal: #2DD4BF;
+
+    /* Status Colors - Brighter */
+    --sentinel-success: #34D399;
+    --sentinel-success-light: #064E3B;
+    --sentinel-success-bg: rgba(52, 211, 153, 0.12);
+    --sentinel-warning: #FBBF24;
+    --sentinel-warning-light: #78350F;
+    --sentinel-warning-bg: rgba(251, 191, 36, 0.12);
+    --sentinel-danger: #F87171;
+    --sentinel-danger-light: #7F1D1D;
+    --sentinel-danger-bg: rgba(248, 113, 113, 0.12);
+    --sentinel-info: #60A5FA;
+    --sentinel-info-light: #1E3A8A;
+    --sentinel-info-bg: rgba(96, 165, 250, 0.12);
+
+    /* Chart Colors */
+    --sentinel-chart-purple: #A78BFA;
+    --sentinel-chart-pink: #F472B6;
+    --sentinel-chart-blue: #60A5FA;
+    --sentinel-chart-cyan: #22D3EE;
+    --sentinel-chart-green: #34D399;
+    --sentinel-chart-amber: #FBBF24;
+    --sentinel-chart-red: #F87171;
+
+    /* Shadows - Darker shadows for depth */
+    --sentinel-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --sentinel-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+    --sentinel-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+    --sentinel-shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+    --sentinel-shadow-glow-purple: 0 0 30px rgba(99, 102, 241, 0.4);
+    --sentinel-shadow-glow-amber: 0 0 30px rgba(251, 191, 36, 0.4);
+
+    /* Glass Effect - Dark Mode */
+    --sentinel-glass-bg: rgba(15, 23, 42, 0.72);
+    --sentinel-glass-border: rgba(255, 255, 255, 0.08);
+    --sentinel-glass-backdrop: blur(20px) saturate(180%);
+
+    /* Hero Gradient - Dark */
+    --sentinel-hero-gradient: linear-gradient(135deg, #1E4ED8 0%, #4F46E5 50%, #7C3AED 100%);
+    --sentinel-hero-overlay: rgba(0, 0, 0, 0.3);
+
+    /* Badge/Chip Colors */
+    --sentinel-badge-green-bg: rgba(52, 211, 153, 0.15);
+    --sentinel-badge-green-border: rgba(52, 211, 153, 0.4);
+    --sentinel-badge-green-text: #34D399;
+    --sentinel-badge-amber-bg: rgba(251, 191, 36, 0.15);
+    --sentinel-badge-amber-border: rgba(251, 191, 36, 0.4);
+    --sentinel-badge-amber-text: #FBBF24;
+    --sentinel-badge-blue-bg: rgba(96, 165, 250, 0.15);
+    --sentinel-badge-blue-border: rgba(96, 165, 250, 0.4);
+    --sentinel-badge-blue-text: #60A5FA;
+    --sentinel-badge-red-bg: rgba(248, 113, 113, 0.15);
+    --sentinel-badge-red-border: rgba(248, 113, 113, 0.4);
+    --sentinel-badge-red-text: #F87171;
+
+    /* Tab Colors */
+    --sentinel-tab-inactive-bg: transparent;
+    --sentinel-tab-inactive-text: #94A3B8;
+    --sentinel-tab-active-bg: linear-gradient(135deg, #6366F1 0%, #818CF8 100%);
+    --sentinel-tab-active-text: #FFFFFF;
+    --sentinel-tab-border: rgba(255, 255, 255, 0.08);
+
+    /* Table Colors */
+    --sentinel-table-header-bg: #162033;
+    --sentinel-table-row-hover: #1E293B;
+    --sentinel-table-border: rgba(255, 255, 255, 0.06);
+
+    /* Chart Specific - Dark */
+    --sentinel-chart-grid: rgba(255, 255, 255, 0.06);
+    --sentinel-chart-tooltip-bg: #162033;
+    --sentinel-chart-tooltip-border: rgba(255, 255, 255, 0.1);
+    --sentinel-chart-tooltip-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --sentinel-chart-axis: #94A3B8;
+  }
+}
+
+@layer components {
+  /* ============================================
+     SENTINEL CARD COMPONENT
+     ============================================ */
+  .sentinel-card {
+    background: var(--sentinel-bg-surface);
+    border: 1px solid var(--sentinel-border-default);
+    border-radius: var(--sentinel-radius-lg);
+    box-shadow: var(--sentinel-shadow-md);
+    transition: all var(--sentinel-transition-base);
+  }
+
+  .sentinel-card:hover {
+    box-shadow: var(--sentinel-shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .sentinel-card-elevated {
+    background: var(--sentinel-bg-elevated);
+    border: 1px solid var(--sentinel-border-strong);
+    box-shadow: var(--sentinel-shadow-lg);
+  }
+
+  /* Glass Card Variant */
+  .sentinel-glass {
+    background: var(--sentinel-glass-bg);
+    backdrop-filter: var(--sentinel-glass-backdrop);
+    -webkit-backdrop-filter: var(--sentinel-glass-backdrop);
+    border: 1px solid var(--sentinel-glass-border);
+    border-radius: var(--sentinel-radius-lg);
+    box-shadow: var(--sentinel-shadow-md);
+  }
+
+  /* ============================================
+     SENTINEL TEXT STYLES
+     ============================================ */
+  .sentinel-text-primary {
+    color: var(--sentinel-text-primary);
+  }
+
+  .sentinel-text-secondary {
+    color: var(--sentinel-text-secondary);
+  }
+
+  .sentinel-text-muted {
+    color: var(--sentinel-text-muted);
+  }
+
+  /* ============================================
+     SENTINEL BADGES/CHIPS
+     ============================================ */
+  .sentinel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: var(--sentinel-radius-full);
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    transition: all var(--sentinel-transition-fast);
+  }
+
+  .sentinel-badge-green {
+    background: var(--sentinel-badge-green-bg);
+    border-color: var(--sentinel-badge-green-border);
+    color: var(--sentinel-badge-green-text);
+  }
+
+  .sentinel-badge-amber {
+    background: var(--sentinel-badge-amber-bg);
+    border-color: var(--sentinel-badge-amber-border);
+    color: var(--sentinel-badge-amber-text);
+  }
+
+  .sentinel-badge-blue {
+    background: var(--sentinel-badge-blue-bg);
+    border-color: var(--sentinel-badge-blue-border);
+    color: var(--sentinel-badge-blue-text);
+  }
+
+  .sentinel-badge-red {
+    background: var(--sentinel-badge-red-bg);
+    border-color: var(--sentinel-badge-red-border);
+    color: var(--sentinel-badge-red-text);
+  }
+
+  /* ============================================
+     SENTINEL BUTTONS
+     ============================================ */
+  .sentinel-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: var(--sentinel-radius-md);
+    transition: all var(--sentinel-transition-fast);
+    border: 1px solid transparent;
+    cursor: pointer;
+  }
+
+  .sentinel-btn:focus-visible {
+    outline: 2px solid var(--sentinel-accent-purple);
+    outline-offset: 2px;
+  }
+
+  .sentinel-btn-primary {
+    background: var(--sentinel-accent-purple);
+    color: white;
+    box-shadow: var(--sentinel-shadow-sm);
+  }
+
+  .sentinel-btn-primary:hover {
+    background: var(--sentinel-accent-purple-dark);
+    box-shadow: var(--sentinel-shadow-md);
+    transform: translateY(-1px);
+  }
+
+  .sentinel-btn-secondary {
+    background: var(--sentinel-bg-elevated);
+    color: var(--sentinel-text-primary);
+    border-color: var(--sentinel-border-default);
+  }
+
+  .sentinel-btn-secondary:hover {
+    background: var(--sentinel-bg-hover);
+    border-color: var(--sentinel-border-strong);
+  }
+
+  .sentinel-btn-outline {
+    background: transparent;
+    color: var(--sentinel-text-primary);
+    border-color: var(--sentinel-border-default);
+  }
+
+  .sentinel-btn-outline:hover {
+    background: var(--sentinel-bg-elevated);
+    border-color: var(--sentinel-border-strong);
+  }
+
+  .sentinel-btn-ghost {
+    background: transparent;
+    color: var(--sentinel-text-secondary);
+  }
+
+  .sentinel-btn-ghost:hover {
+    background: var(--sentinel-bg-hover);
+    color: var(--sentinel-text-primary);
+  }
+
+  /* ============================================
+     SENTINEL TABS
+     ============================================ */
+  .sentinel-tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--sentinel-bg-elevated);
+    border: 1px solid var(--sentinel-border-default);
+    border-radius: var(--sentinel-radius-lg);
+  }
+
+  .sentinel-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--sentinel-tab-inactive-text);
+    border-radius: var(--sentinel-radius-md);
+    transition: all var(--sentinel-transition-fast);
+    border: 1px solid transparent;
+  }
+
+  .sentinel-tab:hover {
+    background: var(--sentinel-bg-hover);
+    color: var(--sentinel-text-primary);
+  }
+
+  .sentinel-tab-active {
+    background: var(--sentinel-tab-active-bg);
+    color: var(--sentinel-tab-active-text);
+    border-color: var(--sentinel-border-strong);
+    box-shadow: var(--sentinel-shadow-sm);
+  }
+
+  /* ============================================
+     SENTINEL METRIC CARDS
+     ============================================ */
+  .sentinel-metric {
+    padding: 1.25rem;
+    border-radius: var(--sentinel-radius-lg);
+    border: 1px solid var(--sentinel-border-default);
+    background: var(--sentinel-bg-surface);
+    transition: all var(--sentinel-transition-base);
+  }
+
+  .sentinel-metric-green {
+    border-color: var(--sentinel-success);
+    box-shadow: 0 0 0 1px var(--sentinel-success-bg);
+  }
+
+  .sentinel-metric-yellow {
+    border-color: var(--sentinel-warning);
+    box-shadow: 0 0 0 1px var(--sentinel-warning-bg);
+  }
+
+  .sentinel-metric-red {
+    border-color: var(--sentinel-danger);
+    box-shadow: 0 0 0 1px var(--sentinel-danger-bg);
+  }
+
+  .sentinel-metric-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--sentinel-text-muted);
+  }
+
+  .sentinel-metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--sentinel-text-primary);
+    margin-top: 0.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sentinel-metric-sub {
+    font-size: 0.75rem;
+    color: var(--sentinel-text-muted);
+    margin-top: 0.25rem;
+  }
+
+  /* ============================================
+     SENTINEL TABLE
+     ============================================ */
+  .sentinel-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.875rem;
+  }
+
+  .sentinel-table th {
+    background: var(--sentinel-table-header-bg);
+    color: var(--sentinel-text-secondary);
+    font-weight: 600;
+    text-align: left;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--sentinel-table-border);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .sentinel-table td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--sentinel-table-border);
+    color: var(--sentinel-text-primary);
+  }
+
+  .sentinel-table tr:hover td {
+    background: var(--sentinel-table-row-hover);
+  }
+
+  /* ============================================
+     SENTINEL HERO SECTION
+     ============================================ */
+  .sentinel-hero {
+    position: relative;
+    overflow: hidden;
+    background: var(--sentinel-hero-gradient);
+    border-radius: var(--sentinel-radius-xl);
+    padding: 1.5rem 2rem;
+  }
+
+  .sentinel-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--sentinel-hero-overlay);
+    border-radius: inherit;
+  }
+
+  .sentinel-hero-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ============================================
+     SENTINEL STATUS INDICATORS
+     ============================================ */
+  .sentinel-pulse {
+    position: relative;
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--sentinel-success);
+  }
+
+  .sentinel-pulse::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: inherit;
+    opacity: 0.4;
+    animation: sentinelPulse 2s ease-out infinite;
+  }
+
+  @keyframes sentinelPulse {
+    0% { transform: scale(1); opacity: 0.4; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+
+  /* ============================================
+     SENTINEL SKELETON LOADING
+     ============================================ */
+  .sentinel-skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--sentinel-bg-elevated) 25%,
+      var(--sentinel-bg-hover) 50%,
+      var(--sentinel-bg-elevated) 75%
+    );
+    background-size: 200% 100%;
+    animation: sentinelShimmer 1.5s infinite;
+    border-radius: var(--sentinel-radius-md);
+  }
+
+  @keyframes sentinelShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ============================================
+     SENTINEL CHART OVERRIDES
+     ============================================ */
+  .sentinel-chart-container {
+    isolation: isolate;
+  }
+
+  .sentinel-chart-container .recharts-cartesian-grid-horizontal line,
+  .sentinel-chart-container .recharts-cartesian-grid-vertical line {
+    stroke: var(--sentinel-chart-grid);
+  }
+
+  .sentinel-chart-container .recharts-text {
+    fill: var(--sentinel-chart-axis);
+    font-size: 10px;
+  }
+
+  /* ============================================
+     SENTINEL SCROLLBAR
+     ============================================ */
+  .sentinel-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .sentinel-scroll::-webkit-scrollbar-track {
+    background: var(--sentinel-bg-elevated);
+    border-radius: 3px;
+  }
+
+  .sentinel-scroll::-webkit-scrollbar-thumb {
+    background: var(--sentinel-border-strong);
+    border-radius: 3px;
+  }
+
+  .sentinel-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--sentinel-text-muted);
+  }
+
+  /* ============================================
+     SENTINEL PAGE WRAPPER
+     ============================================ */
+  .sentinel-page {
+    background: var(--sentinel-bg-main);
+    color: var(--sentinel-text-primary);
+    min-height: 100%;
+  }
+
+  /* ============================================
+     ACCESSIBILITY - REDUCED MOTION
+     ============================================ */
+  @media (prefers-reduced-motion: reduce) {
+    .sentinel-skeleton,
+    .sentinel-pulse::after {
+      animation: none;
+    }
+
+    .sentinel-card,
+    .sentinel-btn,
+    .sentinel-tab {
+      transition: none;
+    }
+  }
+
+  /* ============================================
+     RESPONSIVE ADJUSTMENTS
+     ============================================ */
+  @media (max-width: 640px) {
+    .sentinel-hero {
+      padding: 1rem;
+      border-radius: var(--sentinel-radius-lg);
+    }
+
+    .sentinel-metric {
+      padding: 1rem;
+    }
+
+    .sentinel-metric-value {
+      font-size: 1.25rem;
+    }
+
+    .sentinel-tab {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
+    }
+  }
+}
