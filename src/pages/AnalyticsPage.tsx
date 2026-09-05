@@ -203,15 +203,15 @@ export function AnalyticsPage() {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-[#1E4ED8]">Healthcare Intelligence</h1>
-            <p className="text-sm text-gray-500 mt-1">Unified real-time analytics across EMR, appointments, laboratory, pharmacy and billing.</p>
+            <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">Unified real-time analytics across EMR, appointments, laboratory, pharmacy and billing.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-lg dark:bg-slate-900/50">
               {TIME_RANGES.map((range) => (
                 <button
                   key={range}
                   onClick={() => setDateRange(range)}
-                  className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition-all', dateRange === range ? 'bg-white text-royal-600 shadow-sm' : 'text-gray-500')}
+                  className={cn('px-3 py-1.5 rounded-md text-sm font-medium transition-all', dateRange === range ? 'bg-white text-royal-600 shadow-sm dark:bg-slate-800/60 dark:text-white' : 'text-gray-500 dark:text-slate-400')}
                 >
                   {range}
                 </button>
@@ -228,7 +228,7 @@ export function AnalyticsPage() {
                 <div className="space-y-3">
                   <div>
                     <Label>Export target</Label>
-                    <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm" value={widgetExport} onChange={(e) => setWidgetExport(e.target.value)}>
+                    <select className="mt-1 w-full rounded-md border border-input bg-white px-3 py-2 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={widgetExport} onChange={(e) => setWidgetExport(e.target.value)}>
                       <option value="entire-dashboard">Entire dashboard</option>
                       <option value="kpi-cards">KPI cards only</option>
                       <option value="patient-analytics">Patient analytics widget</option>
@@ -251,9 +251,9 @@ export function AnalyticsPage() {
       <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search patients, appointments, revenue, lab results..." className="pl-10 bg-white/80 rounded-xl" />
+          <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search patients, appointments, revenue, lab results..." className="pl-10 bg-white/80 rounded-xl dark:bg-slate-900/50 dark:text-slate-50" />
         </div>
-        <select className="rounded-xl border border-input px-3 py-2 text-sm bg-white/80" value={searchScope} onChange={(e) => setSearchScope(e.target.value as AnalyticsModule)}>
+        <select className="rounded-xl border border-input px-3 py-2 text-sm bg-white/80 text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={searchScope} onChange={(e) => setSearchScope(e.target.value as AnalyticsModule)}>
           <option value="all">All modules</option>
           <option value="patients">Patients</option>
           <option value="appointments">Appointments</option>
@@ -277,34 +277,34 @@ export function AnalyticsPage() {
           <button key={card.label} onClick={card.action} className="premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden">
             <div className="flex items-center justify-between gap-2 min-w-0">
               <card.icon className="w-5 h-5 text-[#4F46E5] flex-shrink-0" />
-              <Eye className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <Eye className="w-4 h-4 text-gray-400 flex-shrink-0 dark:text-slate-400" />
             </div>
-            <p className="text-lg font-bold text-gray-900 mt-3 truncate tabular-nums">{card.value}</p>
-            <p className="text-xs text-gray-500 truncate">{card.label}</p>
+            <p className="text-lg font-bold text-gray-900 mt-3 truncate tabular-nums dark:text-slate-50">{card.value}</p>
+            <p className="text-xs text-gray-500 truncate dark:text-slate-400">{card.label}</p>
           </button>
         ))}
       </div>
 
       <div className="premium-card p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2 dark:text-slate-50">
             <Sparkles className="w-4 h-4 text-indigo-500" />
             VitaMind AI Insights
           </h3>
           <Button size="sm" variant="outline" onClick={() => openDetails('AI Insights')}>View Details</Button>
         </div>
-        <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-700">
-          <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100">Patient volume increased by <strong>23%</strong> this week.</div>
-          <div className="p-3 rounded-xl bg-amber-50 border border-amber-100">Lab turnaround time is <strong>11% slower</strong> than baseline.</div>
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">Revenue growth is being driven by <strong>pharmacy sales (+19%)</strong>.</div>
-          <div className="p-3 rounded-xl bg-red-50 border border-red-100">High no-show rate detected on <strong>Mondays (17%)</strong>.</div>
+        <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-700 dark:text-slate-200">
+          <div className="p-3 rounded-xl bg-white border border-indigo-100 dark:border-slate-700 dark:bg-slate-800/60">Patient volume increased by <strong>23%</strong> this week.</div>
+          <div className="p-3 rounded-xl bg-white border border-amber-100 dark:border-slate-700 dark:bg-slate-800/60">Lab turnaround time is <strong>11% slower</strong> than baseline.</div>
+          <div className="p-3 rounded-xl bg-white border border-emerald-100 dark:border-slate-700 dark:bg-slate-800/60">Revenue growth is being driven by <strong>pharmacy sales (+19%)</strong>.</div>
+          <div className="p-3 rounded-xl bg-white border border-red-100 dark:border-slate-700 dark:bg-slate-800/60">High no-show rate detected on <strong>Mondays (17%)</strong>.</div>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">System Trend (Line)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-slate-50">System Trend (Line)</h3>
             <Button size="sm" variant="ghost" onClick={() => openDetails('System Trend')}>View Details</Button>
           </div>
           <div className="h-72">
@@ -323,7 +323,7 @@ export function AnalyticsPage() {
 
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">Revenue Composition (Pie)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-slate-50">Revenue Composition (Pie)</h3>
             <Button size="sm" variant="ghost" onClick={() => openDetails('Revenue Composition')}>View Details</Button>
           </div>
           <div className="h-72">
@@ -344,29 +344,29 @@ export function AnalyticsPage() {
       {allowedSections.includes('department') && (
         <div className="premium-card p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">Department Performance (critical)</h3>
+            <h3 className="font-semibold text-gray-900 dark:text-slate-50">Department Performance (critical)</h3>
             <Button size="sm" variant="ghost" onClick={() => openDetails('Department Performance')}>View Details</Button>
           </div>
           <div className="responsive-table-wrap">
             <table className="w-full table-fixed">
               <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left py-3 text-xs text-gray-500 uppercase">Department</th>
-                  <th className="text-left py-3 text-xs text-gray-500 uppercase">Patients Served</th>
-                  <th className="text-left py-3 text-xs text-gray-500 uppercase">Revenue</th>
-                  <th className="text-left py-3 text-xs text-gray-500 uppercase">Avg Time</th>
-                  <th className="text-left py-3 text-xs text-gray-500 uppercase">Efficiency</th>
+                <tr className="border-b border-gray-100 bg-gray-100 dark:border-slate-700 dark:bg-slate-800/80">
+                  <th className="text-left py-3 text-xs text-gray-600 uppercase dark:text-slate-300">Department</th>
+                  <th className="text-left py-3 text-xs text-gray-600 uppercase dark:text-slate-300">Patients Served</th>
+                  <th className="text-left py-3 text-xs text-gray-600 uppercase dark:text-slate-300">Revenue</th>
+                  <th className="text-left py-3 text-xs text-gray-600 uppercase dark:text-slate-300">Avg Time</th>
+                  <th className="text-left py-3 text-xs text-gray-600 uppercase dark:text-slate-300">Efficiency</th>
                 </tr>
               </thead>
               <tbody>
                 {deptRows.map((d) => (
-                  <tr key={d.department} className="border-b border-gray-50 hover:bg-gray-50/60">
+                  <tr key={d.department} className="border-b border-gray-50 hover:bg-gray-50/60 dark:border-slate-700 dark:hover:bg-slate-800/60">
                     <td className="py-3 text-sm font-medium">{d.department}</td>
                     <td className="py-3 text-sm">{d.patients.toLocaleString()}</td>
                     <td className="py-3 text-sm">₦{d.revenue.toLocaleString()}</td>
                     <td className="py-3 text-sm">{d.avgTime} mins</td>
                     <td className="py-3">
-                      <div className="w-28 h-2 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="w-28 h-2 rounded-full bg-gray-100 overflow-hidden dark:bg-slate-800">
                         <div className="h-full bg-gradient-to-r from-indigo-500 to-indigo-400" style={{ width: `${d.efficiency}%` }} />
                       </div>
                     </td>
@@ -423,14 +423,14 @@ export function AnalyticsPage() {
         {allowedSections.includes('pharmacy') && (
           <div className="premium-card p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900">Pharmacy Analytics</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-slate-50">Pharmacy Analytics</h3>
               <Button size="sm" variant="ghost" onClick={() => openDetails('Pharmacy Analytics')}>View Details</Button>
             </div>
-            <ul className="space-y-2 text-sm">
-              <li className="p-3 rounded-lg bg-gray-50">Most dispensed: <strong>Paracetamol 500mg</strong></li>
-              <li className="p-3 rounded-lg bg-gray-50">Stock turnover rate: <strong>4.2x / month</strong></li>
-              <li className="p-3 rounded-lg bg-gray-50">Expired drugs: <strong>12 units</strong></li>
-              <li className="p-3 rounded-lg bg-gray-50">Revenue from pharmacy: <strong>₦{summary.pharmacy_sales.toLocaleString()}</strong></li>
+            <ul className="space-y-2 text-sm text-slate-900 dark:text-slate-200">
+              <li className="p-3 rounded-lg bg-gray-50 dark:bg-slate-800/60">Most dispensed: <strong>Paracetamol 500mg</strong></li>
+              <li className="p-3 rounded-lg bg-gray-50 dark:bg-slate-800/60">Stock turnover rate: <strong>4.2x / month</strong></li>
+              <li className="p-3 rounded-lg bg-gray-50 dark:bg-slate-800/60">Expired drugs: <strong>12 units</strong></li>
+              <li className="p-3 rounded-lg bg-gray-50 dark:bg-slate-800/60">Revenue from pharmacy: <strong>₦{summary.pharmacy_sales.toLocaleString()}</strong></li>
             </ul>
           </div>
         )}
@@ -438,17 +438,17 @@ export function AnalyticsPage() {
         {allowedSections.includes('appointment') && (
           <div className="premium-card p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900">Appointment Heatmap</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-slate-50">Appointment Heatmap</h3>
               <Button size="sm" variant="ghost" onClick={() => openDetails('Appointment Analytics')}>View Details</Button>
             </div>
             <div className="space-y-2">
-              <div className="grid grid-cols-6 text-xs text-gray-500">
+              <div className="grid grid-cols-6 text-xs text-gray-500 dark:text-slate-400">
                 <span />
                 <span>08</span><span>10</span><span>12</span><span>14</span><span>16</span>
               </div>
               {appointmentHeatmap.map((r) => (
                 <div key={r.day} className="grid grid-cols-6 gap-1 items-center text-xs">
-                  <span className="text-gray-500">{r.day}</span>
+                  <span className="text-gray-500 dark:text-slate-400">{r.day}</span>
                   {(['h08', 'h10', 'h12', 'h14', 'h16'] as const).map((k) => {
                     const v = r[k];
                     return (
@@ -466,21 +466,21 @@ export function AnalyticsPage() {
         {allowedSections.includes('insurance') && (
           <div className="premium-card p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900">Insurance Analytics</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-slate-50">Insurance Analytics</h3>
               <Button size="sm" variant="ghost" onClick={() => openDetails('Insurance Analytics')}>View Details</Button>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="p-3 rounded-lg bg-blue-50 border border-blue-100">Claims submitted: <strong>{summary.insurance_claims}</strong></div>
-              <div className="p-3 rounded-lg bg-green-50 border border-green-100">Approval rate: <strong>78%</strong></div>
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-100">Avg processing: <strong>5.4 days</strong></div>
-              <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-100">Insurance revenue: <strong>₦{Math.round(summary.revenue * 0.41).toLocaleString()}</strong></div>
+            <div className="grid grid-cols-2 gap-3 text-sm text-slate-900 dark:text-slate-200">
+              <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 dark:border-slate-700 dark:bg-slate-800/60">Claims submitted: <strong>{summary.insurance_claims}</strong></div>
+              <div className="p-3 rounded-lg bg-green-50 border border-green-100 dark:border-slate-700 dark:bg-slate-800/60">Approval rate: <strong>78%</strong></div>
+              <div className="p-3 rounded-lg bg-amber-50 border border-amber-100 dark:border-slate-700 dark:bg-slate-800/60">Avg processing: <strong>5.4 days</strong></div>
+              <div className="p-3 rounded-lg bg-indigo-50 border border-indigo-100 dark:border-slate-700 dark:bg-slate-800/60">Insurance revenue: <strong>₦{Math.round(summary.revenue * 0.41).toLocaleString()}</strong></div>
             </div>
           </div>
         )}
       </div>
 
       <div className="premium-card p-5">
-        <h3 className="font-semibold text-gray-900 mb-3">Automations & Government Reporting</h3>
+        <h3 className="font-semibold text-gray-900 mb-3 dark:text-slate-50">Automations & Government Reporting</h3>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => toast.success('Daily summary report queued (email)')}>Daily summary report</Button>
           <Button variant="outline" size="sm" onClick={() => toast.success('Weekly performance insights generated')}>Weekly insights</Button>
@@ -500,10 +500,10 @@ export function AnalyticsPage() {
             <DialogTitle>{detailTitle}</DialogTitle>
             <DialogDescription>Drill-down analytics with breakdown, filters, and time trends.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 text-sm">
-            <div className="p-3 rounded-lg bg-gray-50">Time range: <strong>{dateRange}</strong></div>
-            <div className="p-3 rounded-lg bg-gray-50">Current scope: <strong>{searchScope}</strong></div>
-            <div className="p-3 rounded-lg bg-gray-50">Use this drill-down to filter by department, clinician, status, and trend horizon.</div>
+          <div className="space-y-3 text-sm text-slate-900 dark:text-slate-200">
+            <div className="p-3 rounded-lg bg-gray-50 dark:bg-slate-800/60">Time range: <strong>{dateRange}</strong></div>
+            <div className="p-3 rounded-lg bg-gray-50 dark:bg-slate-800/60">Current scope: <strong>{searchScope}</strong></div>
+            <div className="p-3 rounded-lg bg-gray-50 dark:bg-slate-800/60">Use this drill-down to filter by department, clinician, status, and trend horizon.</div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailOpen(false)}>Close</Button>

@@ -32,7 +32,7 @@ export function ProvisioningScreen({ onComplete }: { onComplete: () => void }) {
         <div className="absolute inset-0 border-4 border-white/10 rounded-full" />
         <div className="absolute inset-0 border-4 border-vitalink-500 rounded-full border-t-transparent animate-spin" />
         <div className="absolute inset-0 flex items-center justify-center">
-          <img src="/vitalink-logo.png" alt="Logo" className="w-8 h-8 invert opacity-80 animate-pulse" />
+          <img src="/vitalink-icon.png" alt="Logo" className="w-8 h-8 object-contain opacity-90 animate-pulse" />
         </div>
       </div>
       

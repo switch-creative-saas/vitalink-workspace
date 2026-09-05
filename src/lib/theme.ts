@@ -24,8 +24,9 @@ export function getSavedTheme(): ThemeMode {
 
 function applyResolvedTheme(resolved: 'light' | 'dark') {
   const root = document.documentElement;
-  root.classList.remove('light-theme', 'dark-theme');
+  root.classList.remove('light-theme', 'dark-theme', 'dark');
   root.classList.add(resolved === 'dark' ? 'dark-theme' : 'light-theme');
+  if (resolved === 'dark') root.classList.add('dark');
   root.style.colorScheme = resolved;
 }
 
@@ -51,4 +52,3 @@ export function applyTheme(mode: ThemeMode) {
 export function initTheme() {
   applyTheme(getSavedTheme());
 }
-

@@ -92,7 +92,7 @@ function StatCard({ title, value, change, changeType, icon: Icon, color, subtitl
     : displayValue.toLocaleString();
 
   return (
-    <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl p-5 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-1 cursor-pointer group card-equal-height h-full min-w-0 overflow-hidden">
+    <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl p-5 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-1 cursor-pointer group card-equal-height h-full min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
       <div className="flex items-start justify-between mb-4 gap-2 min-w-0">
         <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", color)}>
           <Icon className="w-6 h-6 text-white" />
@@ -102,7 +102,7 @@ function StatCard({ title, value, change, changeType, icon: Icon, color, subtitl
             "flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium flex-shrink-0",
             changeType === 'increase' ? "bg-green-100 text-green-700" :
             changeType === 'decrease' ? "bg-red-100 text-red-700" :
-            "bg-gray-100 text-gray-700"
+            "bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300"
           )}>
             {changeType === 'increase' ? <TrendingUp className="w-3 h-3" /> :
              changeType === 'decrease' ? <TrendingUp className="w-3 h-3 rotate-180" /> : null}
@@ -110,9 +110,9 @@ function StatCard({ title, value, change, changeType, icon: Icon, color, subtitl
           </div>
         )}
       </div>
-      <h3 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 truncate tabular-nums">{display}</h3>
-      <p className="text-sm text-gray-500 truncate">{title}</p>
-      {subtitle && <p className="text-xs text-gray-400 mt-1 text-clamp-2">{subtitle}</p>}
+      <h3 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-50 mb-1 truncate tabular-nums">{display}</h3>
+      <p className="text-sm text-slate-600 dark:text-slate-400 truncate">{title}</p>
+      {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-clamp-2">{subtitle}</p>}
     </div>
   );
 }
@@ -156,7 +156,7 @@ function BookAppointmentModal({ open, onClose }: { open: boolean; onClose: () =>
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl">
+      <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
           <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
             <CalendarPlus className="w-5 h-5" />
@@ -166,7 +166,7 @@ function BookAppointmentModal({ open, onClose }: { open: boolean; onClose: () =>
         
         <div className="space-y-4 mt-4">
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Select Patient *</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Select Patient *</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input 
@@ -179,9 +179,9 @@ function BookAppointmentModal({ open, onClose }: { open: boolean; onClose: () =>
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Select Doctor *</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Select Doctor *</label>
             <select 
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
               value={doctor}
               onChange={(e) => setDoctor(e.target.value)}
             >
@@ -193,7 +193,7 @@ function BookAppointmentModal({ open, onClose }: { open: boolean; onClose: () =>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1 block">Date *</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Date *</label>
               <Input 
                 type="date"
                 value={date}
@@ -201,9 +201,9 @@ function BookAppointmentModal({ open, onClose }: { open: boolean; onClose: () =>
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-700 mb-1 block">Time *</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Time *</label>
               <select 
-                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
                 value={time}
                 onChange={(e) => setTime(e.target.value)}
               >
@@ -217,9 +217,9 @@ function BookAppointmentModal({ open, onClose }: { open: boolean; onClose: () =>
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Appointment Type</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Appointment Type</label>
             <select 
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
               value={type}
               onChange={(e) => setType(e.target.value)}
             >
@@ -260,7 +260,7 @@ function OrderLabModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl">
+      <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
           <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
             <FlaskConical className="w-5 h-5" />
@@ -270,7 +270,7 @@ function OrderLabModal({ open, onClose }: { open: boolean; onClose: () => void }
         
         <div className="space-y-4 mt-4">
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Select Patient *</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Select Patient *</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input 
@@ -283,9 +283,9 @@ function OrderLabModal({ open, onClose }: { open: boolean; onClose: () => void }
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Test Type *</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Test Type *</label>
             <select 
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
               value={testType}
               onChange={(e) => setTestType(e.target.value)}
             >
@@ -299,7 +299,7 @@ function OrderLabModal({ open, onClose }: { open: boolean; onClose: () => void }
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Priority</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Priority</label>
             <div className="flex gap-2">
               {['routine', 'urgent', 'stat'].map((p) => (
                 <button
@@ -311,7 +311,7 @@ function OrderLabModal({ open, onClose }: { open: boolean; onClose: () => void }
                       ? p === 'stat' ? "bg-red-100 text-red-700 border-2 border-red-300" :
                         p === 'urgent' ? "bg-amber-100 text-amber-700 border-2 border-amber-300" :
                         "bg-blue-100 text-blue-700 border-2 border-blue-300"
-                      : "bg-gray-50 text-gray-600 border-2 border-transparent hover:bg-gray-100"
+                      : "bg-gray-50 text-slate-600 border-2 border-transparent hover:bg-gray-100 dark:bg-slate-900/50 dark:text-slate-400 dark:hover:bg-slate-800"
                   )}
                 >
                   {p}
@@ -350,7 +350,7 @@ function DispenseModal({ open, onClose }: { open: boolean; onClose: () => void }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl">
+      <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
           <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
             <Pill className="w-5 h-5" />
@@ -360,7 +360,7 @@ function DispenseModal({ open, onClose }: { open: boolean; onClose: () => void }
         
         <div className="space-y-4 mt-4">
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Select Patient *</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Select Patient *</label>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input 
@@ -373,9 +373,9 @@ function DispenseModal({ open, onClose }: { open: boolean; onClose: () => void }
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Medication *</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Medication *</label>
             <select 
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white"
+              className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
               value={medication}
               onChange={(e) => setMedicication(e.target.value)}
             >
@@ -387,18 +387,18 @@ function DispenseModal({ open, onClose }: { open: boolean; onClose: () => void }
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-700 mb-1 block">Quantity</label>
+            <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Quantity</label>
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
               >
                 -
               </button>
               <span className="w-16 text-center font-semibold">{quantity}</span>
               <button 
                 onClick={() => setQuantity(quantity + 1)}
-                className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-700"
               >
                 +
               </button>
@@ -424,29 +424,29 @@ function DispenseModal({ open, onClose }: { open: boolean; onClose: () => void }
 // Skeleton Loader for stats
 function StatCardSkeleton() {
   return (
-    <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl p-5 animate-pulse card-equal-height h-full min-w-0">
+    <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl p-5 animate-pulse card-equal-height h-full min-w-0 dark:border-slate-700 dark:bg-slate-800/80">
       <div className="flex items-start justify-between mb-4">
-        <div className="w-12 h-12 rounded-xl bg-gray-200" />
-        <div className="w-16 h-6 rounded-full bg-gray-200" />
+        <div className="w-12 h-12 rounded-xl bg-gray-200 dark:bg-slate-700" />
+        <div className="w-16 h-6 rounded-full bg-gray-200 dark:bg-slate-700" />
       </div>
-      <div className="w-24 h-8 bg-gray-200 rounded mb-2" />
-      <div className="w-32 h-4 bg-gray-200 rounded" />
+      <div className="w-24 h-8 bg-gray-200 rounded mb-2 dark:bg-slate-700" />
+      <div className="w-32 h-4 bg-gray-200 rounded dark:bg-slate-700" />
     </div>
   );
 }
 
 const statusStyles: Record<AppointmentStatus, string> = {
-  confirmed: 'bg-green-100 text-green-700 border-green-200',
-  'checked-in': 'bg-blue-100 text-blue-700 border-blue-200',
-  pending: 'bg-amber-100 text-amber-700 border-amber-200',
-  'in-consultation': 'bg-indigo-100 text-indigo-700 border-indigo-200',
-  completed: 'bg-slate-100 text-slate-700 border-slate-200',
-  cancelled: 'bg-red-100 text-red-700 border-red-200',
-  'no-show': 'bg-gray-100 text-gray-700 border-gray-200',
-  rescheduled: 'bg-purple-100 text-purple-700 border-purple-200',
-  emergency: 'bg-red-100 text-red-800 border-red-300',
-  'waiting-lab': 'bg-cyan-100 text-cyan-700 border-cyan-200',
-  admitted: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  confirmed: 'bg-green-100 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-300 dark:border-green-800',
+  'checked-in': 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+  pending: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+  'in-consultation': 'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800',
+  completed: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  cancelled: 'bg-red-100 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800',
+  'no-show': 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  rescheduled: 'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800',
+  emergency: 'bg-red-100 text-red-800 border-red-300 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800',
+  'waiting-lab': 'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800',
+  admitted: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
 };
 
 const actionConfig: Array<{ id: AppointmentAction; label: string; icon: React.ElementType }> = [
@@ -601,31 +601,31 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Quick Actions */}
         <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-          <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden">
-            <h2 className="text-sm font-semibold text-gray-900 mb-3 truncate">Quick Actions</h2>
+          <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
+            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-3 truncate">Quick Actions</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               {quickActions.map((action) => (
                 <button
                   key={action.label}
                   onClick={action.onClick}
-                  className="flex flex-col items-center gap-1.5 p-2.5 sm:p-3 rounded-xl bg-gray-50 hover:bg-vitalink-50 border border-gray-100 hover:border-vitalink-200 transition-all duration-200 group min-w-0"
+                  className="flex flex-col items-center gap-1.5 p-2.5 sm:p-3 rounded-xl bg-gray-50 hover:bg-vitalink-50 border border-gray-100 hover:border-vitalink-200 transition-all duration-200 group min-w-0 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:bg-slate-800"
                 >
                   <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110 bg-gradient-to-br shrink-0", action.color)}>
                     <action.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <span className="text-xs sm:text-sm font-medium text-gray-700 text-center truncate w-full">{action.label}</span>
+                  <span className="text-xs sm:text-sm font-medium text-slate-900 text-center truncate w-full dark:text-slate-50">{action.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Upcoming Appointments */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden">
+          <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
             <div className="flex flex-col gap-3 mb-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="text-base sm:text-lg font-semibold text-gray-900 truncate">Upcoming Appointments</h2>
-                  <p className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
+                  <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-50 truncate">Upcoming Appointments</h2>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2 mt-0.5">
                     {isOnline ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" /> : <WifiOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
                     <span className="truncate">{isOnline ? 'Live scheduling feed' : `Offline mode - ${pendingSyncCount} queued updates`}</span>
                   </p>
@@ -645,13 +645,13 @@ export function DashboardPage() {
                     value={filters.query}
                     onChange={(event) => setFilters({ query: event.target.value })}
                     placeholder="Search patient, doctor, type..."
-                    className="pl-9 h-9 bg-white/80"
+                    className="pl-9 h-9 bg-white/80 text-slate-900 dark:bg-slate-900/50 dark:text-slate-50"
                   />
                 </div>
                 <select
                   value={filters.doctorId}
                   onChange={(event) => setFilters({ doctorId: event.target.value })}
-                  className="h-9 rounded-lg border border-gray-200 bg-white/80 px-3 text-xs text-gray-700 shrink-0"
+                  className="h-9 rounded-lg border border-gray-200 bg-white/80 px-3 text-xs text-slate-900 shrink-0 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
                   aria-label="Filter appointments by doctor"
                 >
                   <option value="all">All doctors</option>
@@ -662,7 +662,7 @@ export function DashboardPage() {
                 <select
                   value={filters.status}
                   onChange={(event) => setFilters({ status: event.target.value as AppointmentStatus | 'all' })}
-                  className="h-9 rounded-lg border border-gray-200 bg-white/80 px-3 text-xs text-gray-700 shrink-0"
+                  className="h-9 rounded-lg border border-gray-200 bg-white/80 px-3 text-xs text-slate-900 shrink-0 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
                   aria-label="Filter appointments by status"
                 >
                   <option value="all">All statuses</option>
@@ -683,22 +683,22 @@ export function DashboardPage() {
                       ? 'bg-red-50 border-red-200 hover:bg-red-100'
                       : apt.waitMinutes >= 30
                         ? 'bg-amber-50 border-amber-200 hover:bg-amber-100'
-                        : 'bg-gray-50 border-gray-100 hover:bg-white hover:border-[#1E4ED8]/20 hover:shadow-md',
+                        : 'bg-gray-50 border-gray-100 hover:bg-white hover:border-[#1E4ED8]/20 hover:shadow-md dark:bg-slate-900/50 dark:border-slate-700 dark:hover:bg-slate-800',
                   )}
                 >
                   <div className="w-12 h-12 rounded-xl bg-[#1E4ED8]/10 flex flex-col items-center justify-center flex-shrink-0">
                     <span className="text-xs sm:text-sm font-bold text-[#1E4ED8]">{apt.time}</span>
-                    <span className="text-[10px] text-gray-500">{apt.queueNumber}</span>
+                    <span className="text-[10px] text-slate-600 dark:text-slate-400">{apt.queueNumber}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="w-7 h-7 rounded-full bg-white border border-gray-200 text-[11px] font-bold text-[#1E4ED8] flex items-center justify-center flex-shrink-0">{apt.patientAvatar}</span>
-                      <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{apt.patient}</h3>
+                      <span className="w-7 h-7 rounded-full bg-white border border-gray-200 text-[11px] font-bold text-[#1E4ED8] flex items-center justify-center flex-shrink-0 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-300">{apt.patientAvatar}</span>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-50 text-sm sm:text-base truncate">{apt.patient}</h3>
                       {apt.time <= new Date().toTimeString().slice(0, 5) && !['completed', 'cancelled', 'no-show'].includes(apt.status) && (
                         <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-semibold">overdue</span>
                       )}
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm text-gray-500">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
                       <span>{apt.type}</span>
                       <span className="hidden sm:inline">•</span>
                       <span className="hidden sm:inline">{apt.department}</span>
@@ -718,7 +718,7 @@ export function DashboardPage() {
                 </button>
               ))}
               {upcomingAppointments.length === 0 && (
-                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
                   No appointments match the current dashboard filters.
                 </div>
               )}
@@ -729,12 +729,12 @@ export function DashboardPage() {
         {/* Right Column */}
         <div className="space-y-4 sm:space-y-6">
           {/* AI Insights Preview */}
-          <div className="bg-white/70 backdrop-blur-xl border-l-4 border-l-vitamind-500 rounded-2xl p-4 shadow-soft min-w-0 overflow-hidden">
+          <div className="bg-white/70 backdrop-blur-xl border-l-4 border-l-vitamind-500 rounded-2xl p-4 shadow-soft min-w-0 overflow-hidden dark:bg-slate-800/80">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-vitamind-600 shrink-0" />
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-gray-900 truncate">VitaMind Insights</h2>
-                <p className="text-[10px] text-gray-500 truncate">Clinical Intelligence for Better Healthcare</p>
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">VitaMind Insights</h2>
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate">Clinical Intelligence for Better Healthcare</p>
               </div>
             </div>
             <div className="space-y-3">
@@ -770,8 +770,8 @@ export function DashboardPage() {
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden">
-            <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
+          <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
+            <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-50 mb-4">Recent Activity</h2>
             <div className="space-y-3 sm:space-y-4">
               {recentActivity.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-3">
@@ -779,7 +779,7 @@ export function DashboardPage() {
                     <activity.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm text-gray-900 truncate">{activity.message}</p>
+                    <p className="text-xs sm:text-sm text-slate-900 dark:text-slate-50 truncate">{activity.message}</p>
                     <p className="text-[10px] sm:text-xs text-gray-400">{activity.time}</p>
                   </div>
                 </div>
@@ -788,28 +788,28 @@ export function DashboardPage() {
           </div>
 
           {/* Offline Sync Status */}
-          <div className="bg-white/70 backdrop-blur-xl border border-green-100 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft bg-gradient-to-br from-green-50/50 to-emerald-50/50">
+          <div className="bg-white/70 backdrop-blur-xl border border-green-100 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft bg-gradient-to-br from-green-50/50 to-emerald-50/50 dark:border-emerald-900/60 dark:from-slate-800 dark:to-slate-900">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-green-500 flex items-center justify-center">
                 <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900 text-sm sm:text-base">Sync Status</h3>
+                <h3 className="font-semibold text-slate-900 dark:text-slate-50 text-sm sm:text-base">Sync Status</h3>
                 <p className="text-xs sm:text-sm text-green-600">All data synced</p>
               </div>
             </div>
             <div className="space-y-2 text-xs sm:text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-500">Last sync</span>
-                <span className="text-gray-700">2 minutes ago</span>
+                <span className="text-slate-600 dark:text-slate-400">Last sync</span>
+                <span className="text-slate-900 dark:text-slate-50">2 minutes ago</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Pending items</span>
-                <span className="text-gray-700">0</span>
+                <span className="text-slate-600 dark:text-slate-400">Pending items</span>
+                <span className="text-slate-900 dark:text-slate-50">0</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-500">Cached records</span>
-                <span className="text-gray-700">2,847</span>
+                <span className="text-slate-600 dark:text-slate-400">Cached records</span>
+                <span className="text-slate-900 dark:text-slate-50">2,847</span>
               </div>
             </div>
           </div>
@@ -822,10 +822,10 @@ export function DashboardPage() {
       <OrderLabModal open={showOrderLab} onClose={() => setShowOrderLab(false)} />
       <DispenseModal open={showDispense} onClose={() => setShowDispense(false)} />
       <Dialog open={Boolean(selectedAppointment)} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto bg-white/95 backdrop-blur-xl sm:max-w-4xl p-0">
+        <DialogContent className="max-h-[92vh] overflow-y-auto bg-white/95 backdrop-blur-xl sm:max-w-4xl p-0 dark:bg-slate-900">
           {selectedAppointment && (
             <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="p-4 sm:p-6 space-y-4 border-b lg:border-b-0 lg:border-r border-gray-100">
+              <div className="p-4 sm:p-6 space-y-4 border-b lg:border-b-0 lg:border-r border-gray-100 dark:border-slate-700">
                 <DialogHeader>
                   <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
                     <CalendarCheck className="w-5 h-5" />
@@ -833,46 +833,46 @@ export function DashboardPage() {
                   </DialogTitle>
                 </DialogHeader>
 
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 dark:border-slate-700 dark:bg-slate-800">
                   <div className="flex items-start gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-[#1E4ED8] text-white flex items-center justify-center font-bold">
                       {selectedAppointment.patientAvatar}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="font-semibold text-gray-900 truncate">{selectedAppointment.patient}</h3>
-                      <p className="text-xs text-gray-500">{selectedAppointment.patientSwitchId} • {selectedAppointment.nfcId}</p>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-50 truncate">{selectedAppointment.patient}</h3>
+                      <p className="text-xs text-slate-600 dark:text-slate-400">{selectedAppointment.patientSwitchId} • {selectedAppointment.nfcId}</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span className={cn('px-2 py-1 rounded-full border text-xs font-medium', statusStyles[selectedAppointment.status])}>{selectedAppointment.status}</span>
-                        <span className="px-2 py-1 rounded-full bg-white border border-gray-200 text-xs text-gray-600">{selectedAppointment.type}</span>
-                        <span className="px-2 py-1 rounded-full bg-white border border-gray-200 text-xs text-gray-600">{selectedAppointment.priority}</span>
+                        <span className="px-2 py-1 rounded-full bg-white border border-gray-200 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">{selectedAppointment.type}</span>
+                        <span className="px-2 py-1 rounded-full bg-white border border-gray-200 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">{selectedAppointment.priority}</span>
                       </div>
                     </div>
-                    <div className="text-right text-xs text-gray-500">
-                      <p className="font-semibold text-gray-900">{selectedAppointment.time}</p>
+                    <div className="text-right text-xs text-slate-600 dark:text-slate-400">
+                      <p className="font-semibold text-slate-900 dark:text-slate-50">{selectedAppointment.time}</p>
                       <p>{selectedAppointment.queueNumber}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl border border-gray-100 p-3">
-                    <p className="text-xs text-gray-500">Visit reason</p>
-                    <p className="font-medium text-gray-900 mt-1">{selectedAppointment.visitReason}</p>
+                  <div className="rounded-xl border border-gray-100 p-3 dark:border-slate-700">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Visit reason</p>
+                    <p className="font-medium text-slate-900 dark:text-slate-50 mt-1">{selectedAppointment.visitReason}</p>
                   </div>
-                  <div className="rounded-xl border border-gray-100 p-3">
-                    <p className="text-xs text-gray-500">Department & doctor</p>
-                    <p className="font-medium text-gray-900 mt-1">{selectedAppointment.department}</p>
-                    <p className="text-gray-500">{selectedAppointment.doctor}</p>
+                  <div className="rounded-xl border border-gray-100 p-3 dark:border-slate-700">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Department & doctor</p>
+                    <p className="font-medium text-slate-900 dark:text-slate-50 mt-1">{selectedAppointment.department}</p>
+                    <p className="text-slate-600 dark:text-slate-400">{selectedAppointment.doctor}</p>
                   </div>
-                  <div className="rounded-xl border border-gray-100 p-3">
-                    <p className="text-xs text-gray-500">Check-in & queue</p>
-                    <p className="font-medium text-gray-900 mt-1">{selectedAppointment.checkInStatus} • position {selectedAppointment.queuePosition}</p>
-                    <p className="text-gray-500">{selectedAppointment.waitMinutes} min wait</p>
+                  <div className="rounded-xl border border-gray-100 p-3 dark:border-slate-700">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Check-in & queue</p>
+                    <p className="font-medium text-slate-900 dark:text-slate-50 mt-1">{selectedAppointment.checkInStatus} • position {selectedAppointment.queuePosition}</p>
+                    <p className="text-slate-600 dark:text-slate-400">{selectedAppointment.waitMinutes} min wait</p>
                   </div>
-                  <div className="rounded-xl border border-gray-100 p-3">
-                    <p className="text-xs text-gray-500">Insurance & balance</p>
-                    <p className="font-medium text-gray-900 mt-1">{selectedAppointment.insuranceStatus} • {selectedAppointment.insuranceType}</p>
-                    <p className="text-gray-500">₦{selectedAppointment.outstandingBalance.toLocaleString()} outstanding</p>
+                  <div className="rounded-xl border border-gray-100 p-3 dark:border-slate-700">
+                    <p className="text-xs text-slate-600 dark:text-slate-400">Insurance & balance</p>
+                    <p className="font-medium text-slate-900 dark:text-slate-50 mt-1">{selectedAppointment.insuranceStatus} • {selectedAppointment.insuranceType}</p>
+                    <p className="text-slate-600 dark:text-slate-400">₦{selectedAppointment.outstandingBalance.toLocaleString()} outstanding</p>
                   </div>
                 </div>
 
@@ -894,11 +894,11 @@ export function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-gray-100 p-3">
-                  <p className="text-xs font-medium text-gray-500 mb-2">Appointment history</p>
+                <div className="rounded-xl border border-gray-100 p-3 dark:border-slate-700">
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">Appointment history</p>
                   <div className="space-y-2">
                     {selectedAppointment.history.slice(0, 4).map((item) => (
-                      <div key={item} className="flex items-center gap-2 text-xs text-gray-600">
+                      <div key={item} className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                         <span className="w-2 h-2 rounded-full bg-[#1E4ED8]" />
                         {item}
                       </div>
@@ -910,8 +910,8 @@ export function DashboardPage() {
               <div className="p-4 sm:p-6 space-y-4">
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <Filter className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm font-semibold text-gray-900">Interactive status</p>
+                    <Filter className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">Interactive status</p>
                   </div>
                   <select
                     value={selectedAppointment.status}
@@ -920,7 +920,7 @@ export function DashboardPage() {
                       updateStatus(selectedAppointment.id, nextStatus, 'Status changed from dashboard widget');
                       setSelectedAppointment((prev) => prev ? { ...prev, status: nextStatus } : prev);
                     }}
-                    className="w-full h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm"
+                    className="w-full h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
                   >
                     {appointmentStatuses.map((status) => (
                       <option key={status} value={status}>{status}</option>
@@ -947,8 +947,8 @@ export function DashboardPage() {
                   })}
                 </div>
 
-                <div className="rounded-xl border border-gray-100 p-3 space-y-2">
-                  <p className="text-xs font-medium text-gray-500">Quick contact</p>
+                <div className="rounded-xl border border-gray-100 p-3 space-y-2 dark:border-slate-700">
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Quick contact</p>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => toast.success(`Calling ${selectedAppointment.phone}`)}>
                       <Phone className="w-4 h-4 mr-2" />
@@ -965,10 +965,10 @@ export function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 text-xs text-gray-600 space-y-1">
-                  <p><span className="font-medium text-gray-900">Last update:</span> {new Date(selectedAppointment.lastUpdated).toLocaleString()}</p>
-                  <p><span className="font-medium text-gray-900">Updated by:</span> {selectedAppointment.updatedBy}</p>
-                  <p><span className="font-medium text-gray-900">Sync:</span> {isOnline ? 'Realtime broadcast active' : 'Offline-first queue active'}</p>
+                <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 text-xs text-slate-600 space-y-1 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+                  <p><span className="font-medium text-slate-900 dark:text-slate-50">Last update:</span> {new Date(selectedAppointment.lastUpdated).toLocaleString()}</p>
+                  <p><span className="font-medium text-slate-900 dark:text-slate-50">Updated by:</span> {selectedAppointment.updatedBy}</p>
+                  <p><span className="font-medium text-slate-900 dark:text-slate-50">Sync:</span> {isOnline ? 'Realtime broadcast active' : 'Offline-first queue active'}</p>
                 </div>
               </div>
             </div>

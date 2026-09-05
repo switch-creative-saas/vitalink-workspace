@@ -842,7 +842,7 @@ export function LaboratoryPage() {
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-1.5 p-1 mt-4 rounded-2xl bg-white/60 backdrop-blur-md border border-white/60 shadow-inner w-full max-w-full">
+        <div className="flex flex-wrap gap-1.5 p-1 mt-4 rounded-2xl bg-white/60 backdrop-blur-md border border-white/60 shadow-inner w-full max-w-full dark:border-slate-700 dark:bg-slate-900/50">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -851,15 +851,15 @@ export function LaboratoryPage() {
               className={cn(
                 'flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition-all duration-200 shrink-0',
                 activeTab === tab.id
-                  ? 'bg-[#1E4ED8] text-white shadow-md'
-                  : 'text-gray-600 hover:bg-white/80',
+                  ? 'bg-[#1E4ED8] text-white shadow-md dark:text-white'
+                  : 'text-gray-600 hover:bg-white/80 dark:text-slate-400 dark:hover:bg-slate-800/60',
               )}
             >
               {tab.label}
               <span
                 className={cn(
                   'px-2 py-0.5 rounded-full text-[10px] md:text-xs',
-                  activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-gray-200/80 text-gray-600',
+                   activeTab === tab.id ? 'bg-white/20 text-white dark:text-white' : 'bg-gray-200/80 text-gray-600 dark:bg-slate-800/80 dark:text-slate-400',
                 )}
               >
                 {tabCounts[tab.id]}
@@ -877,7 +877,7 @@ export function LaboratoryPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search patient, order ID, or test type…"
-              className="pl-10 py-2.5 rounded-xl bg-white/80 border-[#1E4ED8]/15"
+              className="pl-10 py-2.5 rounded-xl bg-white/80 border-[#1E4ED8]/15 dark:bg-slate-900/50 dark:text-slate-50"
             />
           </div>
           <Popover open={filterOpen} onOpenChange={setFilterOpen}>
@@ -892,7 +892,7 @@ export function LaboratoryPage() {
                 <div>
                   <Label className="text-xs">Status</Label>
                   <select
-                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white/90 px-2 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white/90 px-2 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value as typeof filterStatus)}
                   >
@@ -907,7 +907,7 @@ export function LaboratoryPage() {
                 <div>
                   <Label className="text-xs">Priority</Label>
                   <select
-                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white/90 px-2 py-2 text-sm"
+                    className="mt-1 w-full rounded-lg border border-gray-200 bg-white/90 px-2 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
                     value={filterPriority}
                     onChange={(e) => setFilterPriority(e.target.value as typeof filterPriority)}
                   >
@@ -953,30 +953,30 @@ export function LaboratoryPage() {
             <div className="responsive-table-wrap">
               <table className="w-full text-sm table-fixed">
                 <thead>
-                  <tr className="bg-[#1E4ED8]/5 border-b border-[#1E4ED8]/10">
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  <tr className="bg-gray-100 border-b border-[#1E4ED8]/10 dark:bg-slate-800/80 dark:border-slate-700">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide dark:text-slate-300">
                       Order ID
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Patient</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Tests</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Priority</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Patient</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Tests</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Priority</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Status</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredOrders.map((order) => (
                     <tr
                       key={order.id}
-                      className="border-b border-gray-100/80 hover:bg-white/50 cursor-pointer transition-colors"
+                      className="border-b border-gray-100/80 hover:bg-white/50 cursor-pointer transition-colors dark:border-slate-700 dark:hover:bg-slate-800/60"
                       onClick={() => openOrderSheet(order)}
                     >
                       <td className="px-4 py-3">
                         <span className="font-mono text-[#1E4ED8] font-medium">{order.id}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900">{order.patientName}</p>
-                        <p className="text-xs text-gray-500">{order.uhin}</p>
+                        <p className="font-medium text-gray-900 dark:text-slate-50">{order.patientName}</p>
+                        <p className="text-xs text-gray-500 dark:text-slate-400">{order.uhin}</p>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1 max-w-[220px]">
@@ -998,7 +998,7 @@ export function LaboratoryPage() {
                               ? 'bg-red-100 text-red-800'
                               : order.priority === 'urgent'
                                 ? 'bg-amber-100 text-amber-800'
-                                : 'bg-gray-100 text-gray-600',
+                                : 'bg-gray-100 text-gray-600 dark:bg-slate-800/80 dark:text-slate-300',
                           )}
                         >
                           {order.priority}
@@ -1036,22 +1036,22 @@ export function LaboratoryPage() {
                 >
                   <div className="min-w-0">
                     <p className="font-mono text-sm text-[#1E4ED8] font-semibold">{order.id}</p>
-                    <p className="font-medium text-gray-900 mt-1">{order.patientName}</p>
-                    <p className="text-xs text-gray-500">{order.uhin}</p>
+                    <p className="font-medium text-gray-900 mt-1 dark:text-slate-50">{order.patientName}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400">{order.uhin}</p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {order.tests.slice(0, 3).map((t) => (
-                        <span key={t} className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 text-[10px]">
+                        <span key={t} className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 text-[10px] dark:bg-indigo-500/15 dark:text-indigo-300">
                           {t}
                         </span>
                       ))}
                       {order.tests.length > 3 && (
-                        <span className="text-[10px] text-gray-500">+{order.tests.length - 3}</span>
+                        <span className="text-[10px] text-gray-500 dark:text-slate-400">+{order.tests.length - 3}</span>
                       )}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">{statusBadge(order)}</div>
                 </button>
-                <div className="px-4 pb-2 flex items-center justify-between border-t border-white/40 bg-white/30">
+                <div className="px-4 pb-2 flex items-center justify-between border-t border-white/40 bg-white/30 dark:border-slate-700 dark:bg-slate-900/50">
                   <button
                     type="button"
                     className="flex items-center gap-1 text-xs text-[#1E4ED8] py-2"
@@ -1076,19 +1076,19 @@ export function LaboratoryPage() {
                   />
                 </div>
                 {expandedMobile[order.id] && (
-                  <div className="px-4 pb-4 text-xs text-gray-600 space-y-1 border-t border-white/40 bg-white/20">
+                  <div className="px-4 pb-4 text-xs text-gray-600 space-y-1 border-t border-white/40 bg-white/20 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
                     <p>
-                      <span className="text-gray-400">Requested by:</span> {order.requestedBy}
+                      <span className="text-gray-400 dark:text-slate-500">Requested by:</span> {order.requestedBy}
                     </p>
                     <p>
-                      <span className="text-gray-400">Sample:</span> {order.sampleType}
+                      <span className="text-gray-400 dark:text-slate-500">Sample:</span> {order.sampleType}
                     </p>
                     <p>
-                      <span className="text-gray-400">Priority:</span> {order.priority}
+                      <span className="text-gray-400 dark:text-slate-500">Priority:</span> {order.priority}
                     </p>
                     {order.notes && (
                       <p>
-                        <span className="text-gray-400">Notes:</span> {order.notes}
+                        <span className="text-gray-400 dark:text-slate-500">Notes:</span> {order.notes}
                       </p>
                     )}
                   </div>
@@ -1106,21 +1106,21 @@ export function LaboratoryPage() {
               placeholder="Patient"
               value={resultsFilters.patient}
               onChange={(e) => setResultsFilters((f) => ({ ...f, patient: e.target.value }))}
-              className="rounded-xl bg-white/80"
+              className="rounded-xl bg-white/80 dark:bg-slate-900/50 dark:text-slate-50"
             />
             <Input
               placeholder="Test type"
               value={resultsFilters.test}
               onChange={(e) => setResultsFilters((f) => ({ ...f, test: e.target.value }))}
-              className="rounded-xl bg-white/80"
+              className="rounded-xl bg-white/80 dark:bg-slate-900/50 dark:text-slate-50"
             />
             <Input
               type="date"
               value={resultsFilters.date}
               onChange={(e) => setResultsFilters((f) => ({ ...f, date: e.target.value }))}
-              className="rounded-xl bg-white/80"
+              className="rounded-xl bg-white/80 dark:bg-slate-900/50 dark:text-slate-50"
             />
-            <label className="flex items-center gap-2 text-sm text-gray-700 glass-panel rounded-xl px-3 border border-white/60">
+            <label className="flex items-center gap-2 text-sm text-gray-700 glass-panel rounded-xl px-3 border border-white/60 dark:border-slate-700 dark:text-slate-200">
               <Checkbox
                 checked={resultsFilters.criticalOnly}
                 onCheckedChange={(c) => setResultsFilters((f) => ({ ...f, criticalOnly: !!c }))}
@@ -1132,19 +1132,19 @@ export function LaboratoryPage() {
           <div className="hidden lg:block glass-panel rounded-2xl border border-white/60 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[#1E4ED8]/5 border-b">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Test</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Patient</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Result</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Reference</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Flag</th>
+                <tr className="bg-gray-100 border-b dark:bg-slate-800/80 dark:border-slate-700">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Test</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Patient</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Result</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Reference</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase dark:text-slate-300">Flag</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredResultsTab.map((r) => (
                   <tr
                     key={r.id}
-                    className="border-b border-gray-50 hover:bg-white/60 cursor-pointer"
+                    className="border-b border-gray-50 hover:bg-white/60 cursor-pointer dark:border-slate-700 dark:hover:bg-slate-800/60"
                     onClick={() =>
                       setReportOpen({
                         orderId: r.orderId,
@@ -1156,10 +1156,10 @@ export function LaboratoryPage() {
                       })
                     }
                   >
-                    <td className="px-4 py-3 font-medium text-gray-900">{r.test}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-50">{r.test}</td>
                     <td className="px-4 py-3">{r.patient}</td>
-                    <td className="px-4 py-3 font-semibold text-gray-900">{r.value}</td>
-                    <td className="px-4 py-3 text-gray-500">{r.reference}</td>
+                    <td className="px-4 py-3 font-semibold text-gray-900 dark:text-slate-50">{r.value}</td>
+                    <td className="px-4 py-3 text-gray-500 dark:text-slate-400">{r.reference}</td>
                     <td className="px-4 py-3">
                       {r.critical ? (
                         <span className="text-red-600 text-xs font-semibold flex items-center gap-1">
@@ -1193,11 +1193,11 @@ export function LaboratoryPage() {
                 }
               >
                 <div className="flex justify-between gap-2">
-                  <span className="font-medium text-gray-900">{r.test}</span>
+                  <span className="font-medium text-gray-900 dark:text-slate-50">{r.test}</span>
                   {r.critical && <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">{r.patient}</p>
-                <p className="text-sm font-semibold mt-2">{r.value}</p>
+                <p className="text-xs text-gray-500 mt-1 dark:text-slate-400">{r.patient}</p>
+                <p className="text-sm font-semibold mt-2 text-slate-900 dark:text-slate-50">{r.value}</p>
               </button>
             ))}
           </div>
@@ -1221,8 +1221,8 @@ export function LaboratoryPage() {
               <div key={t.id} className="glass-panel rounded-2xl p-4 border border-white/60 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="font-semibold text-gray-900">{t.name}</h3>
-                    <p className="text-xs text-gray-500 mt-1">{t.fields.length} field(s)</p>
+                    <h3 className="font-semibold text-gray-900 dark:text-slate-50">{t.name}</h3>
+                    <p className="text-xs text-gray-500 mt-1 dark:text-slate-400">{t.fields.length} field(s)</p>
                   </div>
                   <Button
                     variant="outline"
@@ -1234,7 +1234,7 @@ export function LaboratoryPage() {
                     <Pencil className="w-4 h-4" />
                   </Button>
                 </div>
-                <ul className="mt-3 text-xs text-gray-600 space-y-1">
+                <ul className="mt-3 text-xs text-gray-600 space-y-1 dark:text-slate-400">
                   {t.fields.slice(0, 4).map((f) => (
                     <li key={f.name}>
                       {f.name} — {f.unit} (ref {f.referenceRange})
@@ -1266,21 +1266,21 @@ export function LaboratoryPage() {
                 onChange={(e) => setPatientQuery(e.target.value)}
                 className="mt-1 rounded-xl"
               />
-              <div className="mt-2 max-h-36 overflow-y-auto rounded-xl border border-gray-200 bg-white/90">
+              <div className="mt-2 max-h-36 overflow-y-auto rounded-xl border border-gray-200 bg-white/90 dark:border-slate-700 dark:bg-slate-900/50">
                 {filteredPatients.map((p) => (
                   <button
                     key={p.id}
                     type="button"
                     className={cn(
-                      'w-full text-left px-3 py-2 text-sm hover:bg-[#1E4ED8]/5',
-                      selectedPatientId === p.id && 'bg-[#1E4ED8]/10 font-medium',
+                       'w-full text-left px-3 py-2 text-sm text-slate-900 hover:bg-[#1E4ED8]/5 dark:text-slate-200 dark:hover:bg-slate-800/60',
+                       selectedPatientId === p.id && 'bg-[#1E4ED8]/10 font-medium dark:bg-slate-800/80',
                     )}
                     onClick={() => {
                       setSelectedPatientId(p.id);
                       setPatientQuery(`${p.name} — ${p.uhin}`);
                     }}
                   >
-                    {p.name} <span className="text-gray-500 text-xs">{p.uhin}</span>
+                    {p.name} <span className="text-gray-500 text-xs dark:text-slate-400">{p.uhin}</span>
                   </button>
                 ))}
               </div>
@@ -1290,11 +1290,11 @@ export function LaboratoryPage() {
               <Input
                 readOnly={!!requestedByDefault}
                 value={requestedByDefault || userName}
-                className="mt-1 rounded-xl bg-gray-50/80"
+                className="mt-1 rounded-xl bg-gray-50/80 text-slate-900 dark:bg-slate-900/50 dark:text-slate-50"
                 onChange={() => {}}
               />
               {!requestedByDefault && (
-                <p className="text-[10px] text-gray-500 mt-1">Shown as current user; adjust in production EMR.</p>
+                 <p className="text-[10px] text-gray-500 mt-1 dark:text-slate-400">Shown as current user; adjust in production EMR.</p>
               )}
             </div>
             <div>
@@ -1318,7 +1318,7 @@ export function LaboratoryPage() {
               <div>
                 <Label>Priority</Label>
                 <select
-                  className="mt-1 w-full rounded-xl border border-input bg-white px-2 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-input bg-white px-2 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
                   value={newPriority}
                   onChange={(e) => setNewPriority(e.target.value as LabPriority)}
                 >
@@ -1330,7 +1330,7 @@ export function LaboratoryPage() {
               <div>
                 <Label>Sample type</Label>
                 <select
-                  className="mt-1 w-full rounded-xl border border-input bg-white px-2 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-input bg-white px-2 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-50"
                   value={newSample}
                   onChange={(e) => setNewSample(e.target.value as SampleType)}
                 >
@@ -1379,16 +1379,16 @@ export function LaboratoryPage() {
               <div className="space-y-4 px-4 pb-4">
                 <div className="flex flex-wrap gap-2">
                   {statusBadge(sheetOrder)}
-                  <span className="px-2 py-1 rounded-lg bg-gray-100 text-xs capitalize">{sheetOrder.priority}</span>
-                  <span className="px-2 py-1 rounded-lg bg-gray-100 text-xs capitalize">{sheetOrder.sampleType}</span>
+                  <span className="px-2 py-1 rounded-lg bg-gray-100 text-xs capitalize dark:bg-slate-800/80 dark:text-slate-300">{sheetOrder.priority}</span>
+                  <span className="px-2 py-1 rounded-lg bg-gray-100 text-xs capitalize dark:bg-slate-800/80 dark:text-slate-300">{sheetOrder.sampleType}</span>
                 </div>
 
-                <div className="rounded-xl border border-dashed border-[#1E4ED8]/25 p-3 flex items-center gap-3 bg-white/50">
+                <div className="rounded-xl border border-dashed border-[#1E4ED8]/25 p-3 flex items-center gap-3 bg-white/50 dark:bg-slate-800/60">
                   <QrCode className="w-10 h-10 text-[#1E4ED8]" />
-                  <div className="text-xs text-gray-600">
-                    <p className="font-medium text-gray-900">Sample tracking</p>
+                  <div className="text-xs text-gray-600 dark:text-slate-400">
+                    <p className="font-medium text-gray-900 dark:text-slate-50">Sample tracking</p>
                     <p className="font-mono mt-0.5">{sheetOrder.id}-S01</p>
-                    <p className="text-[10px] text-gray-500 mt-1">Barcode / QR scan hooks to LIS (demo).</p>
+                    <p className="text-[10px] text-gray-500 mt-1 dark:text-slate-400">Barcode / QR scan hooks to LIS (demo).</p>
                   </div>
                 </div>
 
@@ -1419,7 +1419,7 @@ export function LaboratoryPage() {
                   </Button>
                 </div>
 
-                <div className="text-sm space-y-1 text-gray-700">
+                <div className="text-sm space-y-1 text-gray-700 dark:text-slate-200">
                   <p>
                     <span className="text-gray-400">Requested by:</span> {sheetOrder.requestedBy}
                   </p>
@@ -1464,13 +1464,13 @@ export function LaboratoryPage() {
                   perms.canAddDoctorInterpretation ||
                   perms.techLimited ||
                   perms.isReadOnlyResults) && (
-                  <div className="rounded-2xl border border-white/60 bg-white/40 p-4 space-y-4">
+                  <div className="rounded-2xl border border-white/60 bg-white/40 p-4 space-y-4 dark:border-slate-700 dark:bg-slate-800/60">
                     <h4 className="text-sm font-semibold text-[#1E4ED8]">
                       {perms.isReadOnlyResults ? 'Results (read-only)' : 'Result entry'}
                     </h4>
                     {resultDraft.map((line, idx) => (
-                      <div key={line.testName} className="space-y-2 pb-4 border-b border-gray-100 last:border-0">
-                        <p className="text-xs font-semibold text-gray-800">{line.testName}</p>
+                      <div key={line.testName} className="space-y-2 pb-4 border-b border-gray-100 last:border-0 dark:border-slate-700">
+                        <p className="text-xs font-semibold text-gray-800 dark:text-slate-200">{line.testName}</p>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="col-span-2">
                             <Label className="text-[10px]">Value</Label>
@@ -1604,7 +1604,7 @@ export function LaboratoryPage() {
                         </Button>
                       )}
                       {perms.techLimited && (
-                        <p className="text-[10px] text-gray-500 w-full">
+                            <p className="text-[10px] text-gray-500 w-full dark:text-slate-400">
                           Lab technicians: save drafts and set status to Processing; final sign-off by lab scientist.
                         </p>
                       )}
@@ -1613,11 +1613,11 @@ export function LaboratoryPage() {
                 )}
 
                 {perms.isReadOnlyResults && (
-                  <p className="text-xs text-gray-500">Your role has read-only access to this order.</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">Your role has read-only access to this order.</p>
                 )}
               </div>
 
-              <SheetFooter className="flex-col sm:flex-row gap-2 border-t border-white/40 bg-white/30">
+              <SheetFooter className="flex-col sm:flex-row gap-2 border-t border-white/40 bg-white/30 dark:border-slate-700 dark:bg-slate-900/50">
                 <Button variant="outline" className="rounded-xl gap-2" onClick={() => window.print()}>
                   <Printer className="w-4 h-4" />
                   Print

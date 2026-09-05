@@ -162,33 +162,33 @@ export function GlobalSearch() {
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
-          className="w-full pl-10 pr-12 py-2.5 rounded-xl bg-gray-100/80 border-0 text-sm focus:bg-white focus:ring-2 focus:ring-[#1E4ED8]/20 transition-all duration-200 outline-none"
+          className="w-full pl-10 pr-12 py-2.5 rounded-xl bg-gray-100/80 border-0 text-sm text-slate-900 placeholder:text-slate-500 focus:bg-white focus:ring-2 focus:ring-[#1E4ED8]/20 transition-all duration-200 outline-none dark:bg-slate-900/50 dark:text-slate-50 dark:placeholder:text-slate-400 dark:focus:bg-slate-800"
         />
         {query && (
           <button
             onClick={clearSearch}
-            className="absolute right-10 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-gray-200 text-gray-400 transition-colors"
+            className="absolute right-10 top-1/2 -translate-y-1/2 p-1 rounded-md hover:bg-gray-200 text-slate-400 transition-colors dark:hover:bg-slate-800"
           >
             <X className="w-3.5 h-3.5" />
           </button>
         )}
         <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-1">
-          <kbd className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 rounded text-gray-500">⌘K</kbd>
+          <kbd className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 rounded text-slate-600 dark:bg-slate-800 dark:text-slate-400">⌘K</kbd>
         </div>
       </div>
 
       {/* Dropdown Results */}
       {isOpen && (query || results.length > 0) && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden z-50 animate-in slide-in-from-top-2 duration-200">
+        <div className="absolute z-50 top-full left-0 right-0 mt-2 bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden animate-in slide-in-from-top-2 duration-200 dark:border-slate-700 dark:bg-slate-900/95">
           {isLoading ? (
             <div className="p-8 text-center">
               <div className="w-8 h-8 border-2 border-[#1E4ED8] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-sm text-gray-500">Searching...</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Searching...</p>
             </div>
           ) : results.length === 0 && query ? (
             <div className="p-8 text-center">
               <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-              <p className="text-sm text-gray-500">No results found for &quot;{query}&quot;</p>
+              <p className="text-sm text-slate-600 dark:text-slate-400">No results found for &quot;{query}&quot;</p>
             </div>
           ) : (
             <div className="max-h-[60vh] overflow-y-auto py-2">
@@ -212,22 +212,22 @@ export function GlobalSearch() {
                             "w-full px-4 py-2.5 flex items-center gap-3 text-left transition-all duration-150",
                             selectedIndex === globalIndex 
                               ? "bg-[#1E4ED8]/5" 
-                              : "hover:bg-gray-50"
+                              : "hover:bg-gray-50 dark:hover:bg-slate-800"
                           )}
                         >
                           <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", result.color.replace('text-', 'bg-').replace('600', '100'))}>
                             <Icon className={cn("w-4 h-4", result.color)} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{result.title}</p>
-                            <p className="text-xs text-gray-500 truncate">{result.subtitle}</p>
+                            <p className="text-sm font-medium text-slate-900 dark:text-slate-50 truncate">{result.title}</p>
+                            <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{result.subtitle}</p>
                           </div>
                           {result.status && (
                             <span className={cn(
                               "text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0",
                               result.status === 'Active' || result.status === 'Pending'
                                 ? "bg-green-100 text-green-700"
-                                : "bg-gray-100 text-gray-600"
+                                : "bg-gray-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
                             )}>
                               {result.status}
                             </span>
@@ -249,7 +249,7 @@ export function GlobalSearch() {
           )}
           
           {results.length > 0 && (
-            <div className="px-4 py-2 border-t border-gray-100 text-xs text-gray-400 flex items-center justify-between">
+            <div className="px-4 py-2 border-t border-gray-100 text-xs text-slate-500 flex items-center justify-between dark:border-slate-700 dark:text-slate-400">
               <span>{results.length} results found</span>
               <span>Use ↑↓ to navigate, Enter to select, Esc to close</span>
             </div>

@@ -33,17 +33,17 @@ const timeSlots = Array.from({ length: 20 }, (_, i) => {
 });
 
 const statusClass: Record<AppointmentStatus, string> = {
-  confirmed: 'bg-green-100 text-green-700',
-  'checked-in': 'bg-blue-100 text-blue-700',
-  pending: 'bg-amber-100 text-amber-700',
-  'in-consultation': 'bg-indigo-100 text-indigo-700',
-  cancelled: 'bg-red-100 text-red-700',
-  completed: 'bg-blue-100 text-blue-700',
-  'no-show': 'bg-gray-100 text-gray-700',
-  rescheduled: 'bg-purple-100 text-purple-700',
-  emergency: 'bg-red-100 text-red-800',
-  'waiting-lab': 'bg-cyan-100 text-cyan-700',
-  admitted: 'bg-emerald-100 text-emerald-700',
+  confirmed: 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300',
+  'checked-in': 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+  pending: 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+  'in-consultation': 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300',
+  cancelled: 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
+  completed: 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300',
+  'no-show': 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
+  rescheduled: 'bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300',
+  emergency: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
+  'waiting-lab': 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-300',
+  admitted: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
 };
 
 export function AppointmentsPage() {
@@ -215,9 +215,9 @@ export function AppointmentsPage() {
           className="absolute left-2 right-2 rounded-xl p-3 text-left shadow-sm hover:shadow-md transition-all active:scale-[0.99]"
           style={{ top: `${index * (isTablet ? 56 : 72) + 6}px`, height: `${(appointment.duration / 30) * (isTablet ? 56 : 72) - 12}px` }}
         >
-          <div className={cn('rounded-xl p-2.5 border-l-4 h-full', appointment.status === 'confirmed' ? 'bg-green-50 border-green-500' : appointment.status === 'pending' ? 'bg-amber-50 border-amber-500' : appointment.status === 'completed' ? 'bg-blue-50 border-blue-500' : 'bg-red-50 border-red-500')}>
-            <p className="text-sm font-semibold text-gray-900">{appointment.patient}</p>
-            <p className="text-xs text-gray-600">{appointment.type} • {appointment.doctor}</p>
+          <div className={cn('rounded-xl p-2.5 border-l-4 h-full', appointment.status === 'confirmed' ? 'bg-green-50 border-green-500 dark:bg-green-950/35' : appointment.status === 'pending' ? 'bg-amber-50 border-amber-500 dark:bg-amber-950/35' : appointment.status === 'completed' ? 'bg-blue-50 border-blue-500 dark:bg-blue-950/35' : 'bg-red-50 border-red-500 dark:bg-red-950/35')}>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">{appointment.patient}</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">{appointment.type} • {appointment.doctor}</p>
           </div>
         </button>
       );
@@ -225,11 +225,11 @@ export function AppointmentsPage() {
 
   return (
     <div className="space-y-4 page-transition pb-16 md:pb-0">
-      <div className="rounded-3xl border border-white/70 bg-white/75 backdrop-blur-xl p-3 sm:p-4">
+      <div className="rounded-3xl border border-white/70 bg-white/75 backdrop-blur-xl p-3 sm:p-4 dark:border-slate-700 dark:bg-slate-800/80">
         <div className="flex flex-col lg:flex-row gap-2 lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Appointments</h1>
-            <p className="text-sm text-gray-500">Responsive hospital scheduling with role-based workflows.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Appointments</h1>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Responsive hospital scheduling with role-based workflows.</p>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -241,10 +241,10 @@ export function AppointmentsPage() {
                 <Bell className="w-4 h-4" />
               </Button>
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg p-3 z-20">
-                  <p className="font-semibold text-sm text-gray-900 mb-2">Appointment Alerts</p>
-                  <div className="space-y-2 text-sm text-gray-600">
-                    {notifications.map((notice) => <p key={notice} className="rounded-lg bg-gray-50 p-2">{notice}</p>)}
+                <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg p-3 z-20 dark:border-slate-700 dark:bg-slate-800">
+                  <p className="font-semibold text-sm text-slate-900 dark:text-slate-50 mb-2">Appointment Alerts</p>
+                  <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+                    {notifications.map((notice) => <p key={notice} className="rounded-lg bg-gray-50 p-2 dark:bg-slate-900/50">{notice}</p>)}
                   </div>
         </div>
               )}
@@ -252,9 +252,9 @@ export function AppointmentsPage() {
             <Button variant="outline" size="icon" onClick={() => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'settings' } }))}>
               <UserCircle2 className="w-4 h-4" />
             </Button>
-            <div className="hidden md:flex gap-1 p-1 bg-gray-100 rounded-lg">
-              <button onClick={() => setView('calendar')} className={cn('px-3 py-1.5 rounded-md text-sm', view === 'calendar' ? 'bg-white text-royal-700' : 'text-gray-600')}>Calendar</button>
-              <button onClick={() => setView('list')} className={cn('px-3 py-1.5 rounded-md text-sm', view === 'list' ? 'bg-white text-royal-700' : 'text-gray-600')}>List</button>
+            <div className="hidden md:flex gap-1 p-1 bg-gray-100 rounded-lg dark:bg-slate-900/70">
+              <button onClick={() => setView('calendar')} className={cn('px-3 py-1.5 rounded-md text-sm', view === 'calendar' ? 'bg-white text-royal-700 dark:bg-slate-800 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400')}>Calendar</button>
+              <button onClick={() => setView('list')} className={cn('px-3 py-1.5 rounded-md text-sm', view === 'list' ? 'bg-white text-royal-700 dark:bg-slate-800 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400')}>List</button>
           </div>
             <Button
               data-tour-id="appointments-new"
@@ -269,20 +269,20 @@ export function AppointmentsPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-white/70 bg-white/75 backdrop-blur-xl p-3 grid grid-cols-1 md:grid-cols-4 gap-2">
-        <select className="h-10 rounded-md border border-input px-3 text-sm" value={filters.doctorId} onChange={(e) => setFilters({ doctorId: e.target.value })}>
+      <div className="rounded-3xl border border-white/70 bg-white/75 backdrop-blur-xl p-3 grid grid-cols-1 md:grid-cols-4 gap-2 dark:border-slate-700 dark:bg-slate-800/80">
+        <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={filters.doctorId} onChange={(e) => setFilters({ doctorId: e.target.value })}>
           <option value="all">All doctors</option>
           {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.name}</option>)}
         </select>
-        <select className="h-10 rounded-md border border-input px-3 text-sm" value={filters.department} onChange={(e) => setFilters({ department: e.target.value })}>
+        <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={filters.department} onChange={(e) => setFilters({ department: e.target.value })}>
           <option value="all">All departments</option>
           {[...new Set(doctors.map((doctor) => doctor.department))].map((department) => <option key={department} value={department}>{department}</option>)}
         </select>
-        <select className="h-10 rounded-md border border-input px-3 text-sm" value={filters.type} onChange={(e) => setFilters({ type: e.target.value as AppointmentType | 'all' })}>
+        <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={filters.type} onChange={(e) => setFilters({ type: e.target.value as AppointmentType | 'all' })}>
           <option value="all">All appointment types</option>
           {appointmentTypes.map((type) => <option key={type} value={type}>{type}</option>)}
         </select>
-        <select className="h-10 rounded-md border border-input px-3 text-sm" value={filters.priority} onChange={(e) => setFilters({ priority: e.target.value as typeof filters.priority })}>
+        <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={filters.priority} onChange={(e) => setFilters({ priority: e.target.value as typeof filters.priority })}>
           <option value="all">All priorities</option>
           <option value="routine">Routine</option>
           <option value="urgent">Urgent</option>
@@ -293,12 +293,12 @@ export function AppointmentsPage() {
 
       <div className="dashboard-stat-grid">
         {stats.map((stat) => (
-          <div key={stat.label} className="rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl p-3">
+          <div key={stat.label} className="rounded-2xl border border-white/70 bg-white/75 backdrop-blur-xl p-3 dark:border-slate-700 dark:bg-slate-800/80">
             <div className="flex items-center gap-2">
               <div className={cn('w-2.5 h-2.5 rounded-full', stat.color)} />
-              <p className="text-xs text-gray-500">{stat.label}</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">{stat.label}</p>
             </div>
-            <p className="text-xl font-bold text-gray-900 mt-1">{stat.value}</p>
+            <p className="text-xl font-bold text-slate-900 dark:text-slate-50 mt-1">{stat.value}</p>
           </div>
         ))}
       </div>
@@ -311,19 +311,19 @@ export function AppointmentsPage() {
           { label: 'Throughput', value: analytics.throughput },
           { label: 'Peak hour', value: analytics.peakHour },
         ].map((metric) => (
-          <div key={metric.label} className="rounded-2xl border border-white/70 bg-white/60 backdrop-blur-xl p-3">
-            <p className="text-xs text-gray-500">{metric.label}</p>
-            <p className="text-lg font-bold text-gray-900 mt-1">{metric.value}</p>
+          <div key={metric.label} className="rounded-2xl border border-white/70 bg-white/60 backdrop-blur-xl p-3 dark:border-slate-700 dark:bg-slate-800/70">
+            <p className="text-xs text-slate-600 dark:text-slate-400">{metric.label}</p>
+            <p className="text-lg font-bold text-slate-900 dark:text-slate-50 mt-1">{metric.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-3xl border border-white/70 bg-white/75 backdrop-blur-xl overflow-hidden">
-        <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+      <div className="rounded-3xl border border-white/70 bg-white/75 backdrop-blur-xl overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
+        <div className="p-3 border-b border-gray-100 flex items-center justify-between dark:border-slate-700">
           <div className="flex items-center gap-2">
-            <button className="p-2 rounded-lg hover:bg-gray-100" onClick={() => changeDateBy(-1)}><ChevronLeft className="w-4 h-4" /></button>
-            <p className="font-semibold text-gray-900">{new Date(filters.date).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}</p>
-            <button className="p-2 rounded-lg hover:bg-gray-100" onClick={() => changeDateBy(1)}><ChevronRight className="w-4 h-4" /></button>
+            <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700" onClick={() => changeDateBy(-1)}><ChevronLeft className="w-4 h-4" /></button>
+            <p className="font-semibold text-slate-900 dark:text-slate-50">{new Date(filters.date).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}</p>
+            <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700" onClick={() => changeDateBy(1)}><ChevronRight className="w-4 h-4" /></button>
           </div>
           <div className="flex items-center gap-2">
             <span className={cn('text-xs px-2 py-1 rounded-full', isOnline ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700')}>
@@ -334,17 +334,17 @@ export function AppointmentsPage() {
           </div>
 
         {loading ? (
-          <div className="p-4 flex items-center gap-2 text-gray-500"><Loader2 className="w-4 h-4 animate-spin" />Loading schedules...</div>
+          <div className="p-4 flex items-center gap-2 text-slate-600 dark:text-slate-400"><Loader2 className="w-4 h-4 animate-spin" />Loading schedules...</div>
         ) : view === 'calendar' && !isMobile ? (
           <div className="grid grid-cols-[72px_1fr] md:grid-cols-[90px_1fr]">
-            <div className="bg-gray-50">
+            <div className="bg-gray-50 dark:bg-slate-900/50">
               {timeSlots.map((time) => (
-                <div key={time} className={cn('flex items-center justify-center text-xs text-gray-500 border-b border-gray-100', isTablet ? 'h-14' : 'h-[72px]')}>{time}</div>
+                <div key={time} className={cn('flex items-center justify-center text-xs text-slate-600 dark:text-slate-400 border-b border-gray-100 dark:border-slate-700', isTablet ? 'h-14' : 'h-[72px]')}>{time}</div>
               ))}
             </div>
             <div className="relative">
               {timeSlots.map((time) => (
-                <div key={time} className={cn('border-b border-gray-100', isTablet ? 'h-14' : 'h-[72px]')} />
+                <div key={time} className={cn('border-b border-gray-100 dark:border-slate-700', isTablet ? 'h-14' : 'h-[72px]')} />
               ))}
               {renderCalendarCards()}
             </div>
@@ -352,17 +352,17 @@ export function AppointmentsPage() {
         ) : (
           <div className="p-3 space-y-3">
             {visibleAppointments.map((appointment) => (
-              <div key={appointment.id} className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm">
+              <div key={appointment.id} className="rounded-xl border border-gray-100 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/50">
                 <button className="w-full flex items-start justify-between text-left" onClick={() => setExpandedMobile((prev) => ({ ...prev, [appointment.id]: !prev[appointment.id] }))}>
                   <div>
-                    <p className="font-semibold text-gray-900">{appointment.patient}</p>
-                    <p className="text-xs text-gray-500">{appointment.time} • {appointment.doctor}</p>
+                    <p className="font-semibold text-slate-900 dark:text-slate-50">{appointment.patient}</p>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">{appointment.time} • {appointment.doctor}</p>
                   </div>
                   <span className={cn('px-2 py-0.5 rounded-full text-xs', statusClass[appointment.status])}>{appointment.status}</span>
                 </button>
                 <div className={cn('grid transition-all duration-300', expandedMobile[appointment.id] ? 'grid-rows-[1fr] mt-3' : 'grid-rows-[0fr]')}>
                   <div className="overflow-hidden space-y-2">
-                    <p className="text-sm text-gray-600">{appointment.type} • {appointment.department}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">{appointment.type} • {appointment.department}</p>
                     <div className="flex gap-2 flex-wrap">
                       <Button size="sm" variant="outline" onClick={() => updateStatus(appointment.id, 'confirmed', 'Accepted from schedule')}>Accept</Button>
                       <Button size="sm" variant="outline" onClick={() => runAction(appointment.id, 'reschedule')}>Reschedule</Button>
@@ -378,38 +378,38 @@ export function AppointmentsPage() {
       </div>
 
       {isMobile && (
-        <div className="fixed bottom-0 inset-x-0 z-20 border-t border-gray-200 bg-white/90 backdrop-blur px-4 py-2 flex items-center justify-between">
-          <button className={cn('text-xs flex flex-col items-center', view === 'calendar' ? 'text-royal-700' : 'text-gray-500')} onClick={() => setView('calendar')}><CalendarDays className="w-4 h-4" />Calendar</button>
-          <button className={cn('text-xs flex flex-col items-center', view === 'list' ? 'text-royal-700' : 'text-gray-500')} onClick={() => setView('list')}><List className="w-4 h-4" />List</button>
+        <div className="fixed bottom-0 inset-x-0 z-20 border-t border-gray-200 bg-white/90 backdrop-blur px-4 py-2 flex items-center justify-between dark:border-slate-700 dark:bg-slate-900/95">
+          <button className={cn('text-xs flex flex-col items-center', view === 'calendar' ? 'text-royal-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400')} onClick={() => setView('calendar')}><CalendarDays className="w-4 h-4" />Calendar</button>
+          <button className={cn('text-xs flex flex-col items-center', view === 'list' ? 'text-royal-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400')} onClick={() => setView('list')}><List className="w-4 h-4" />List</button>
           <button className="text-xs flex flex-col items-center text-royal-700" onClick={() => setShowNewModal(true)}><Plus className="w-4 h-4" />New</button>
         </div>
       )}
 
       {showNewModal && (
         <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3">
-          <div className="w-full max-w-2xl rounded-3xl border border-white/70 bg-white/80 backdrop-blur-xl p-4 sm:p-6 shadow-2xl space-y-3">
+          <div className="w-full max-w-2xl rounded-3xl border border-white/70 bg-white/80 backdrop-blur-xl p-4 sm:p-6 shadow-2xl space-y-3 dark:border-slate-700 dark:bg-slate-800">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">New Appointment</h3>
-              <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowNewModal(false)}><XCircle className="w-5 h-5" /></button>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-50">New Appointment</h3>
+              <button className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50" onClick={() => setShowNewModal(false)}><XCircle className="w-5 h-5" /></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <Input placeholder="Patient name" value={newForm.patient} onChange={(e) => setNewForm((p) => ({ ...p, patient: e.target.value }))} />
               <Input placeholder="Patient VitaLink ID" value={newForm.patientSwitchId} onChange={(e) => setNewForm((p) => ({ ...p, patientSwitchId: e.target.value }))} />
-              <select className="h-10 rounded-md border border-input px-3 text-sm" value={newForm.doctorId} onChange={(e) => setNewForm((p) => ({ ...p, doctorId: e.target.value, department: doctors.find((d) => d.id === e.target.value)?.department ?? '' }))}>
+              <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.doctorId} onChange={(e) => setNewForm((p) => ({ ...p, doctorId: e.target.value, department: doctors.find((d) => d.id === e.target.value)?.department ?? '' }))}>
                 <option value="">Select doctor by availability</option>
                 {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.name} ({doctor.department})</option>)}
               </select>
               <Input placeholder="Department" value={newForm.department} onChange={(e) => setNewForm((p) => ({ ...p, department: e.target.value }))} />
               <Input type="date" value={newForm.date} onChange={(e) => setNewForm((p) => ({ ...p, date: e.target.value }))} />
-              <select className="h-10 rounded-md border border-input px-3 text-sm" value={newForm.time} onChange={(e) => setNewForm((p) => ({ ...p, time: e.target.value }))}>
+              <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.time} onChange={(e) => setNewForm((p) => ({ ...p, time: e.target.value }))}>
                 {timeSlots.map((slot) => <option key={slot}>{slot}</option>)}
               </select>
-              <select className="h-10 rounded-md border border-input px-3 text-sm" value={newForm.type} onChange={(e) => setNewForm((p) => ({ ...p, type: e.target.value as AppointmentType }))}>
+              <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.type} onChange={(e) => setNewForm((p) => ({ ...p, type: e.target.value as AppointmentType }))}>
                 {appointmentTypes.map((type) => <option key={type}>{type}</option>)}
               </select>
               <Input placeholder="Notes" value={newForm.notes} onChange={(e) => setNewForm((p) => ({ ...p, notes: e.target.value }))} />
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-slate-600 dark:text-slate-400">
               Availability check: {newForm.doctorId ? doctorAvailability(newForm.doctorId, newForm.date, newForm.time).reason || 'Available slot.' : 'Select doctor/time to validate.'}
             </div>
             <div className="flex justify-end gap-2">
@@ -422,17 +422,17 @@ export function AppointmentsPage() {
 
       {selected && (
         <div className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm flex justify-end" onClick={() => setSelected(null)}>
-          <aside className="w-full max-w-md h-full bg-white/90 backdrop-blur-xl border-l border-white/70 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+          <aside className="w-full max-w-md h-full bg-white/90 backdrop-blur-xl border-l border-white/70 p-4 space-y-3 dark:border-slate-700 dark:bg-slate-900/95" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900">Appointment Detail</h3>
-              <button onClick={() => setSelected(null)}><XCircle className="w-5 h-5 text-gray-500" /></button>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-50">Appointment Detail</h3>
+              <button onClick={() => setSelected(null)}><XCircle className="w-5 h-5 text-slate-600 dark:text-slate-400" /></button>
             </div>
-            <div className="rounded-xl bg-gray-50 p-3 text-sm space-y-1">
-              <p><span className="text-gray-500">Patient:</span> <button className="text-royal-700 hover:underline" onClick={() => openPatient(selected.patientSwitchId)}>{selected.patient}</button></p>
-              <p><span className="text-gray-500">Doctor:</span> <button className="text-royal-700 hover:underline" onClick={openDoctor}>{selected.doctor}</button></p>
-              <p><span className="text-gray-500">Status:</span> <span className={cn('px-2 py-0.5 rounded-full text-xs ml-1', statusClass[selected.status])}>{selected.status}</span></p>
-              <p><span className="text-gray-500">Visit reason:</span> {selected.visitReason}</p>
-              <p><span className="text-gray-500">Queue:</span> {selected.queueNumber} • position {selected.queuePosition}</p>
+            <div className="rounded-xl bg-gray-50 p-3 text-sm space-y-1 text-slate-900 dark:bg-slate-800 dark:text-slate-50">
+              <p><span className="text-slate-600 dark:text-slate-400">Patient:</span> <button className="text-royal-700 hover:underline dark:text-blue-300" onClick={() => openPatient(selected.patientSwitchId)}>{selected.patient}</button></p>
+              <p><span className="text-slate-600 dark:text-slate-400">Doctor:</span> <button className="text-royal-700 hover:underline dark:text-blue-300" onClick={openDoctor}>{selected.doctor}</button></p>
+              <p><span className="text-slate-600 dark:text-slate-400">Status:</span> <span className={cn('px-2 py-0.5 rounded-full text-xs ml-1', statusClass[selected.status])}>{selected.status}</span></p>
+              <p><span className="text-slate-600 dark:text-slate-400">Visit reason:</span> {selected.visitReason}</p>
+              <p><span className="text-slate-600 dark:text-slate-400">Queue:</span> {selected.queueNumber} • position {selected.queuePosition}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="outline" onClick={() => updateStatus(selected.id, 'confirmed', 'Accepted from schedule drawer')}>Accept</Button>
@@ -443,8 +443,8 @@ export function AppointmentsPage() {
               <Button size="sm" variant="outline" disabled={!canRunAction(currentRole, 'generate-invoice', selected)} onClick={() => runAction(selected.id, 'generate-invoice')}>Invoice</Button>
                       </div>
             {canDoctorAction && selected.status === 'pending' && (
-              <div className="rounded-xl border border-gray-100 p-3 space-y-2">
-                <p className="text-xs text-gray-500">Doctor Pending Request Action</p>
+              <div className="rounded-xl border border-gray-100 p-3 space-y-2 dark:border-slate-700">
+                <p className="text-xs text-slate-600 dark:text-slate-400">Doctor Pending Request Action</p>
                 <div className="flex gap-2">
                   <Button size="sm" onClick={() => updateStatus(selected.id, 'confirmed', 'Doctor accepted')}>ACCEPT</Button>
                   <Button size="sm" variant="outline" onClick={() => runAction(selected.id, 'reschedule')}>RESCHEDULE</Button>
@@ -452,13 +452,13 @@ export function AppointmentsPage() {
                       </div>
                     </div>
             )}
-            <div className="rounded-xl border border-gray-100 p-3">
-              <p className="text-xs text-gray-500 mb-2">Status workflow</p>
-              <select className="w-full h-10 rounded-md border border-input px-3 text-sm" value={selected.status} onChange={(event) => updateStatus(selected.id, event.target.value as AppointmentStatus, 'Changed in full appointments module')}>
+            <div className="rounded-xl border border-gray-100 p-3 dark:border-slate-700">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">Status workflow</p>
+              <select className="w-full h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={selected.status} onChange={(event) => updateStatus(selected.id, event.target.value as AppointmentStatus, 'Changed in full appointments module')}>
                 {appointmentStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </div>
-            <div className="rounded-xl bg-blue-50 p-3 text-xs text-blue-700">
+            <div className="rounded-xl bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
               Notifications:
               <ul className="list-disc ml-4 mt-1">
                 <li>New appointment notifies doctor.</li>
@@ -466,9 +466,9 @@ export function AppointmentsPage() {
                 <li>Upcoming appointment reminders notify patient.</li>
               </ul>
                     </div>
-            <div className="flex items-center justify-between text-xs text-gray-500">
+            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
               <span>Role: {currentRole}</span>
-              <button className="p-1.5 rounded-lg hover:bg-gray-100"><MoreHorizontal className="w-4 h-4" /></button>
+              <button className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"><MoreHorizontal className="w-4 h-4" /></button>
                     </div>
           </aside>
         </div>

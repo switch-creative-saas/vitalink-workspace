@@ -440,37 +440,37 @@ export function PharmacyPage() {
         <button type="button" className="glass-panel premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowLow(false); setShowExpiring(false); setShowOutOfStock(false); }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center"><Package className="w-5 h-5 text-purple-600" /></div>
-            <div className="min-w-0"><p className="text-xl font-bold text-gray-900 truncate tabular-nums">{totalItems}</p><p className="text-xs text-gray-500 truncate">Total Items</p></div>
+            <div className="min-w-0"><p className="text-xl font-bold text-gray-900 dark:text-slate-50 truncate tabular-nums">{totalItems}</p><p className="text-xs text-gray-500 dark:text-slate-400 truncate">Total Items</p></div>
           </div>
         </button>
         <button type="button" className="glass-panel premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowLow(true); setShowExpiring(false); setShowOutOfStock(false); }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-red-600" /></div>
-            <div className="min-w-0"><p className="text-xl font-bold text-red-600 truncate tabular-nums">{lowStockCount}</p><p className="text-xs text-gray-500 truncate">Low Stock</p></div>
+            <div className="min-w-0"><p className="text-xl font-bold text-red-600 truncate tabular-nums">{lowStockCount}</p><p className="text-xs text-gray-500 dark:text-slate-400 truncate">Low Stock</p></div>
           </div>
         </button>
         <button type="button" className="glass-panel premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowExpiring(true); setShowLow(false); setShowOutOfStock(false); }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><TrendingDown className="w-5 h-5 text-amber-600" /></div>
-            <div className="min-w-0"><p className="text-xl font-bold text-amber-600 truncate tabular-nums">{expiringSoonCount}</p><p className="text-xs text-gray-500 truncate">Expiring Soon</p></div>
+            <div className="min-w-0"><p className="text-xl font-bold text-amber-600 truncate tabular-nums">{expiringSoonCount}</p><p className="text-xs text-gray-500 dark:text-slate-400 truncate">Expiring Soon</p></div>
           </div>
         </button>
         <button type="button" className="glass-panel premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('dispensations'); setShowRecentDispensed(true); }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><ShoppingCart className="w-5 h-5 text-green-600" /></div>
-            <div className="min-w-0"><p className="text-xl font-bold text-gray-900 truncate tabular-nums">{dispensedToday}</p><p className="text-xs text-gray-500 truncate">Dispensed Today</p></div>
+            <div className="min-w-0"><p className="text-xl font-bold text-gray-900 dark:text-slate-50 truncate tabular-nums">{dispensedToday}</p><p className="text-xs text-gray-500 dark:text-slate-400 truncate">Dispensed Today</p></div>
           </div>
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 p-1 bg-white/70 rounded-xl w-full max-w-full border border-white/60">
+      <div className="flex flex-wrap gap-2 p-1 bg-white/70 dark:bg-slate-900/50 rounded-xl w-full max-w-full border border-white/60 dark:border-slate-700">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             className={cn(
               'px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
-              activeTab === tab.id ? 'bg-[#1E4ED8] text-white shadow-sm' : 'text-gray-600 hover:text-gray-800',
+              activeTab === tab.id ? 'bg-[#1E4ED8] text-white dark:text-white shadow-sm' : 'text-gray-600 hover:text-gray-800 dark:text-slate-400 dark:hover:text-slate-200',
             )}
           >
             {tab.label}
@@ -481,7 +481,7 @@ export function PharmacyPage() {
       <div className="flex flex-col md:flex-row md:items-center gap-2">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={activeTab === 'inventory' ? 'Search drug, category, batch...' : 'Search patient or medication...'} className="pl-11 rounded-xl bg-white/80" />
+          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={activeTab === 'inventory' ? 'Search drug, category, batch...' : 'Search patient or medication...'} className="pl-11 rounded-xl bg-white/80 text-slate-900 dark:bg-slate-900/50 dark:text-slate-50 dark:placeholder:text-slate-400" />
         </div>
         <Popover>
           <PopoverTrigger asChild>
@@ -509,33 +509,33 @@ export function PharmacyPage() {
           <div className="hidden md:block premium-card glass-panel overflow-hidden border border-white/60">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50/70 border-b border-gray-100">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Medication</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Batch</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Stock</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Unit Price</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Expiry</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+              <tr className="bg-gray-100 border-b border-gray-100 dark:bg-slate-800/80 dark:border-slate-700">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Medication</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Category</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Batch</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Stock</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Unit Price</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Expiry</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredInventory.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-50 hover:bg-white/70 transition-colors">
-                    <td className="px-4 py-3"><div className="flex items-center gap-2"><Pill className="w-4 h-4 text-indigo-500" /><span className="font-medium text-gray-900">{item.name}</span></div></td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.category}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.batch_no}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{item.stock}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">₦{item.unit_price.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{item.expiry_date}</td>
+                  <tr key={item.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-white/70 dark:hover:bg-slate-800/60 transition-colors">
+                    <td className="px-4 py-3"><div className="flex items-center gap-2"><Pill className="w-4 h-4 text-indigo-500" /><span className="font-medium text-gray-900 dark:text-slate-50">{item.name}</span></div></td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-400">{item.category}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-400">{item.batch_no}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800 dark:text-slate-200">{item.stock}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-200">₦{item.unit_price.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-400">{item.expiry_date}</td>
                     <td className="px-4 py-3">
                       <span className={cn('px-2.5 py-1 rounded-full text-xs font-medium capitalize',
-                        item.status === 'available' && 'bg-emerald-100 text-emerald-700',
-                        item.status === 'low' && 'bg-amber-100 text-amber-700',
-                        item.status === 'out-of-stock' && 'bg-red-100 text-red-700',
-                        item.status === 'expiring' && 'bg-orange-100 text-orange-700',
-                        item.status === 'expired' && 'bg-red-100 text-red-800',
+                        item.status === 'available' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+                        item.status === 'low' && 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+                        item.status === 'out-of-stock' && 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300',
+                        item.status === 'expiring' && 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300',
+                        item.status === 'expired' && 'bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300',
                       )}>{item.status}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -562,12 +562,12 @@ export function PharmacyPage() {
               <div key={item.id} className="glass-panel premium-card p-4 border border-white/60">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-medium text-gray-900">{item.name}</p>
-                    <p className="text-xs text-gray-500 mt-1">{item.category} · {item.batch_no}</p>
+                    <p className="font-medium text-gray-900 dark:text-slate-50">{item.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">{item.category} · {item.batch_no}</p>
                   </div>
-                  <span className="text-sm font-semibold text-gray-900">{item.stock}</span>
+                  <span className="text-sm font-semibold text-gray-900 dark:text-slate-50">{item.stock}</span>
                 </div>
-                <div className="mt-2 text-xs text-gray-600">Expiry: {item.expiry_date} · ₦{item.unit_price.toLocaleString()}</div>
+                <div className="mt-2 text-xs text-gray-600 dark:text-slate-400">Expiry: {item.expiry_date} · ₦{item.unit_price.toLocaleString()}</div>
               </div>
             ))}
           </div>
@@ -578,22 +578,22 @@ export function PharmacyPage() {
         <div className="premium-card glass-panel overflow-hidden border border-white/60">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50/70 border-b border-gray-100">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Patient</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Prescription</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Date</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Pharmacist</th>
+              <tr className="bg-gray-100 border-b border-gray-100 dark:bg-slate-800/80 dark:border-slate-700">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Patient</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Prescription</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Quantity</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Pharmacist</th>
               </tr>
             </thead>
             <tbody>
               {filteredDispensations.map((disp) => (
-                <tr key={disp.id} className="border-b border-gray-50 hover:bg-white/70">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{disp.patient_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{disp.medication_name} · {disp.doctor_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">{disp.quantity} units</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{disp.date}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{disp.pharmacist_name}</td>
+                <tr key={disp.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-white/70 dark:hover:bg-slate-800/60">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-50">{disp.patient_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-200">{disp.medication_name} · {disp.doctor_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-200">{disp.quantity} units</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-400">{disp.date}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-400">{disp.pharmacist_name}</td>
                 </tr>
               ))}
             </tbody>
@@ -609,25 +609,25 @@ export function PharmacyPage() {
           <div className="premium-card glass-panel overflow-hidden border border-white/60">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50/70 border-b border-gray-100">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">PO ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Supplier</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Drugs</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                <tr className="bg-gray-100 border-b border-gray-100 dark:bg-slate-800/80 dark:border-slate-700">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">PO ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Supplier</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Drugs</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 dark:text-slate-300 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {purchaseOrders.map((po) => (
-                  <tr key={po.id} className="border-b border-gray-50">
+                  <tr key={po.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-white/70 dark:hover:bg-slate-800/60">
                     <td className="px-4 py-3 text-sm font-medium text-[#1E4ED8]">{po.id}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{po.supplier}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{po.drugItems.map((d) => `${d.medicationName} (${d.quantity})`).join(', ')}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-200">{po.supplier}</td>
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-200">{po.drugItems.map((d) => `${d.medicationName} (${d.quantity})`).join(', ')}</td>
                     <td className="px-4 py-3">
                       <span className={cn('px-2.5 py-1 rounded-full text-xs font-medium capitalize',
-                        po.status === 'pending' && 'bg-amber-100 text-amber-700',
-                        po.status === 'approved' && 'bg-blue-100 text-blue-700',
-                        po.status === 'delivered' && 'bg-emerald-100 text-emerald-700',
+                        po.status === 'pending' && 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+                        po.status === 'approved' && 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
+                        po.status === 'delivered' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
                       )}>{po.status}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -646,7 +646,7 @@ export function PharmacyPage() {
 
       <div className="glass-panel premium-card p-4 border border-white/60">
         <h3 className="font-semibold text-[#1E4ED8] mb-2">Smart automation & integrations</h3>
-        <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-600">
+        <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-600 dark:text-slate-400">
           <p className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-500" /> VitaMind AI: low-stock and weekly high-usage insights.</p>
           <p className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> EMR: prescription pull + dispensed status updates.</p>
           <p className="flex items-center gap-2"><FileText className="w-4 h-4 text-blue-500" /> Billing: auto-generate medication bill on dispense.</p>
@@ -673,7 +673,7 @@ export function PharmacyPage() {
             </div>
             <div>
               <Label>Category</Label>
-              <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm" value={newStock.category} onChange={(e) => setNewStock((s) => ({ ...s, category: e.target.value }))}>
+              <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm bg-white text-slate-900 dark:bg-slate-900/50 dark:text-slate-50 dark:border-slate-700" value={newStock.category} onChange={(e) => setNewStock((s) => ({ ...s, category: e.target.value }))}>
                 <option>Analgesic</option><option>Antibiotic</option><option>Antidiabetic</option><option>Antihypertensive</option><option>NSAID</option>
               </select>
             </div>
@@ -700,7 +700,7 @@ export function PharmacyPage() {
           <div className="space-y-3">
             <div>
               <Label>Patient</Label>
-              <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm" value={dispenseForm.patient_id} onChange={(e) => {
+              <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm bg-white text-slate-900 dark:bg-slate-900/50 dark:text-slate-50 dark:border-slate-700" value={dispenseForm.patient_id} onChange={(e) => {
                 const p = prescriptions.find((pr) => pr.patient_id === e.target.value);
                 setDispenseForm((s) => ({ ...s, patient_id: e.target.value, medication_id: p?.medication_id ?? '', quantity: p?.quantity ?? 0 }));
                 if (p) notify('new-prescription', `Prescription loaded for ${p.patient_name}`);
@@ -712,7 +712,7 @@ export function PharmacyPage() {
             <div>
               <Label>Medication</Label>
               <select
-                className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm bg-white text-slate-900 dark:bg-slate-900/50 dark:text-slate-50 dark:border-slate-700"
                 value={dispenseForm.medication_id}
                 onChange={(e) => {
                   const selectedMed = medications.find((m) => m.id === e.target.value);
@@ -730,7 +730,7 @@ export function PharmacyPage() {
               <Label>Quantity</Label>
               <Input type="number" value={dispenseForm.quantity} onChange={(e) => setDispenseForm((s) => ({ ...s, quantity: Number(e.target.value) }))} className="mt-1" />
             </div>
-            {isDoctor && <Textarea value="Doctor role: prescribing view only. Dispensing is disabled." readOnly className="bg-gray-50" />}
+            {isDoctor && <Textarea value="Doctor role: prescribing view only. Dispensing is disabled." readOnly className="bg-gray-50 text-slate-900 dark:bg-slate-900/50 dark:text-slate-200" />}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDispenseOpen(false)}>Cancel</Button>
@@ -749,7 +749,7 @@ export function PharmacyPage() {
             <div><Label>Supplier</Label><Input value={poForm.supplier} onChange={(e) => setPoForm((s) => ({ ...s, supplier: e.target.value }))} className="mt-1" /></div>
             <div>
               <Label>Drug</Label>
-              <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm" value={poForm.medication_id} onChange={(e) => setPoForm((s) => ({ ...s, medication_id: e.target.value }))}>
+              <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm bg-white text-slate-900 dark:bg-slate-900/50 dark:text-slate-50 dark:border-slate-700" value={poForm.medication_id} onChange={(e) => setPoForm((s) => ({ ...s, medication_id: e.target.value }))}>
                 <option value="">Select medication</option>
                 {medications.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>

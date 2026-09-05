@@ -427,12 +427,16 @@
   /* Global dark-theme readability overrides for existing utility usage */
   .dark-theme .bg-white,
   .dark-theme .bg-white\/70,
+  .dark-theme .bg-white\/75,
   .dark-theme .bg-white\/80,
+  .dark-theme .bg-white\/85,
   .dark-theme .bg-white\/90,
+  .dark-theme .bg-white\/95,
   .dark-theme .bg-white\/20,
   .dark-theme .bg-slate-50,
   .dark-theme .bg-gray-50,
   .dark-theme .bg-gray-100,
+  .dark-theme .bg-gray-200,
   .dark-theme .bg-royal-50,
   .dark-theme .bg-vitalink-50 {
     background-color: var(--bg-card) !important;
@@ -448,13 +452,19 @@
 
   .dark-theme .text-gray-900,
   .dark-theme .text-gray-800,
-  .dark-theme .text-gray-700 {
+  .dark-theme .text-gray-700,
+  .dark-theme .text-slate-900,
+  .dark-theme .text-slate-800,
+  .dark-theme .text-slate-700 {
     color: var(--text-primary) !important;
   }
 
   .dark-theme .text-gray-600,
   .dark-theme .text-gray-500,
-  .dark-theme .text-gray-400 {
+  .dark-theme .text-gray-400,
+  .dark-theme .text-slate-600,
+  .dark-theme .text-slate-500,
+  .dark-theme .text-slate-400 {
     color: var(--text-secondary) !important;
   }
 
@@ -500,7 +510,9 @@
   .dark-theme .border-gray-50,
   .dark-theme .border-gray-100,
   .dark-theme .border-gray-200,
+  .dark-theme .border-slate-200,
   .dark-theme .border-white\/60,
+  .dark-theme .border-white\/70,
   .dark-theme .border-white\/40,
   .dark-theme .border-royal-200,
   .dark-theme .border-royal-300,

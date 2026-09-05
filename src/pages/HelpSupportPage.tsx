@@ -98,7 +98,7 @@ export function HelpSupportPage() {
   ]);
   const [tickets, setTickets] = useState<SupportTicket[]>([
     {
-      id: 'TCK-001',
+      id: 'VLT-001',
       owner: 'Dr. Sarah Johnson',
       title: 'Invoice payment mismatch',
       category: 'billing',
@@ -113,7 +113,7 @@ export function HelpSupportPage() {
       ],
     },
     {
-      id: 'TCK-002',
+      id: 'VLT-002',
       owner: userName,
       title: 'Lab result sync delay',
       category: 'laboratory',
@@ -154,7 +154,7 @@ export function HelpSupportPage() {
     if (!ticketForm.description.trim()) return toast.error('Ticket description is required');
     if (!planSupportsTickets && source === 'manual') return toast.error('Ticket support requires Pro or Enterprise plan');
     const ticket: SupportTicket = {
-      id: `TCK-${String(Date.now()).slice(-4)}`,
+      id: `VLT-${String(Date.now()).slice(-4)}`,
       owner: userName,
       title: ticketForm.title,
       category: ticketForm.category,

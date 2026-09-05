@@ -83,7 +83,7 @@ const typeConfig = {
   ai: { icon: AlertTriangle, color: 'bg-amber-100 text-amber-600', border: 'border-amber-200' },
   payment: { icon: CreditCard, color: 'bg-red-100 text-red-600', border: 'border-red-200' },
   staff: { icon: UserPlus, color: 'bg-green-100 text-green-600', border: 'border-green-200' },
-  system: { icon: CheckCircle, color: 'bg-gray-100 text-gray-600', border: 'border-gray-200' },
+  system: { icon: CheckCircle, color: 'bg-gray-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400', border: 'border-gray-200 dark:border-slate-700' },
 };
 
 function formatTimeAgo(isoString: string): string {
@@ -189,7 +189,7 @@ export function NotificationBell() {
           "relative p-2.5 rounded-xl transition-all duration-200",
           isOpen 
             ? "bg-[#1E4ED8]/10 text-[#1E4ED8]" 
-            : "text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            : "text-slate-600 hover:bg-gray-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50"
         )}
       >
         <Bell className="w-5 h-5" />
@@ -202,12 +202,12 @@ export function NotificationBell() {
 
       {/* Notification Panel */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-3 w-[min(100vw-2rem,24rem)] max-w-sm bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden z-50 animate-in slide-in-from-top-2 duration-200">
+        <div className="absolute z-50 right-0 top-full mt-3 w-[min(100vw-2rem,24rem)] max-w-sm bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-100/50 overflow-hidden animate-in slide-in-from-top-2 duration-200 dark:border-slate-700 dark:bg-slate-900/95">
           {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between dark:border-slate-700">
             <div>
-              <h3 className="font-semibold text-gray-900">Notifications</h3>
-              <p className="text-xs text-gray-500">{unreadCount} unread</p>
+              <h3 className="font-semibold text-slate-900 dark:text-slate-50">Notifications</h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">{unreadCount} unread</p>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -218,7 +218,7 @@ export function NotificationBell() {
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"
+                className="p-1 rounded-lg hover:bg-gray-100 text-slate-400 transition-colors dark:hover:bg-slate-800"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -230,7 +230,7 @@ export function NotificationBell() {
             {filteredNotifications.length === 0 ? (
               <div className="p-8 text-center">
                 <Bell className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No notifications</p>
+                <p className="text-sm text-slate-600 dark:text-slate-400">No notifications</p>
               </div>
             ) : (
               filteredNotifications.map((notification) => {
@@ -245,7 +245,7 @@ export function NotificationBell() {
                       "w-full px-4 py-3 flex items-start gap-3 text-left transition-all duration-150 border-l-3",
                       !notification.read 
                         ? "bg-[#1E4ED8]/[0.02] border-l-[#1E4ED8]" 
-                        : "border-l-transparent hover:bg-gray-50",
+                        : "border-l-transparent hover:bg-gray-50 dark:hover:bg-slate-800",
                       notification.priority === 'high' && !notification.read && "bg-red-50/[0.3]"
                     )}
                   >
@@ -254,14 +254,14 @@ export function NotificationBell() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <p className={cn("text-sm font-medium truncate min-w-0", !notification.read ? "text-gray-900" : "text-gray-600")}>
+                        <p className={cn("text-sm font-medium truncate min-w-0", !notification.read ? "text-slate-900 dark:text-slate-50" : "text-slate-600 dark:text-slate-400")}>
                           {notification.title}
                         </p>
                         {!notification.read && (
                           <span className="w-2 h-2 bg-[#1E4ED8] rounded-full flex-shrink-0" />
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 line-clamp-2">{notification.message}</p>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">{notification.message}</p>
                       <p className="text-[10px] text-gray-400 mt-1">{formatTimeAgo(notification.timestamp)}</p>
                     </div>
                   </button>
@@ -271,7 +271,7 @@ export function NotificationBell() {
           </div>
 
           {/* Footer */}
-          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50">
+          <div className="px-4 py-2 border-t border-gray-100 bg-gray-50/50 dark:border-slate-700 dark:bg-slate-900/50">
             <button className="w-full text-xs text-[#1E4ED8] font-medium flex items-center justify-center gap-1 py-1.5 hover:bg-[#1E4ED8]/5 rounded-lg transition-colors">
               View all notifications
               <ArrowRight className="w-3 h-3" />

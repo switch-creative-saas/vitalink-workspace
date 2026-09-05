@@ -18,7 +18,7 @@ export function DashboardHero({ userName, dailySummary, kpis, className }: Dashb
   return (
     <div
       className={cn(
-        'rounded-xl border border-slate-200/80 bg-white shadow-soft overflow-hidden min-w-0',
+        'rounded-xl border border-slate-200/80 bg-white shadow-soft overflow-hidden min-w-0 dark:border-slate-700 dark:bg-slate-800/80',
         className,
       )}
     >

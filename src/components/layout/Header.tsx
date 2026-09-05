@@ -44,12 +44,12 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
   };
 
   return (
-    <header className="h-20 px-[var(--page-padding)] flex items-center justify-between gap-2 sm:gap-4 bg-[color:var(--bg-card)]/80 backdrop-blur-xl border-b border-[color:var(--border-color)] sticky top-0 z-10 min-w-0 w-full overflow-hidden">
+    <header className="h-20 px-[var(--page-padding)] flex items-center justify-between gap-2 sm:gap-4 bg-[color:var(--bg-card)]/80 backdrop-blur-xl border-b border-[color:var(--border-color)] sticky top-0 z-40 min-w-0 w-full overflow-visible">
       {/* Left: Title & Mobile Spacer */}
       <div className={cn("flex items-center gap-4 min-w-0 flex-shrink", isMobile && "ml-12")}>
         <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate max-w-[min(100%,28ch)]">{title}</h1>
-          <p className="text-xs text-gray-500 hidden sm:block">
+          <h1 className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-slate-50 truncate max-w-[min(100%,28ch)]">{title}</h1>
+          <p className="text-xs text-slate-600 dark:text-slate-400 hidden sm:block">
             {currentTime.toLocaleDateString('en-US', { 
               weekday: 'long', 
               year: 'numeric', 
@@ -108,7 +108,7 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
               <ChevronDown className="w-3.5 h-3.5 text-[color:var(--text-secondary)]" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="glass-panel border-[color:var(--border)]">
+          <DropdownMenuContent align="end" className="z-50 glass-panel border-[color:var(--border)]">
             <DropdownMenuItem onClick={() => setThemeMode('light')}>
               <Sun className="w-4 h-4 mr-2 text-amber-500" />
               Light
