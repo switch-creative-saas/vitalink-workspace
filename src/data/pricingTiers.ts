@@ -69,7 +69,7 @@ export const PRICING_TIERS: PricingTier[] = [
     targetCustomer: 'Multi-site hospital networks, state health boards, NGO partners',
     hardwareFee: 1800000, hardwareFeeUSD: 1150, hardwareIncludes: ['Multi-gateway cluster', 'Server redundancy', 'Custom NFC card deployment', 'Full on-site implementation team'],
     monthlyPrice: 350000, annualPrice: null, monthlyEffective: null, encountersPerMonth: null,
-    nfcCardPrice: 2500, nfcCardMinimumPack: 500, hmoMicroFeePercent: 0.75, sentinelIncluded: true,
+    nfcCardPrice: 2500, nfcCardMinimumPack: 100, hmoMicroFeePercent: 0.75, sentinelIncluded: true,
     highlighted: false, ctaLabel: 'Contact Sales', modules: [...CORE_MODULES, ...GROWTH_MODULES, 'administration', 'audit-logs', 'sentinel'],
     features: [
       { name: 'Patient Registry', included: true }, { name: 'Health Identity (NFC VitaCard)', included: true },
@@ -86,7 +86,7 @@ export const PRICING_TIERS: PricingTier[] = [
   },
 ];
 
-export const NFC_CARD_PRICING = { unitProductionCost: 1700, bulkWholesalePrice: 2500, directRetailPrice: 3000, minimumBulkOrder: 100, minimumEnterpriseOrder: 500 };
+export const NFC_CARD_PRICING = { unitProductionCost: 1700, bulkWholesalePrice: 2500, directRetailPrice: 3000, minimumBulkOrder: 100, minimumEnterpriseOrder: 100 };
 export const SENTINEL_ADDON = { monthlyPrice: 50000, annualPrice: 480000, annualSavings: 120000, description: 'Real-time disease surveillance, outbreak detection, and NCDC reporting powered by your EMR data.' };
 export const FREE_TRIAL = {
   id: 'trial' as const,

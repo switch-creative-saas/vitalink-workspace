@@ -349,6 +349,7 @@ const MODULE_MAP: Record<string, string> = {
   'analytics': 'Analytics',
   'human-resources': 'Human Resources',
   'administration': 'Administration',
+  'nfc-cards': 'Patients',
   'switch-sentinel': 'Public Health',
   'subscription': 'Settings',
   'audit-logs': 'Settings',

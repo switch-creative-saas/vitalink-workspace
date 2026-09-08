@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, CreditCard, Minus, Plus, Truck } from 'lucide-react';
+import { CheckCircle2, CreditCard, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { NFC_CARD_PRICING } from '@/data/pricingTiers';
 import { usePlan } from '@/hooks/usePlan';
