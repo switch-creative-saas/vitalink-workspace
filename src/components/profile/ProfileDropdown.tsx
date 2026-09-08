@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { User, Settings, Shield, CreditCard, LogOut, ChevronRight, Crown, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { workspaceDescriptor } from '@/lib/workspace/workspace';
 
 interface ProfileDropdownProps {
   onNavigate: (page: string) => void;
@@ -12,7 +13,7 @@ interface ProfileDropdownProps {
 export function ProfileDropdown({ onNavigate, onLogout, onDeleteAccount }: ProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { userName, userEmail, userAvatar, currentRole, isSuperAdmin } = useAuth();
+  const { userName, userEmail, userAvatar, currentRole, isSuperAdmin, organization } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -96,8 +97,12 @@ export function ProfileDropdown({ onNavigate, onLogout, onDeleteAccount }: Profi
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-slate-900 dark:text-slate-50 truncate">{userName}</p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{userEmail}</p>
+                <p className="mt-1 text-[10px] text-slate-600 dark:text-slate-400 truncate">{organization.name}</p>
                 <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-vitalink-50 text-vitalink-700 text-[10px] font-medium">
                   {currentRole.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </span>
+                <span className="ml-1 inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-medium dark:bg-slate-800 dark:text-slate-300">
+                  {workspaceDescriptor(organization)}
                 </span>
               </div>
             </div>

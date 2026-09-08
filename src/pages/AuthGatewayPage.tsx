@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { 
@@ -20,7 +20,20 @@ import { useSecurityAudit } from '@/contexts/SecurityAuditContext';
 import { BRAND } from '@/config/brand';
 import { mockNetworkService } from '@/features/network/services/networkService';
 import type { CapacityStatus } from '@/features/network/types';
-import { AlertCircle, ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
+import {
+  ORGANIZATION_TYPE_OPTIONS,
+  createOrganizationProfile,
+  normalizeOrganizationType,
+  organizationTypeLabel,
+  sectorForOrganizationType,
+  workspaceForOrganizationType,
+  workspaceLabel,
+  type OrganizationProfile,
+  type WorkspaceType,
+} from '@/lib/workspace/organizationTypes';
+import { defaultPageForWorkspace } from '@/lib/workspace/workspace';
+import { PUBLIC_HEALTH_ROLES, defaultRoleForOrganizationType } from '@/lib/workspace/roles';
+import { AlertCircle, ArrowLeft, ArrowRight, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type Stage = 
@@ -50,10 +63,18 @@ type AuthUser = {
   tenantId?: string;
   orgSlug?: string;
   orgName?: string;
+  organizationType?: string;
+  workspaceType?: WorkspaceType;
+  orgSector?: string;
+  orgState?: string;
+  orgContactPhone?: string;
+  joinedNetwork?: boolean;
+  orgCreatedAt?: string;
+  subscriptionTier?: 'free' | 'standard' | 'premium';
 };
 
 interface AuthGatewayPageProps {
-  onAuthenticated: (payload: { role: UserRole; name: string; email: string; redirectPage: PageType }) => void;
+  onAuthenticated: (payload: { role: UserRole; name: string; email: string; redirectPage: PageType; organization: OrganizationProfile }) => void;
   defaultTheme?: 'light' | 'dark';
 }
 
@@ -69,9 +90,27 @@ async function hashPassword(raw: string): Promise<string> {
   return btoa(raw);
 }
 
-function roleRedirect(_role: UserRole): PageType {
-  // All roles land on dashboard; the dashboard renders role-specific content
-  return 'dashboard';
+function organizationForUser(user: AuthUser): OrganizationProfile {
+  const inferredType = user.organizationType ?? (PUBLIC_HEALTH_ROLES.includes(user.role) ? 'ngo' : undefined);
+  const organizationType = normalizeOrganizationType(inferredType);
+  return createOrganizationProfile({
+    id: user.tenantId ?? user.orgSlug ?? user.id,
+    name: user.orgName ?? user.orgSlug,
+    slug: user.orgSlug,
+    organizationType,
+    workspaceType: user.workspaceType ?? workspaceForOrganizationType(organizationType),
+    sector: user.orgSector ?? sectorForOrganizationType(organizationType),
+    state: user.orgState,
+    contactEmail: user.email,
+    contactPhone: user.orgContactPhone,
+    joinedNetwork: user.joinedNetwork,
+    createdAt: user.orgCreatedAt,
+    subscriptionTier: user.subscriptionTier,
+  });
+}
+
+function roleRedirect(user: AuthUser): PageType {
+  return defaultPageForWorkspace(organizationForUser(user).workspaceType);
 }
 
 function ErrorText({ text }: { text: string }) {
@@ -146,6 +185,7 @@ function getOrgFromSlug(slug: string): string | null {
 
 export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   const { logLoginAttempt } = useSecurityAudit();
+  const onAuthenticatedRef = useRef(onAuthenticated);
   const [stage, setStage] = useState<Stage>('checking-session');
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -153,6 +193,12 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   const [pendingUser, setPendingUser] = useState<AuthUser | null>(null);
   const [pendingUsers, setPendingUsers] = useState<AuthUser[]>([]);
   const [detectedOrgName, setDetectedOrgName] = useState<string | null>(null);
+  const [showEnterpriseEnquiry, setShowEnterpriseEnquiry] = useState(false);
+  const [enterpriseEnquiry, setEnterpriseEnquiry] = useState({ name: '', email: '', organization: '', requirements: '' });
+
+  useEffect(() => {
+    onAuthenticatedRef.current = onAuthenticated;
+  }, [onAuthenticated]);
 
   // ── Mount: Check for existing session ─────────────────────────────
   useEffect(() => {
@@ -161,6 +207,11 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     if (urlSlug) {
       const name = getOrgFromSlug(urlSlug);
       setDetectedOrgName(name || urlSlug.toUpperCase());
+    }
+
+    if (window.location.pathname.replace(/\/+$/, '') === '/register') {
+      setStage('org-signup-start');
+      return;
     }
 
     const existingSession = localStorage.getItem(sessionKey());
@@ -185,13 +236,15 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
           (!lastWorkspaceSlug || u.orgSlug === lastWorkspaceSlug)
         ) || users.find(u => u.email.toLowerCase() === sessionEmail.toLowerCase());
 
-        if (sessionUser) {
+      if (sessionUser) {
+          const organization = organizationForUser(sessionUser);
           setTimeout(() => {
-            onAuthenticated({
+            onAuthenticatedRef.current({
               role: sessionUser.role,
               name: sessionUser.fullName,
               email: sessionUser.email,
-              redirectPage: roleRedirect(sessionUser.role),
+              redirectPage: roleRedirect(sessionUser),
+              organization,
             });
           }, 700);
           return;
@@ -201,7 +254,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
 
     // No valid session — show the login page
     setStage('login');
-  }, [onAuthenticated]);
+  }, []);
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   
@@ -242,6 +295,16 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     acceptingTransfers: true,
     capacity: 'Available' as CapacityStatus,
   });
+  const [publicHealthSetup, setPublicHealthSetup] = useState({
+    jurisdiction: 'Statewide',
+    primaryFocus: 'Disease surveillance, outbreak response, community reporting',
+    programs: 'Malaria, Cholera, Measles, NTDs',
+    dataSharing: true,
+    emergencyAlerts: true,
+  });
+  const selectedOrganizationType = normalizeOrganizationType(orgForm.type);
+  const selectedWorkspaceType = workspaceForOrganizationType(selectedOrganizationType);
+  const isPublicHealthSignup = selectedWorkspaceType === 'public-health';
 
   const getUsers = (): AuthUser[] => {
     const raw = localStorage.getItem(usersKey());
@@ -309,9 +372,12 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         window.history.pushState({}, '', newPath);
       }
     }
+
+    const organization = organizationForUser(user);
+    localStorage.setItem('vitalink-active-organization', JSON.stringify(organization));
     
     window.dispatchEvent(new CustomEvent('vitalink:notify', { detail: { module: 'auth', type: 'login-success', message: 'Secure enterprise session started' } }));
-    onAuthenticated({ role: user.role, name: user.fullName, email: user.email, redirectPage: roleRedirect(user.role) });
+    onAuthenticated({ role: user.role, name: user.fullName, email: user.email, redirectPage: roleRedirect(user), organization });
   };
 
   /* ─────────────────────────────────────────────────────────
@@ -390,38 +456,74 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
      ───────────────────────────────────────────────────────── */
   const finalizeWorkspace = async () => {
     const orgSlug = localStorage.getItem('vitalink-pending-slug') || orgForm.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const tenantId = `tenant-${Math.random().toString(36).substr(2, 9)}`;
+    const tenantId = `ORG-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const organizationType = normalizeOrganizationType(orgForm.type);
+    const workspaceType = workspaceForOrganizationType(organizationType);
+    const subscriptionTier = orgForm.plan === 'starter' || orgForm.plan === 'trial' ? 'free' : orgForm.plan === 'enterprise' ? 'premium' : 'standard';
+    const orgCreatedAt = new Date().toISOString();
     const createdUser: AuthUser = {
       id: `usr-${Date.now()}`,
       fullName: `${signupForm.firstName} ${signupForm.lastName}`,
       email: signupForm.email,
-      role: 'super-admin',
+      role: defaultRoleForOrganizationType(organizationType),
       passwordHash: await hashPassword(signupForm.password),
       provider: signupForm.provider,
       onboardingComplete: true,
       tenantId,
       orgSlug,
+      orgName: orgForm.name,
+      organizationType,
+      workspaceType,
+      orgSector: sectorForOrganizationType(organizationType),
+      orgState: orgForm.state || publicHealthSetup.jurisdiction || networkForm.location,
+      orgContactPhone: orgForm.phone,
+      joinedNetwork: networkForm.joinedNetwork,
+      orgCreatedAt,
+      subscriptionTier,
     };
     
     setUsers([createdUser, ...getUsers()]);
-    const networkState = mockNetworkService.getState();
-    mockNetworkService.updateOrganizationNetworkSettings({
-      organizationId: networkState.activeOrganizationId,
+    const organizationProfile = createOrganizationProfile({
+      id: tenantId,
+      name: orgForm.name,
+      slug: orgSlug,
+      organizationType,
+      workspaceType,
+      sector: sectorForOrganizationType(organizationType),
+      state: orgForm.state || publicHealthSetup.jurisdiction || networkForm.location,
+      contactEmail: signupForm.email,
+      contactPhone: orgForm.phone,
       joinedNetwork: networkForm.joinedNetwork,
-      visibleInDirectory: networkForm.visibleInDirectory,
-      specialties: networkForm.specialties.split(',').map((item) => item.trim()).filter(Boolean),
-      services: networkForm.services.split(',').map((item) => item.trim()).filter(Boolean),
-      location: networkForm.location,
-      facilityType: networkForm.facilityType,
-      emergencyAvailable: networkForm.emergencyAvailable,
-      laboratory: networkForm.laboratory,
-      imaging: networkForm.imaging,
-      pharmacy: networkForm.pharmacy,
-      telemedicine: networkForm.telemedicine,
-      acceptingReferrals: networkForm.acceptingReferrals,
-      acceptingTransfers: networkForm.acceptingTransfers,
-      capacity: networkForm.capacity,
+      createdAt: orgCreatedAt,
+      subscriptionTier,
     });
+    localStorage.setItem('vitalink-active-organization', JSON.stringify(organizationProfile));
+    localStorage.setItem('sentinel_org', JSON.stringify(organizationProfile));
+    localStorage.setItem('sentinel_auth', JSON.stringify({
+      isAuthenticated: true,
+      orgId: tenantId,
+      orgType: organizationType,
+    }));
+    if (workspaceType === 'healthcare') {
+      const networkState = mockNetworkService.getState();
+      mockNetworkService.updateOrganizationNetworkSettings({
+        organizationId: networkState.activeOrganizationId,
+        joinedNetwork: networkForm.joinedNetwork,
+        visibleInDirectory: networkForm.visibleInDirectory,
+        specialties: networkForm.specialties.split(',').map((item) => item.trim()).filter(Boolean),
+        services: networkForm.services.split(',').map((item) => item.trim()).filter(Boolean),
+        location: networkForm.location,
+        facilityType: networkForm.facilityType,
+        emergencyAvailable: networkForm.emergencyAvailable,
+        laboratory: networkForm.laboratory,
+        imaging: networkForm.imaging,
+        pharmacy: networkForm.pharmacy,
+        telemedicine: networkForm.telemedicine,
+        acceptingReferrals: networkForm.acceptingReferrals,
+        acceptingTransfers: networkForm.acceptingTransfers,
+        capacity: networkForm.capacity,
+      });
+    }
     setPendingUser(createdUser);
     localStorage.removeItem('vitalink-pending-slug');
     setStage('welcome');
@@ -433,7 +535,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       {/* ── Session Check Loading ─────────────────────────── */}
       {stage === 'checking-session' && <SessionCheckScreen />}
 
-      <div className="flex flex-col w-full h-full justify-center">
+      <div className="flex w-full flex-col justify-center">
         
         {/* Back Button for multi-step */}
         {stage !== 'login' && stage !== 'org-signup-start' && stage !== 'provisioning' && stage !== 'welcome' && stage !== 'email-sent' && stage !== 'checking-session' && (
@@ -593,8 +695,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                 value={orgForm.type}
                 onChange={(e) => setOrgForm(f => ({...f, type: e.target.value}))}
               >
-                {['Hospital', 'Clinic', 'NGO', 'HMO', 'Insurance', 'Laboratory', 'Pharmacy', 'Government', 'Corporate Healthcare', 'University'].map(o => (
-                  <option key={o} value={o}>{o}</option>
+                {ORGANIZATION_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
               
@@ -616,44 +718,54 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
               <AuthField value={orgForm.phone} onChange={(v) => setOrgForm(s => ({...s, phone: v}))} placeholder="Contact Phone" />
             </div>
 
-            <div className="rounded-[18px] border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] p-4 space-y-3">
-              <div>
-                <p className="text-[14px] font-semibold text-[var(--auth-text-primary)]">Join {BRAND.network}</p>
-                <p className="mt-1 text-xs text-[var(--auth-text-secondary)]">
-                  Join the VitaLink Network to connect with other healthcare organizations, receive referrals, coordinate patient transfers, and securely exchange authorized patient information.
-                </p>
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-[var(--auth-accent)]/25 bg-[var(--auth-accent)]/10 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--auth-accent)]">{organizationTypeLabel(selectedOrganizationType)}</p>
+                <p className="truncate text-sm font-semibold text-[var(--auth-text-primary)]">{workspaceLabel(selectedWorkspaceType)}</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <button type="button" className={`rounded-[14px] px-3 py-2 text-sm ${networkForm.joinedNetwork ? 'bg-[var(--auth-accent)] text-white' : 'bg-black/10 text-[var(--auth-text-secondary)]'}`} onClick={() => setNetworkForm((form) => ({ ...form, joinedNetwork: true }))}>
-                  Yes, Join Network
-                </button>
-                <button type="button" className={`rounded-[14px] px-3 py-2 text-sm ${!networkForm.joinedNetwork ? 'bg-[var(--auth-accent)] text-white' : 'bg-black/10 text-[var(--auth-text-secondary)]'}`} onClick={() => setNetworkForm((form) => ({ ...form, joinedNetwork: false }))}>
-                  No, Continue Without Network
-                </button>
+              <p className="max-w-[11rem] text-right text-[11px] leading-4 text-[var(--auth-text-secondary)]">{isPublicHealthSignup ? `${BRAND.sentinel} surveillance workspace` : 'Healthcare operations workspace'}</p>
+            </div>
+
+            {isPublicHealthSignup ? (
+              <div className="rounded-[18px] border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] p-4 space-y-3">
+                <div>
+                  <p className="text-[14px] font-semibold text-[var(--auth-text-primary)]">Public Health Program Setup</p>
+                  <p className="mt-1 text-xs text-[var(--auth-text-secondary)]">
+                    Configure your surveillance scope without creating hospital services, wards, or patient-care departments.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <AuthField value={publicHealthSetup.jurisdiction} onChange={(v) => setPublicHealthSetup((setup) => ({ ...setup, jurisdiction: v }))} placeholder="Jurisdiction / Coverage" />
+                  <AuthField value={publicHealthSetup.programs} onChange={(v) => setPublicHealthSetup((setup) => ({ ...setup, programs: v }))} placeholder="Programs / Diseases" />
+                </div>
+                <AuthField value={publicHealthSetup.primaryFocus} onChange={(v) => setPublicHealthSetup((setup) => ({ ...setup, primaryFocus: v }))} placeholder="Primary public health focus" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button type="button" className={`rounded-[14px] px-3 py-2 text-sm ${publicHealthSetup.dataSharing ? 'bg-[var(--auth-accent)] text-white' : 'bg-black/10 text-[var(--auth-text-secondary)]'}`} onClick={() => setPublicHealthSetup((setup) => ({ ...setup, dataSharing: !setup.dataSharing }))}>
+                    Data Sharing {publicHealthSetup.dataSharing ? 'Enabled' : 'Disabled'}
+                  </button>
+                  <button type="button" className={`rounded-[14px] px-3 py-2 text-sm ${publicHealthSetup.emergencyAlerts ? 'bg-[var(--auth-accent)] text-white' : 'bg-black/10 text-[var(--auth-text-secondary)]'}`} onClick={() => setPublicHealthSetup((setup) => ({ ...setup, emergencyAlerts: !setup.emergencyAlerts }))}>
+                    Emergency Alerts {publicHealthSetup.emergencyAlerts ? 'Enabled' : 'Disabled'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+            <div className="rounded-xl border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] p-3 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div><p className="text-sm font-semibold text-[var(--auth-text-primary)]">{BRAND.network}</p><p className="text-[11px] text-[var(--auth-text-secondary)]">Referrals, transfers, and authorized exchange.</p></div>
+                <button type="button" aria-pressed={networkForm.joinedNetwork} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold ${networkForm.joinedNetwork ? 'bg-[var(--auth-accent)] text-white' : 'bg-black/10 text-[var(--auth-text-secondary)]'}`} onClick={() => setNetworkForm((form) => ({ ...form, joinedNetwork: !form.joinedNetwork }))}>{networkForm.joinedNetwork ? 'Joined' : 'Join Network'}</button>
               </div>
               {networkForm.joinedNetwork && (
                 <div className="space-y-3">
-                  <div>
-                    <p className="text-[13px] font-medium text-[var(--auth-text-primary)]">Network Directory Visibility</p>
-                    <p className="mt-1 text-xs text-[var(--auth-text-secondary)]">Would you like your organization to appear in the VitaLink Network Directory so other healthcare organizations can discover and refer patients to you?</p>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <button type="button" className={`rounded-[14px] px-3 py-2 text-sm ${networkForm.visibleInDirectory ? 'bg-[var(--auth-accent)] text-white' : 'bg-black/10 text-[var(--auth-text-secondary)]'}`} onClick={() => setNetworkForm((form) => ({ ...form, visibleInDirectory: true }))}>
-                      Yes, Make My Organization Visible
-                    </button>
-                    <button type="button" className={`rounded-[14px] px-3 py-2 text-sm ${!networkForm.visibleInDirectory ? 'bg-[var(--auth-accent)] text-white' : 'bg-black/10 text-[var(--auth-text-secondary)]'}`} onClick={() => setNetworkForm((form) => ({ ...form, visibleInDirectory: false }))}>
-                      No, Keep My Organization Private
-                    </button>
-                  </div>
+                  <label className="flex items-center justify-between gap-3 rounded-lg bg-black/5 px-3 py-2 text-xs text-[var(--auth-text-secondary)]"><span><span className="block font-medium text-[var(--auth-text-primary)]">Directory listing</span>Let other organizations find your facility.</span><input type="checkbox" className="h-4 w-4 accent-[var(--auth-accent)]" checked={networkForm.visibleInDirectory} onChange={(event) => setNetworkForm((form) => ({ ...form, visibleInDirectory: event.target.checked }))} /></label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <AuthField value={networkForm.specialties} onChange={(v) => setNetworkForm((form) => ({ ...form, specialties: v }))} placeholder="Specialties" />
                     <AuthField value={networkForm.services} onChange={(v) => setNetworkForm((form) => ({ ...form, services: v }))} placeholder="Services" />
                     <AuthField value={networkForm.location} onChange={(v) => setNetworkForm((form) => ({ ...form, location: v }))} placeholder="Location" />
                     <AuthField value={networkForm.facilityType} onChange={(v) => setNetworkForm((form) => ({ ...form, facilityType: v }))} placeholder="Facility type" />
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                     {(['emergencyAvailable', 'laboratory', 'imaging', 'pharmacy', 'telemedicine', 'acceptingReferrals', 'acceptingTransfers'] as const).map((key) => (
-                      <label key={key} className="flex items-center gap-2 rounded-[12px] bg-black/10 px-3 py-2 text-xs text-[var(--auth-text-secondary)] capitalize">
+                      <label key={key} className="flex items-center gap-1.5 rounded-lg bg-black/5 px-2 py-1.5 text-[11px] text-[var(--auth-text-secondary)] capitalize">
                         <input type="checkbox" checked={networkForm[key]} onChange={(event) => setNetworkForm((form) => ({ ...form, [key]: event.target.checked }))} />
                         {key.replace(/([A-Z])/g, ' $1')}
                       </label>
@@ -662,12 +774,13 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                 </div>
               )}
             </div>
+            )}
 
             <Button 
               className="w-full h-[48px] rounded-full bg-[var(--auth-accent)] hover:bg-[var(--auth-accent-hover)] text-white mt-2 font-semibold text-[14px] shadow-[0_0_15px_rgba(123,77,255,0.25)]"
               onClick={handleOrgInfo}
             >
-              Continue to Plans <ArrowRight className="ml-2 w-4 h-4" />
+              Continue to Workspace Plan <ArrowRight className="ml-2 w-4 h-4" />
             </Button>
           </div>
         )}
@@ -675,7 +788,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         {/* ── Org Signup 4: Subscription ─────────────────────────── */}
         {stage === 'subscription' && (
           <div className="w-full">
-            <EnterpriseSubscription onSelect={handleSubscriptionSelect} />
+            <EnterpriseSubscription onSelect={handleSubscriptionSelect} onContactSales={() => setShowEnterpriseEnquiry(true)} />
           </div>
         )}
 
@@ -723,8 +836,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
               </p>
             </div>
             
-            <p className="text-[14px] text-[var(--auth-text-secondary)]">
-              Your enterprise workspace is ready. You are signed in as the Super Administrator.
+              <p className="text-[14px] text-[var(--auth-text-secondary)]">
+              Your {workspaceLabel(pendingUser.workspaceType ?? 'healthcare').toLowerCase()} is ready. You are signed in as the {pendingUser.role.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}.
             </p>
             
             <AuthPrimaryButton 
@@ -781,8 +894,16 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             <AuthPrimaryButton 
               label="Update Password" 
               onClick={async () => {
+                if (loginForm.password.length < 8) {
+                  setAuthError('Password must be at least 8 characters');
+                  return;
+                }
                 setLoading(true);
                 await new Promise(r => setTimeout(r, 600));
+                const updatedHash = await hashPassword(loginForm.password);
+                const users = getUsers();
+                const updatedUsers = users.map((user) => user.email.toLowerCase() === loginForm.email.toLowerCase() ? { ...user, passwordHash: updatedHash } : user);
+                setUsers(updatedUsers);
                 setLoading(false);
                 toast.success('Password updated');
                 setStage('login');
@@ -811,12 +932,24 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                   <span className="text-[11px] font-mono text-[var(--auth-text-secondary)]">
                     {user.orgSlug}.vitalink.africa
                   </span>
+                  <span className="text-[11px] text-[var(--auth-text-secondary)]">
+                    {workspaceLabel(organizationForUser(user).workspaceType)}
+                  </span>
                 </button>
               ))}
             </div>
           </div>
         )}
       </div>
+      {showEnterpriseEnquiry && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-labelledby="enterprise-enquiry-title" className="w-full max-w-md rounded-2xl border border-[var(--auth-border)] bg-[var(--auth-bg)] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4"><div><h2 id="enterprise-enquiry-title" className="text-lg font-semibold text-[var(--auth-text-primary)]">Enterprise & NGO enquiry</h2><p className="mt-1 text-xs text-[var(--auth-text-secondary)]">Tell us what your organization needs and our team will prepare a tailored quote.</p></div><button type="button" onClick={() => setShowEnterpriseEnquiry(false)} className="text-[var(--auth-text-secondary)] hover:text-[var(--auth-text-primary)]" title="Close enquiry"><X className="h-5 w-5" /></button></div>
+            <div className="mt-4 space-y-3"><AuthField value={enterpriseEnquiry.name} onChange={(name) => setEnterpriseEnquiry((form) => ({ ...form, name }))} placeholder="Your name" /><AuthField value={enterpriseEnquiry.email} onChange={(email) => setEnterpriseEnquiry((form) => ({ ...form, email }))} type="email" placeholder="Work email" /><AuthField value={enterpriseEnquiry.organization} onChange={(organization) => setEnterpriseEnquiry((form) => ({ ...form, organization }))} placeholder="Organization name" /><textarea value={enterpriseEnquiry.requirements} onChange={(event) => setEnterpriseEnquiry((form) => ({ ...form, requirements: event.target.value }))} placeholder="Special requirements" rows={3} className="w-full rounded-xl border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] px-4 py-3 text-sm text-[var(--auth-text-primary)] placeholder:text-[var(--auth-text-secondary)]/50 focus:border-[var(--auth-accent)] focus:outline-none" /></div>
+            <div className="mt-5 flex gap-3"><Button variant="outline" className="flex-1 rounded-xl" onClick={() => setShowEnterpriseEnquiry(false)}>Cancel</Button><Button className="flex-1 rounded-xl bg-[var(--auth-accent)] text-white hover:bg-[var(--auth-accent-hover)]" onClick={() => { localStorage.setItem('enterprise_enquiry', JSON.stringify({ ...enterpriseEnquiry, id: `ENQ-${Date.now()}`, submittedAt: new Date().toISOString(), status: 'received' })); setShowEnterpriseEnquiry(false); toast.success('Enterprise enquiry submitted. Our team will contact you within 24 hours.'); }}>Submit Enquiry</Button></div>
+          </div>
+        </div>
+      )}
     </AuthLayout>
   );
 }

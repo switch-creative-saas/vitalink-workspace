@@ -583,6 +583,7 @@ export type PageType =
   | 'human-resources'
   | 'administration'
   | 'switch-sentinel'
+  | 'nfc-cards'
   | 'subscription'
   | 'audit-logs'
   | 'settings'

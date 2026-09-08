@@ -7,6 +7,9 @@ import { ProfileDropdown } from '@/components/profile/ProfileDropdown';
 import { useState, useEffect } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { applyTheme, getSavedTheme, type ThemeMode } from '@/lib/theme';
+import { useAuth } from '@/contexts/AuthContext';
+import { workspaceDescriptor } from '@/lib/workspace/workspace';
+import { usePlan } from '@/hooks/usePlan';
 
 interface HeaderProps {
   title: string;
@@ -21,6 +24,11 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
   const [currentTime, setCurrentTime] = useState(new Date());
   const [theme, setTheme] = useState<ThemeMode>(() => getSavedTheme());
   const { isMobile } = useResponsive();
+  const { organization } = useAuth();
+  const { plan, isTrialActive } = usePlan();
+  const trialDaysLeft = isTrialActive && plan?.trialEndDate
+    ? Math.max(0, Math.ceil((new Date(plan.trialEndDate).getTime() - Date.now()) / 86_400_000))
+    : null;
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -67,7 +75,18 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
 
       {/* Right: Actions */}
       <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0 min-w-0">
+        {trialDaysLeft !== null && (
+          <button type="button" onClick={() => onPageChange('subscription')} className="hidden md:flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/15 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+            Trial: {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left
+            <span className="rounded-md bg-amber-500 px-1.5 py-0.5 text-[10px] text-white">Upgrade</span>
+          </button>
+        )}
         {/* Connection Status - hidden on mobile */}
+        <div className="hidden xl:flex max-w-[14rem] flex-col items-end leading-tight">
+          <span className="max-w-full truncate text-xs font-semibold text-slate-900 dark:text-slate-50">{organization.name}</span>
+          <span className="max-w-full truncate text-[10px] text-slate-600 dark:text-slate-400">{workspaceDescriptor(organization)}</span>
+        </div>
+
         <div className={cn(
           "hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium",
           isOnline 

@@ -1,5 +1,4 @@
-// Sidebar component — Sentinel submenu uses Public Health RBAC
-import { Fragment, useState, type ElementType } from 'react';
+import { type ElementType } from 'react';
 import {
   LayoutDashboard,
   CreditCard,
@@ -14,7 +13,6 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   Sparkles,
   UserCog,
   Building2,
@@ -25,26 +23,19 @@ import {
   Video,
   BrainCircuit,
   Network,
-  ShieldAlert,
-  Activity,
-  Radar,
-  AlertTriangle,
-  Globe2,
-  Link2,
-  Syringe,
-  Bell,
-  LineChart,
-  Megaphone,
-  Microscope,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useResponsive } from '@/contexts/ResponsiveContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useSubscription, type FeatureKey } from '@/contexts/SubscriptionContext';
-import { useSentinel } from '@/contexts/SentinelContext';
+import { usePlan } from '@/hooks/usePlan';
 import type { PageType } from '@/types';
-import type { SentinelTabId } from '@/types/sentinel';
 import { BRAND } from '@/config/brand';
+import {
+  BOTTOM_NAVIGATION,
+  getNavigationForWorkspace,
+  type NavigationIconKey,
+} from '@/lib/workspace/navigation';
+import { workspaceLabel } from '@/lib/workspace/organizationTypes';
 import vitalinkLogo from '@/assets/vitalink-logo.png';
 
 interface SidebarProps {
@@ -57,61 +48,49 @@ interface NavItem {
   label: string;
   icon: ElementType;
   module: string;
+  locked?: boolean;
+  requiredPlan?: string;
 }
 
-const SENTINEL_SUB_NAV: { tab: SentinelTabId; label: string; icon: ElementType }[] = [
-  { tab: 'surveillance', label: 'Surveillance Dashboard', icon: LayoutDashboard },
-  { tab: 'disease-tracking', label: 'Disease Tracking', icon: Activity },
-  { tab: 'case-reporting', label: 'Case Reporting', icon: Radar },
-  { tab: 'outbreak', label: 'Outbreak Intelligence', icon: AlertTriangle },
-  { tab: 'heatmaps', label: 'Geographic Heatmaps', icon: Globe2 },
-  { tab: 'contact-tracing', label: 'Contact Tracing', icon: Link2 },
-  { tab: 'vaccination', label: 'Vaccination Monitoring', icon: Syringe },
-  { tab: 'alerts', label: 'Public Health Alerts', icon: Bell },
-  { tab: 'epidemiology-analytics', label: 'Epidemiology Analytics', icon: LineChart },
-  { tab: 'emergency', label: 'Emergency Response', icon: Shield },
-  { tab: 'community', label: 'Community Reporting', icon: Megaphone },
-  { tab: 'ntd', label: 'NTD Monitoring', icon: Microscope },
-];
+const iconMap: Record<NavigationIconKey, ElementType> = {
+  dashboard: LayoutDashboard,
+  identity: CreditCard,
+  patients: Users,
+  emr: FileText,
+  video: Video,
+  ai: BrainCircuit,
+  network: Network,
+  appointments: CalendarDays,
+  laboratory: FlaskConical,
+  pharmacy: Pill,
+  billing: CreditCard,
+  analytics: BarChart3,
+  hr: UserCog,
+  administration: Building2,
+  subscription: Receipt,
+  audit: Shield,
+  settings: Settings,
+  'nfc-cards': CreditCard,
+};
 
-const navItems: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, module: 'Dashboard' },
-  { id: 'patient-identity', label: 'Health Identity', icon: CreditCard, module: 'Patients' },
-  { id: 'patients', label: 'Patients', icon: Users, module: 'Patients' },
-  { id: 'emr', label: 'EMR', icon: FileText, module: 'EMR' },
-  { id: 'telemedicine', label: 'Telemedicine', icon: Video, module: 'Appointments' },
-  { id: 'ai-clinical-intelligence', label: 'AI Clinical Intelligence', icon: BrainCircuit, module: 'EMR' },
-  { id: 'switch-network', label: BRAND.network, icon: Network, module: 'Administration' },
-  { id: 'appointments', label: 'Appointments', icon: CalendarDays, module: 'Appointments' },
-  { id: 'laboratory', label: 'Laboratory', icon: FlaskConical, module: 'Laboratory' },
-  { id: 'pharmacy', label: 'Pharmacy', icon: Pill, module: 'Pharmacy' },
-  { id: 'billing', label: 'Billing', icon: CreditCard, module: 'Billing' },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3, module: 'Analytics' },
-  { id: 'switch-sentinel', label: BRAND.sentinel, icon: ShieldAlert, module: 'Public Health' },
-  { id: 'human-resources', label: 'Human Resources', icon: UserCog, module: 'Human Resources' },
-  { id: 'administration', label: 'Administration', icon: Building2, module: 'Administration' },
-  { id: 'subscription', label: 'Subscription', icon: Receipt, module: 'Settings' },
-  { id: 'audit-logs', label: 'Security', icon: Shield, module: 'Settings' },
-];
-
-const bottomNavItems: NavItem[] = [
-  { id: 'settings', label: 'Settings', icon: Settings, module: 'Settings' },
-];
+function hydrateNavigation(items: ReturnType<typeof getNavigationForWorkspace>): NavItem[] {
+  return items.map((item) => ({
+    ...item,
+    icon: iconMap[item.icon],
+  }));
+}
 
 export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const { isMobile, sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useResponsive();
-  const { canView, isSuperAdmin } = useAuth();
-  const { hasAccess } = useSubscription();
+  const { canAccessPage, organization, organizationType, workspaceType } = useAuth();
+  const { hasModule } = usePlan();
+  const navItems = hydrateNavigation(getNavigationForWorkspace(workspaceType, organizationType));
+  const bottomNavItems = hydrateNavigation(BOTTOM_NAVIGATION);
 
-  const pageFeatureMap: Partial<Record<PageType, FeatureKey>> = {
-    telemedicine: 'telemedicine',
-    'ai-clinical-intelligence': 'ai_limited',
-    'switch-network': 'multi_hospital',
-    laboratory: 'laboratory',
-    pharmacy: 'pharmacy',
-    billing: 'billing',
-    analytics: 'analytics_advanced',
-    'switch-sentinel': 'public_health_sentinel',
+  const planRequirements: Partial<Record<PageType, string>> = {
+    telemedicine: 'Growth Corridor', 'ai-clinical-intelligence': 'Growth Corridor', 'switch-network': 'Growth Corridor',
+    laboratory: 'Growth Corridor', pharmacy: 'Growth Corridor', analytics: 'Growth Corridor', 'human-resources': 'Growth Corridor',
+    administration: 'Enterprise', 'audit-logs': 'Enterprise',
   };
 
   const handleNavClick = (id: PageType) => {
@@ -119,17 +98,14 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
     if (isMobile) setSidebarOpen(false);
   };
 
-  const filteredNavItems = navItems.filter(item => {
-    if (isSuperAdmin) return true;
-    const canSeeByRole = canView(item.module);
-    const requiredFeature = pageFeatureMap[item.id];
-    const canSeeByPlan = requiredFeature ? hasAccess(requiredFeature) : true;
-    return canSeeByRole && canSeeByPlan;
-  });
+  const filteredNavItems = navItems.filter((item) => canAccessPage(item.id)).map((item) => ({
+    ...item,
+    locked: workspaceType !== 'public-health' && !hasModule(item.id),
+    requiredPlan: planRequirements[item.id],
+  }));
 
   const filteredBottomNav = bottomNavItems.filter(item => {
-    if (isSuperAdmin) return true;
-    return canView(item.module);
+    return canAccessPage(item.id);
   });
 
   // Mobile drawer
@@ -168,6 +144,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
             navItems={filteredNavItems}
             bottomNavItems={filteredBottomNav}
             onToggle={() => setSidebarOpen(false)}
+            workspaceName={workspaceLabel(workspaceType)}
           />
         </aside>
       </>
@@ -192,6 +169,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
         navItems={filteredNavItems}
         bottomNavItems={filteredBottomNav}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        workspaceName={workspaceLabel(organization.workspaceType)}
       />
     </aside>
   );
@@ -204,12 +182,10 @@ interface SidebarContentProps {
   navItems: NavItem[];
   bottomNavItems: NavItem[];
   onToggle: () => void;
+  workspaceName: string;
 }
 
-function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomNavItems, onToggle }: SidebarContentProps) {
-  const { setActiveTab, allowedTabs, activeTab } = useSentinel();
-  const [sentinelPublicOpen, setSentinelPublicOpen] = useState(true);
-
+function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomNavItems, onToggle, workspaceName }: SidebarContentProps) {
   return (
     <>
       {/* Logo */}
@@ -222,7 +198,7 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
           {expanded && (
             <div className="flex flex-col">
               <span className="font-bold text-white text-sm tracking-tight">{BRAND.name}</span>
-              <span className="text-[10px] text-white/60 tracking-wider uppercase">Healthcare Platform</span>
+              <span className="text-[10px] text-white/60 tracking-wider uppercase">{workspaceName}</span>
             </div>
           )}
         </div>
@@ -244,79 +220,14 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
           const Icon = item.icon;
           const isActive = currentPage === item.id;
 
-          if (item.id === 'switch-sentinel') {
-            return (
-              <Fragment key={item.id}>
-                <button
-                  type="button"
-                  onClick={() => onPageChange('switch-sentinel')}
-                  data-tour-id="sidebar-switch-sentinel"
-                  className={cn(
-                    'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200',
-                    isActive
-                      ? 'bg-white/15 text-white border border-white/25'
-                      : 'text-white/60 hover:bg-white/10 hover:text-white border border-transparent',
-                    !expanded && 'justify-center px-2',
-                    'min-w-0',
-                  )}
-                  title={!expanded ? item.label : undefined}
-                >
-                  <Icon className={cn('w-5 h-5 flex-shrink-0 transition-transform duration-200', isActive && 'scale-110')} />
-                  {expanded && <span className="truncate min-w-0 flex-1 text-left">{item.label}</span>}
-                  {isActive && expanded && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sky-300 animate-pulse" />}
-                </button>
-
-                {expanded && allowedTabs.length > 0 && (
-                  <div className="mt-1 mb-2 rounded-xl border border-white/10 bg-white/5 px-2 py-2">
-                    <button
-                      type="button"
-                      onClick={() => setSentinelPublicOpen((o) => !o)}
-                      className="flex w-full items-center justify-between px-2 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider text-white/50 hover:text-white/80"
-                    >
-                      <span>Public Health / Sentinel</span>
-                      <ChevronDown className={cn('w-4 h-4 transition-transform', sentinelPublicOpen && 'rotate-180')} />
-                    </button>
-                    {sentinelPublicOpen && (
-                      <div className="mt-1 max-h-[min(320px,42vh)] overflow-y-auto space-y-0.5 pr-1 scrollbar-hide">
-                        {SENTINEL_SUB_NAV.filter((s) => allowedTabs.includes(s.tab)).map((s) => {
-                          const SubIcon = s.icon;
-                          const subActive = currentPage === 'switch-sentinel' && activeTab === s.tab;
-                          return (
-                            <button
-                              key={s.tab}
-                              type="button"
-                              onClick={() => {
-                                onPageChange('switch-sentinel');
-                                setActiveTab(s.tab);
-                              }}
-                              className={cn(
-                                'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition-colors min-w-0',
-                                subActive
-                                  ? 'bg-white/12 text-sky-100 border border-white/20'
-                                  : 'text-white/55 hover:bg-white/10 hover:text-white border border-transparent',
-                              )}
-                            >
-                              <SubIcon className="h-4 w-4 flex-shrink-0 opacity-90" />
-                              <span className="leading-snug truncate min-w-0 flex-1 text-left">{s.label}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </Fragment>
-            );
-          }
-
           return (
             <button
               key={item.id}
-              onClick={() => onPageChange(item.id)}
+              onClick={() => item.locked ? window.dispatchEvent(new CustomEvent('app:navigate', { detail: { path: '/subscription?upgrade=true' } })) : onPageChange(item.id)}
               data-tour-id={`sidebar-${item.id}`}
               className={cn(
-                'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200',
-                isActive
+                'group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200',
+                item.locked ? 'cursor-pointer text-white/40 hover:bg-white/10 hover:text-white/70 border border-transparent' : isActive
                   ? 'bg-white/15 text-white border border-white/25'
                   : 'text-white/60 hover:bg-white/10 hover:text-white border border-transparent',
                 !expanded && 'justify-center px-2',
@@ -326,7 +237,8 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
             >
               <Icon className={cn('w-5 h-5 flex-shrink-0 transition-transform duration-200', isActive && 'scale-110')} />
               {expanded && <span className="truncate min-w-0 flex-1 text-left">{item.label}</span>}
-              {expanded && item.id === 'subscription' && <Lock className="w-3.5 h-3.5 text-white/50 ml-auto flex-shrink-0" />}
+              {item.locked && <Lock className="h-3.5 w-3.5 shrink-0 text-white/50" />}
+              {expanded && item.locked && item.requiredPlan && <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-100 opacity-0 transition-opacity group-hover:opacity-100">{item.requiredPlan}</span>}
 
               {isActive && expanded && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sky-300 animate-pulse" />}
             </button>

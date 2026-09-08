@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
+import { Moon, Sun } from 'lucide-react';
 import { HeroVideo } from './HeroVideo';
-import { useSystemTheme } from '@/hooks/useSystemTheme';
+import { applyTheme, getSavedTheme } from '@/lib/theme';
 
 interface AuthLayoutProps {
   children: ReactNode;
@@ -9,7 +10,12 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ children, showMobileLogo = true, wide = false }: AuthLayoutProps) {
-  const theme = useSystemTheme();
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => getSavedTheme() === 'dark' ? 'dark' : 'light');
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    applyTheme(nextTheme);
+  };
 
   return (
     <div
@@ -17,7 +23,7 @@ export function AuthLayout({ children, showMobileLogo = true, wide = false }: Au
       style={{ backgroundColor: 'var(--auth-bg)', color: 'var(--auth-text-primary)' }}
     >
       {/* ── LEFT — Hero Video Panel (55%) ─────────────────── */}
-      <div className="hidden md:flex md:w-[50%] lg:w-[55%] h-screen relative">
+      <div className="hidden lg:flex w-[55%] h-screen relative overflow-hidden">
         <HeroVideo
           videoSrc="/auth-hero.mp4"
           poster="/auth-poster.png"
@@ -28,7 +34,10 @@ export function AuthLayout({ children, showMobileLogo = true, wide = false }: Au
       </div>
 
       {/* ── RIGHT — Auth Form Panel (45%) ─────────────────── */}
-      <div className="w-full md:w-[50%] lg:w-[45%] h-screen flex flex-col justify-between relative auth-glass-panel overflow-hidden">
+      <div className="w-full lg:w-[45%] h-screen relative overflow-y-auto px-6 sm:px-8 lg:px-16">
+        <button type="button" onClick={toggleTheme} className="absolute right-6 top-6 z-20 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--auth-border)] text-[var(--auth-text-secondary)] transition-colors hover:bg-[var(--auth-input-bg)] hover:text-[var(--auth-text-primary)]" title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
+          {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+        </button>
 
         {/* Mobile Logo */}
         {showMobileLogo && (
@@ -37,21 +46,17 @@ export function AuthLayout({ children, showMobileLogo = true, wide = false }: Au
           </div>
         )}
 
-        {/* Center Auth Card — flex-1 centers vertically */}
-        <div className="flex-1 flex items-center justify-center px-6 md:px-10 w-full">
-          <div className={`w-full ${wide ? 'max-w-[780px]' : 'max-w-[560px]'} z-10`}>
-            <div className="auth-glass-container relative z-10">
-              {children}
-            </div>
+        {/* Content remains centered while it fits, and becomes naturally scrollable on constrained viewports. */}
+        <div className="flex min-h-full w-full flex-col items-center justify-center py-20">
+          <div className={`w-full ${wide ? 'max-w-[840px]' : 'max-w-[380px]'} z-10`}>
+            {children}
           </div>
-        </div>
-
-        {/* Pinned Legal Footer — flex flow aligned to bottom, never overlaps */}
-        <div className="w-full text-center z-10 text-[12px] text-gray-500 font-medium pb-6 px-6">
-          By continuing, you agree to VitaLink's{' '}
-          <a href="#" className="text-gray-400 hover:text-[var(--auth-text-primary)] underline transition-colors">Terms of Service</a>
-          {' '}and{' '}
-          <a href="#" className="text-gray-400 hover:text-[var(--auth-text-primary)] underline transition-colors">Privacy Policy</a>.
+          <div className="mt-8 w-full text-center text-xs text-gray-500 font-medium px-2">
+            By continuing, you agree to VitaLink's{' '}
+            <a href="#" className="text-gray-400 hover:text-[var(--auth-text-primary)] underline transition-colors">Terms of Service</a>
+            {' '}and{' '}
+            <a href="#" className="text-gray-400 hover:text-[var(--auth-text-primary)] underline transition-colors">Privacy Policy</a>.
+          </div>
         </div>
       </div>
     </div>

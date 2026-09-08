@@ -1,4 +1,10 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
+import type { PageType } from '@/types';
+import {
+  DEFAULT_HEALTHCARE_ORGANIZATION,
+  canAccessPageForWorkspace,
+} from '@/lib/workspace/workspace';
+import type { OrganizationProfile, OrganizationType, WorkspaceType } from '@/lib/workspace/organizationTypes';
 
 // ============================================
 // RBAC TYPES (INLINE TO AVOID IMPORT ISSUES)
@@ -21,7 +27,17 @@ export type UserRole =
   | 'epidemiologist'
   | 'government-authority'
   | 'community-health-worker'
-  | 'who-ngo-observer';
+  | 'who-ngo-observer'
+  | 'ngo-admin'
+  | 'program-manager'
+  | 'data-monitoring-officer'
+  | 'field-officer'
+  | 'public-health-viewer'
+  | 'government-admin'
+  | 'public-health-director'
+  | 'surveillance-officer'
+  | 'data-analyst'
+  | 'government-viewer';
 
 type PermissionAction = 'view' | 'create' | 'edit' | 'delete' | 'export' | 'approve';
 
@@ -230,6 +246,92 @@ const ROLE_CONFIGS: Record<UserRole, RoleConfig> = {
       { module: 'Public Health', actions: ['view'] },
     ],
   },
+  'ngo-admin': {
+    name: 'NGO Admin',
+    description: 'Public health NGO workspace administrator',
+    permissions: [
+      { module: 'Dashboard', actions: ['view', 'export'] },
+      { module: 'Public Health', actions: ['view', 'create', 'edit', 'export', 'approve'] },
+      { module: 'Settings', actions: ['view', 'edit'] },
+    ],
+  },
+  'program-manager': {
+    name: 'Program Manager',
+    description: 'Program oversight and public health response',
+    permissions: [
+      { module: 'Dashboard', actions: ['view'] },
+      { module: 'Public Health', actions: ['view', 'create', 'edit', 'export'] },
+      { module: 'Settings', actions: ['view'] },
+    ],
+  },
+  'data-monitoring-officer': {
+    name: 'Data Monitoring Officer',
+    description: 'Surveillance data review and reporting',
+    permissions: [
+      { module: 'Dashboard', actions: ['view'] },
+      { module: 'Public Health', actions: ['view', 'create', 'export'] },
+    ],
+  },
+  'field-officer': {
+    name: 'Field Officer',
+    description: 'Community and field case reporting',
+    permissions: [
+      { module: 'Dashboard', actions: ['view'] },
+      { module: 'Public Health', actions: ['view', 'create'] },
+    ],
+  },
+  'public-health-viewer': {
+    name: 'Public Health Viewer',
+    description: 'Read-only public health visibility',
+    permissions: [
+      { module: 'Dashboard', actions: ['view'] },
+      { module: 'Public Health', actions: ['view'] },
+    ],
+  },
+  'government-admin': {
+    name: 'Government Admin',
+    description: 'Government public health workspace administrator',
+    permissions: [
+      { module: 'Dashboard', actions: ['view', 'export', 'approve'] },
+      { module: 'Administration', actions: ['view', 'create', 'edit', 'approve'] },
+      { module: 'Public Health', actions: ['view', 'create', 'edit', 'delete', 'export', 'approve'] },
+      { module: 'Settings', actions: ['view', 'edit'] },
+    ],
+  },
+  'public-health-director': {
+    name: 'Public Health Director',
+    description: 'Strategic surveillance and outbreak command',
+    permissions: [
+      { module: 'Dashboard', actions: ['view', 'export', 'approve'] },
+      { module: 'Public Health', actions: ['view', 'create', 'edit', 'export', 'approve'] },
+      { module: 'Settings', actions: ['view'] },
+    ],
+  },
+  'surveillance-officer': {
+    name: 'Surveillance Officer',
+    description: 'Disease surveillance and alert triage',
+    permissions: [
+      { module: 'Dashboard', actions: ['view'] },
+      { module: 'Public Health', actions: ['view', 'create', 'edit', 'export'] },
+    ],
+  },
+  'data-analyst': {
+    name: 'Data Analyst',
+    description: 'Public health analytics and reporting',
+    permissions: [
+      { module: 'Dashboard', actions: ['view'] },
+      { module: 'Public Health', actions: ['view', 'export'] },
+      { module: 'Settings', actions: ['view'] },
+    ],
+  },
+  'government-viewer': {
+    name: 'Government Viewer',
+    description: 'Read-only government public health visibility',
+    permissions: [
+      { module: 'Dashboard', actions: ['view'] },
+      { module: 'Public Health', actions: ['view'] },
+    ],
+  },
 };
 
 const MODULE_MAP: Record<string, string> = {
@@ -270,6 +372,10 @@ export interface AuthContextType {
   canApprove: (module: string) => boolean;
   canAccessPage: (page: string) => boolean;
   hasPermission: (module: string, action: string) => boolean;
+  organization: OrganizationProfile;
+  organizationType: OrganizationType;
+  workspaceType: WorkspaceType;
+  setActiveOrganization: (organization: OrganizationProfile | null) => void;
   isSuperAdmin: boolean;
   isDoctor: boolean;
   isReceptionist: boolean;
@@ -293,6 +399,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Try to get from localStorage
     const saved = localStorage.getItem('vitalink-role');
     return (saved as UserRole) || 'super-admin';
+  });
+  const [organization, setOrganization] = useState<OrganizationProfile>(() => {
+    const raw = localStorage.getItem('vitalink-active-organization');
+    if (!raw) return DEFAULT_HEALTHCARE_ORGANIZATION;
+    try {
+      return JSON.parse(raw) as OrganizationProfile;
+    } catch {
+      return DEFAULT_HEALTHCARE_ORGANIZATION;
+    }
   });
 
   const roleConfig = ROLE_CONFIGS[currentRole];
@@ -320,9 +435,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const canApprove = (module: string) => hasPermission(module, 'approve');
 
   const canAccessPage = (page: string): boolean => {
+    const pageType = page as PageType;
+    if (!canAccessPageForWorkspace({
+      page: pageType,
+      role: currentRole,
+      workspaceType: organization.workspaceType,
+      organizationType: organization.organizationType,
+    })) {
+      return false;
+    }
+
     const module = MODULE_MAP[page];
     if (!module) return false;
     if (currentRole === 'super-admin') return true;
+    if (organization.workspaceType === 'public-health') return true;
     return canView(module);
   };
 
@@ -344,6 +470,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     'government-authority': { name: 'Gov. Authority Panel', email: 'authority@vitalink.africa', avatar: 'GA' },
     'community-health-worker': { name: 'CHW Fatima Yusuf', email: 'chw@vitalink.africa', avatar: 'CH' },
     'who-ngo-observer': { name: 'WHO Observer', email: 'observer@vitalink.africa', avatar: 'WO' },
+    'ngo-admin': { name: 'NGO Admin', email: 'ngo.admin@vitalink.africa', avatar: 'NA' },
+    'program-manager': { name: 'Program Manager', email: 'programs@vitalink.africa', avatar: 'PM' },
+    'data-monitoring-officer': { name: 'Data Monitoring Officer', email: 'monitoring@vitalink.africa', avatar: 'DM' },
+    'field-officer': { name: 'Field Officer', email: 'field@vitalink.africa', avatar: 'FO' },
+    'public-health-viewer': { name: 'Public Health Viewer', email: 'viewer@vitalink.africa', avatar: 'PV' },
+    'government-admin': { name: 'Government Admin', email: 'gov.admin@vitalink.africa', avatar: 'GA' },
+    'public-health-director': { name: 'Public Health Director', email: 'director@vitalink.africa', avatar: 'PD' },
+    'surveillance-officer': { name: 'Surveillance Officer', email: 'surveillance@vitalink.africa', avatar: 'SO' },
+    'data-analyst': { name: 'Data Analyst', email: 'analytics@vitalink.africa', avatar: 'DA' },
+    'government-viewer': { name: 'Government Viewer', email: 'gov.viewer@vitalink.africa', avatar: 'GV' },
   };
 
   const userInfo = roleDisplayInfo[currentRole];
@@ -363,6 +499,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('vitalink-user-profile');
   };
 
+  const setActiveOrganization = (nextOrganization: OrganizationProfile | null) => {
+    const resolved = nextOrganization ?? DEFAULT_HEALTHCARE_ORGANIZATION;
+    setOrganization(resolved);
+    localStorage.setItem('vitalink-active-organization', JSON.stringify(resolved));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -377,6 +519,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         canApprove,
         canAccessPage,
         hasPermission,
+        organization,
+        organizationType: organization.organizationType,
+        workspaceType: organization.workspaceType,
+        setActiveOrganization,
         isSuperAdmin: currentRole === 'super-admin',
         isDoctor: currentRole === 'doctor',
         isReceptionist: currentRole === 'receptionist',

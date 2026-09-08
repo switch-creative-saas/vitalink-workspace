@@ -1,415 +1,45 @@
-import { useMemo, useState } from 'react';
-import {
-  CheckCircle2,
-  CreditCard,
-  Download,
-  Lock,
-  MoreHorizontal,
-  Plus,
-  Shield,
-  Sparkles,
-  Zap,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Activity, CheckCircle2, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { PRICING_TIERS, SENTINEL_ADDON, type PricingTier, type PricingTierId } from '@/data/pricingTiers';
+import { saveWorkspacePlan, usePlan, type WorkspacePlan } from '@/hooks/usePlan';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useSubscription, type PlanTier } from '@/contexts/SubscriptionContext';
 
-const PLAN_PRICING: Record<PlanTier, { monthly: number; annual: number; title: string; description: string }> = {
-  free: { monthly: 0, annual: 0, title: 'Freemium', description: 'Small clinics and pilot usage' },
-  pro: { monthly: 150000, annual: 1350000, title: 'Pro', description: 'Standard hospital operations' },
-  enterprise: { monthly: 500000, annual: 4500000, title: 'Enterprise', description: 'Large multi-hospital networks' },
-};
+const encounterUsage = 847;
+const addonFeatures = ['Real-time outbreak detection', 'Nigeria disease heatmaps', 'Automatic NCDC reporting', 'NTD program tracking', 'Contact tracing tools', 'Epidemiology dashboard'];
 
-const PLAN_FEATURES: Record<PlanTier, string[]> = {
-  free: ['Patient Management (Basic)', 'Appointments (Limited)', 'EMR Notes (Basic)'],
-  pro: ['Full EMR', 'Laboratory', 'Pharmacy', 'Billing & Insurance', 'Analytics Dashboard', 'Limited VitaMind AI'],
-  enterprise: ['Telemedicine', 'Full VitaMind AI', 'Multi-Hospital Network', 'Advanced Analytics', 'Custom Workflows', 'API Access'],
-};
+function createPlan(tier: PricingTier, billingCycle: 'monthly' | 'annual', sentinelAddon = false): WorkspacePlan {
+  return { tierId: tier.id, tierName: tier.name, billingCycle, price: billingCycle === 'annual' ? tier.annualPrice : tier.monthlyPrice, modules: tier.modules, sentinelIncluded: tier.sentinelIncluded, sentinelAddon };
+}
 
 export function SubscriptionPage() {
-  const {
-    DEV_OVERRIDE,
-    tenantId,
-    setTenantId,
-    subscription,
-    limits,
-    paymentMethods,
-    invoices,
-    updatePlan,
-    toggleAutoRenew,
-    addPaymentMethod,
-    setDefaultPaymentMethod,
-    editPaymentMethod,
-    removePaymentMethod,
-    usagePct,
-    isUsageBlocked,
-    trackUsage,
-    billingAuditLogs,
-    addAudit,
-  } = useSubscription();
+  const { tier, plan } = usePlan();
+  const [cycle, setCycle] = useState<'monthly' | 'annual'>(plan?.billingCycle ?? 'annual');
+  const [showEnquiry, setShowEnquiry] = useState(false);
+  const [enquiry, setEnquiry] = useState({ name: '', role: '', email: '', phone: '', orgName: '', orgType: 'Tertiary Hospital', beds: '', sites: '', requirements: '' });
+  const [highlightSentinel, setHighlightSentinel] = useState(false);
 
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [cycle, setCycle] = useState(subscription.billingCycle);
-  const [coupon, setCoupon] = useState('');
-  const [paymentForm, setPaymentForm] = useState({
-    type: 'card' as 'card' | 'bank_transfer',
-    cardBrand: 'Visa' as 'Visa' | 'Mastercard',
-    cardLast4: '',
-    bankName: '',
-    bankAccountEnding: '',
-  });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('addon') === 'sentinel') { document.getElementById('sentinel-addon')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); setHighlightSentinel(true); }
+  }, []);
 
-  const currentPrice = PLAN_PRICING[subscription.plan][subscription.billingCycle];
-  const planAmount = currentPrice.toLocaleString();
-  const hasGraceWarning = !subscription.autoRenew || Boolean(subscription.gracePeriodEndsAt);
-
-  const usageItems = useMemo(
-    () => [
-      {
-        key: 'staff' as const,
-        label: 'Staff usage',
-        value: `${subscription.usage.staff} / ${limits.staff === 'unlimited' ? 'Unlimited' : limits.staff}`,
-        pct: usagePct('staff'),
-      },
-      {
-        key: 'patients' as const,
-        label: 'Patient records',
-        value: `${subscription.usage.patients.toLocaleString()} / ${limits.patients === 'unlimited' ? 'Unlimited' : limits.patients.toLocaleString()}`,
-        pct: usagePct('patients'),
-      },
-      {
-        key: 'storageGB' as const,
-        label: 'Storage',
-        value: `${subscription.usage.storageGB} GB / ${limits.storageGB === 'unlimited' ? 'Unlimited' : `${limits.storageGB} GB`}`,
-        pct: usagePct('storageGB'),
-      },
-    ],
-    [subscription, limits, usagePct],
-  );
-
-  const applyCoupon = () => {
-    if (!coupon.trim()) return toast.error('Enter coupon code');
-    addAudit(`Coupon applied: ${coupon.toUpperCase()}`);
-    toast.success('Coupon applied. Discount will reflect on next invoice.');
+  const updateTier = (nextTier: PricingTier) => {
+    if (nextTier.id === 'enterprise') { setShowEnquiry(true); return; }
+    saveWorkspacePlan(createPlan(nextTier, cycle, plan?.sentinelAddon ?? false));
+    toast.success(`Workspace plan updated to ${nextTier.name}`);
   };
+  const addSentinel = () => { saveWorkspacePlan(createPlan(tier, plan?.billingCycle ?? cycle, true)); toast.success('Sentinel add-on activated'); };
+  const submitEnquiry = () => { localStorage.setItem('enterprise_enquiry', JSON.stringify({ ...enquiry, id: `ENQ-${Date.now()}`, submittedAt: new Date().toISOString(), status: 'received' })); setShowEnquiry(false); toast.success('Enterprise enquiry submitted. Our team will contact you within 24 hours.'); };
+  const effectivePrice = plan?.billingCycle === 'annual' ? tier.monthlyEffective : tier.monthlyPrice;
+  const usagePercent = tier.encountersPerMonth ? Math.min(100, (encounterUsage / tier.encountersPerMonth) * 100) : 0;
 
-  const savePaymentMethod = () => {
-    if (paymentForm.type === 'card') {
-      if (!paymentForm.cardLast4 || paymentForm.cardLast4.length !== 4) return toast.error('Enter last 4 card digits');
-      addPaymentMethod({ type: 'card', brand: paymentForm.cardBrand, last4: paymentForm.cardLast4 });
-    } else {
-      if (!paymentForm.bankName || !paymentForm.bankAccountEnding) return toast.error('Enter bank details');
-      addPaymentMethod({ type: 'bank_transfer', accountBank: paymentForm.bankName, accountEnding: paymentForm.bankAccountEnding });
-    }
-    setShowPaymentModal(false);
-    setPaymentForm({ type: 'card', cardBrand: 'Visa', cardLast4: '', bankName: '', bankAccountEnding: '' });
-    toast.success('Payment method saved with tokenized structure');
-  };
-
-  return (
-    <div className="space-y-4 md:space-y-6 page-transition">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Subscription & Billing</h1>
-          <p className="text-sm text-gray-500 mt-1">Revenue engine, feature access control, and multi-hospital SaaS tenancy.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <select className="rounded-xl border border-input px-3 py-2 text-sm" value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
-            <option value="tenant-lagos">Lagos Tenant</option>
-            <option value="tenant-abuja">Abuja Tenant</option>
-          </select>
-          <Button className="bg-gradient-to-r from-royal-500 to-royal-700 text-white gap-2 rounded-xl" onClick={() => setShowUpgradeModal(true)}>
-            <Zap className="w-4 h-4" />
-            Upgrade Plan
-          </Button>
-        </div>
-      </div>
-
-      <div className="premium-card overflow-hidden">
-        <div className="bg-gradient-to-r from-royal-500 to-royal-700 p-6 text-white">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="px-2.5 py-1 rounded-full bg-white/20 text-xs font-medium">Current Plan</span>
-                <span className="px-2.5 py-1 rounded-full bg-green-400/30 text-green-200 text-xs font-medium">{subscription.plan.toUpperCase()}</span>
-                {DEV_OVERRIDE && <span className="px-2.5 py-1 rounded-full bg-amber-400/30 text-amber-100 text-xs font-medium">DEV_OVERRIDE ON</span>}
-              </div>
-              <h2 className="text-3xl font-bold">{PLAN_PRICING[subscription.plan].title}</h2>
-              <p className="text-white/80 text-sm mt-1">Tenant: {subscription.tenantName} • Next billing: {subscription.nextBillingAt}</p>
-            </div>
-            <div className="text-left lg:text-right">
-              <p className="text-3xl font-bold">NGN {planAmount}</p>
-              <p className="text-white/70">per {subscription.billingCycle === 'annual' ? 'year' : 'month'}</p>
-            </div>
-          </div>
-        </div>
-        <div className="p-5 space-y-4">
-          <div className="grid md:grid-cols-3 gap-3">
-            {usageItems.map((item) => (
-              <div key={item.key}>
-                <div className="flex justify-between text-xs mb-1">
-                  <span className="text-gray-500">{item.label}</span>
-                  <span className="font-medium text-gray-800">{item.value}</span>
-                </div>
-                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                  <div className={cn('h-full rounded-full transition-all', item.pct > 90 ? 'bg-red-500' : item.pct > 75 ? 'bg-amber-500' : 'bg-royal-500')} style={{ width: `${item.pct}%` }} />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-3 rounded-xl bg-gray-50">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Auto-Renewal</p>
-              <p className="text-xs text-gray-500">If disabled, access may be restricted after expiration.</p>
-            </div>
-            <Switch checked={subscription.autoRenew} onCheckedChange={toggleAutoRenew} />
-          </div>
-          {hasGraceWarning && (
-            <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800">
-              Access may be restricted after expiration. Grace period: 7 days. Excess staff/patients will be archived on downgrade.
-            </div>
-          )}
-          <div className="grid md:grid-cols-3 gap-2">
-            <Button variant="outline" size="sm" onClick={() => trackUsage('staff', subscription.usage.staff + 1)} disabled={isUsageBlocked('staff')}>
-              +1 Staff Usage
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => trackUsage('patients', subscription.usage.patients + 5)} disabled={isUsageBlocked('patients')}>
-              +5 Patient Usage
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => trackUsage('storageGB', Number((subscription.usage.storageGB + 0.1).toFixed(1)))} disabled={isUsageBlocked('storageGB')}>
-              +0.1GB Storage
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid xl:grid-cols-2 gap-4">
-        <div className="premium-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">Payment Methods</h3>
-            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowPaymentModal(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Payment Method
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {paymentMethods.map((pm) => (
-              <div key={pm.id} className="p-3 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {pm.type === 'card' ? `${pm.brand} •••• ${pm.last4}` : `${pm.accountBank} transfer •••• ${pm.accountEnding}`}
-                  </p>
-                  <p className="text-xs text-gray-500">Encrypted tokenized storage</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {pm.isDefault && <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 text-xs">Default</span>}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="p-2 rounded-lg hover:bg-gray-200 text-gray-500"><MoreHorizontal className="w-4 h-4" /></button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="glass-panel border-white/60">
-                      <DropdownMenuItem onClick={() => setDefaultPaymentMethod(pm.id)}>Set Default</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => editPaymentMethod(pm.id, { accountBank: pm.accountBank ?? 'Updated Bank' })}>Edit</DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600" onClick={() => removePaymentMethod(pm.id)}>Remove Method</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 p-3 rounded-xl border border-gray-100 bg-gray-50 text-xs text-gray-600">
-            Nigerian payment support scaffolded for Paystack/Flutterwave provider integration.
-          </div>
-        </div>
-
-        <div className="premium-card p-5">
-          <h3 className="font-semibold text-gray-900 mb-3">Coupons, Trial, and Enterprise Sales</h3>
-          <div className="space-y-3">
-            <div>
-              <Label>Promo Code</Label>
-              <div className="flex gap-2 mt-1">
-                <Input value={coupon} onChange={(e) => setCoupon(e.target.value)} placeholder="e.g. SH-PRO-15" />
-                <Button variant="outline" onClick={applyCoupon}>Apply</Button>
-              </div>
-            </div>
-            <div className="rounded-xl bg-indigo-50 border border-indigo-100 p-3 text-sm text-indigo-800">
-              14-day Pro trial available for free tenants. Auto-downgrade applies after trial expiration.
-            </div>
-            <Button className="w-full bg-gradient-to-r from-[#5B21B6] to-[#7C3AED] text-white">
-              <Sparkles className="w-4 h-4 mr-2" />
-              Contact Sales for Custom Enterprise Pricing
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="premium-card overflow-hidden">
-        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-900">Billing Engine: Invoices & History</h3>
-          <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-2" />Export</Button>
-        </div>
-        <div className="responsive-table-wrap">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Invoice</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Plan</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Cycle</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Amount</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Tax</th>
-                <th className="px-4 py-3 text-left text-xs text-gray-500 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {invoices.filter((invoice) => invoice.tenantId === tenantId).map((invoice) => (
-                <tr key={invoice.id} className="border-t border-gray-50">
-                  <td className="px-4 py-3 text-sm font-mono text-royal-700">{invoice.invoiceNumber}</td>
-                  <td className="px-4 py-3 text-sm capitalize">{invoice.plan}</td>
-                  <td className="px-4 py-3 text-sm capitalize">{invoice.cycle}</td>
-                  <td className="px-4 py-3 text-sm">NGN {invoice.amount.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm">NGN {invoice.tax.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={cn('px-2 py-1 rounded-full text-xs', invoice.status === 'paid' ? 'bg-green-100 text-green-700' : invoice.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700')}>
-                      {invoice.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="premium-card p-5">
-        <h3 className="font-semibold text-gray-900 mb-3">Plan Comparison & Feature Locks</h3>
-        <div className="grid lg:grid-cols-3 gap-3">
-          {(['free', 'pro', 'enterprise'] as PlanTier[]).map((plan) => (
-            <div key={plan} className={cn('rounded-2xl p-4 border transition-all', subscription.plan === plan ? 'border-royal-300 bg-royal-50' : 'border-gray-100 bg-white')}>
-              <p className="text-sm font-semibold text-gray-900">{PLAN_PRICING[plan].title}</p>
-              <p className="text-xs text-gray-500">{PLAN_PRICING[plan].description}</p>
-              <p className="text-xl font-bold text-gray-900 mt-2">NGN {PLAN_PRICING[plan][cycle].toLocaleString()} <span className="text-xs font-normal text-gray-500">/{cycle === 'annual' ? 'year' : 'month'}</span></p>
-              <div className="mt-3 space-y-1">
-                {PLAN_FEATURES[plan].map((feature) => (
-                  <p key={feature} className="text-xs text-gray-700 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5 text-green-600" />{feature}</p>
-                ))}
-              </div>
-              <Button size="sm" className="w-full mt-3" variant={subscription.plan === plan ? 'outline' : 'default'} onClick={() => updatePlan(plan, cycle)}>
-                {subscription.plan === plan ? 'Current Plan' : 'Change Plan'}
-              </Button>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4 rounded-xl border border-amber-100 bg-amber-50 p-3 text-sm text-amber-800 flex items-center gap-2">
-          <Lock className="w-4 h-4" />
-          Disabled features are blurred/locked in modules with an upgrade prompt when unavailable.
-        </div>
-      </div>
-
-      <div className="premium-card p-5">
-        <h3 className="font-semibold text-gray-900 mb-3">Security + Billing Audit Trail</h3>
-        <div className="space-y-2">
-          {billingAuditLogs.length === 0 ? (
-            <p className="text-sm text-gray-500">No billing audit events yet.</p>
-          ) : (
-            billingAuditLogs.slice(0, 10).map((log) => (
-              <div key={log} className="p-3 rounded-lg border border-gray-100 bg-gray-50 text-sm text-gray-700">{log}</div>
-            ))
-          )}
-        </div>
-      </div>
-
-      <Dialog open={showUpgradeModal} onOpenChange={setShowUpgradeModal}>
-        <DialogContent className="glass-panel border-white/60 max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Upgrade Plan</DialogTitle>
-            <DialogDescription>Freemium, Pro, and Enterprise plans with role + plan-based module access.</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-center">
-            <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
-              <button onClick={() => setCycle('monthly')} className={cn('px-4 py-2 rounded-lg text-sm', cycle === 'monthly' ? 'bg-white text-royal-700 shadow-sm' : 'text-gray-500')}>Monthly</button>
-              <button onClick={() => setCycle('annual')} className={cn('px-4 py-2 rounded-lg text-sm', cycle === 'annual' ? 'bg-white text-royal-700 shadow-sm' : 'text-gray-500')}>Annual</button>
-            </div>
-          </div>
-          <div className="grid md:grid-cols-3 gap-3">
-            {(['free', 'pro', 'enterprise'] as PlanTier[]).map((plan) => (
-              <div key={plan} className={cn('rounded-2xl p-4 border', plan === 'pro' ? 'bg-gradient-to-b from-royal-500 to-royal-700 text-white border-royal-200' : 'bg-white border-gray-100')}>
-                <p className="font-semibold">{PLAN_PRICING[plan].title}</p>
-                <p className={cn('text-xs mt-1', plan === 'pro' ? 'text-white/80' : 'text-gray-500')}>{PLAN_PRICING[plan].description}</p>
-                <p className="text-2xl font-bold mt-2">NGN {PLAN_PRICING[plan][cycle].toLocaleString()}</p>
-                <Button className={cn('w-full mt-3', plan === 'pro' ? 'bg-white text-royal-700 hover:bg-gray-100' : 'bg-gradient-to-r from-royal-500 to-royal-700 text-white')} onClick={() => updatePlan(plan, cycle)}>
-                  {plan === subscription.plan ? 'Current Plan' : plan === 'enterprise' ? 'Upgrade / Contact Sales' : 'Upgrade'}
-                </Button>
-              </div>
-            ))}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUpgradeModal(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showPaymentModal} onOpenChange={setShowPaymentModal}>
-        <DialogContent className="glass-panel border-white/60 max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Add Payment Method</DialogTitle>
-            <DialogDescription>Supports Visa, Mastercard, and Nigerian bank transfer setup.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Method</Label>
-              <select className="w-full mt-1 rounded-md border border-input px-3 py-2 text-sm" value={paymentForm.type} onChange={(e) => setPaymentForm((prev) => ({ ...prev, type: e.target.value as 'card' | 'bank_transfer' }))}>
-                <option value="card">Card (Visa/Mastercard)</option>
-                <option value="bank_transfer">Bank Transfer (Nigeria)</option>
-              </select>
-            </div>
-            {paymentForm.type === 'card' ? (
-              <>
-                <div>
-                  <Label>Card Brand</Label>
-                  <select className="w-full mt-1 rounded-md border border-input px-3 py-2 text-sm" value={paymentForm.cardBrand} onChange={(e) => setPaymentForm((prev) => ({ ...prev, cardBrand: e.target.value as 'Visa' | 'Mastercard' }))}>
-                    <option value="Visa">Visa</option>
-                    <option value="Mastercard">Mastercard</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Last 4 Digits</Label>
-                  <Input maxLength={4} value={paymentForm.cardLast4} onChange={(e) => setPaymentForm((prev) => ({ ...prev, cardLast4: e.target.value.replace(/\D/g, '') }))} />
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <Label>Bank Name</Label>
-                  <Input value={paymentForm.bankName} onChange={(e) => setPaymentForm((prev) => ({ ...prev, bankName: e.target.value }))} />
-                </div>
-                <div>
-                  <Label>Account Ending</Label>
-                  <Input maxLength={4} value={paymentForm.bankAccountEnding} onChange={(e) => setPaymentForm((prev) => ({ ...prev, bankAccountEnding: e.target.value.replace(/\D/g, '') }))} />
-                </div>
-              </>
-            )}
-            <div className="rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs text-gray-600 flex items-center gap-2">
-              <Shield className="w-4 h-4" />
-              Payment details are tokenized and never stored as raw card/bank credentials.
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-            <Button className="bg-gradient-to-r from-royal-500 to-royal-700 text-white" onClick={savePaymentMethod}>
-              <CreditCard className="w-4 h-4 mr-2" />
-              Save Method
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
+  return <div className="mx-auto max-w-6xl space-y-6 page-transition">
+    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end"><div><h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Subscription & Billing</h1><p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Manage your workspace plan, access, and platform add-ons.</p></div><div className="flex rounded-xl border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900">{(['monthly', 'annual'] as const).map((value) => <button key={value} type="button" onClick={() => setCycle(value)} className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${cycle === value ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300'}`}>{value === 'monthly' ? 'Monthly' : 'Annual (save 15%)'}</button>)}</div></div>
+    <section className="rounded-2xl border border-indigo-200 bg-indigo-50 p-6 dark:border-indigo-500/30 dark:bg-indigo-500/10"><div className="flex flex-col justify-between gap-4 sm:flex-row"><div><p className="text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">Current plan</p><h2 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-50">{tier.name}</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{tier.tagline}</p></div><div className="sm:text-right"><p className="text-3xl font-bold text-slate-900 dark:text-slate-50">{effectivePrice ? `N${effectivePrice.toLocaleString()}` : 'Custom'}<span className="ml-1 text-base font-normal text-slate-500 dark:text-slate-400">/mo</span></p>{plan?.billingCycle === 'annual' && tier.annualPrice && <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-300">N{tier.annualPrice.toLocaleString()} billed annually, 15% saved</p>}</div></div>{tier.encountersPerMonth && <div className="mt-5"><div className="mb-1 flex justify-between text-xs text-slate-600 dark:text-slate-400"><span>Offline encounters this month</span><span>{encounterUsage} / {tier.encountersPerMonth.toLocaleString()}</span></div><div className="h-2 overflow-hidden rounded-full bg-indigo-100 dark:bg-slate-800"><div className="h-full rounded-full bg-indigo-600" style={{ width: `${usagePercent}%` }} /></div></div>}</section>
+    <section><div className="mb-3"><h2 className="text-lg font-bold text-slate-900 dark:text-slate-50">Choose a workspace plan</h2><p className="mt-1 text-sm text-slate-600 dark:text-slate-400">All plans include a one-time hardware and deployment fee.</p></div><div className="grid gap-4 lg:grid-cols-3">{PRICING_TIERS.map((item) => <article key={item.id} className={`relative flex flex-col rounded-xl border p-5 ${item.id === tier.id ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900'}`}>{item.highlighted && <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-1 text-xs font-bold text-white">Most popular</span>}<h3 className="font-bold text-slate-900 dark:text-slate-50">{item.name}</h3><p className="mt-1 min-h-10 text-sm text-slate-600 dark:text-slate-400">{item.tagline}</p><div className="my-4"><span className="text-2xl font-bold text-slate-900 dark:text-slate-50">{(cycle === 'annual' ? item.monthlyEffective : item.monthlyPrice) ? `N${(cycle === 'annual' ? item.monthlyEffective : item.monthlyPrice)!.toLocaleString()}` : 'Custom'}</span><span className="ml-1 text-sm text-slate-500 dark:text-slate-400">/mo</span><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">+ N{item.hardwareFee.toLocaleString()} one-time setup</p></div><ul className="space-y-2">{item.features.slice(0, 6).map((feature) => <li key={feature.name} className={`flex gap-2 text-sm ${feature.included ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}><CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${feature.included ? 'text-emerald-600 dark:text-emerald-300' : 'opacity-40'}`} />{feature.name}{feature.limit && <span className="text-xs text-slate-500">({feature.limit})</span>}</li>)}</ul><p className="mt-4 rounded-lg bg-slate-100 p-2.5 text-center text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">{item.encountersPerMonth ? `${item.encountersPerMonth.toLocaleString()} offline encounters/mo` : 'Unlimited offline encounters'}</p><button type="button" disabled={item.id === tier.id} onClick={() => updateTier(item)} className="mt-4 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-indigo-500 disabled:cursor-default disabled:bg-slate-200 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-300">{item.id === tier.id ? 'Current plan' : item.id === 'enterprise' ? 'Contact sales' : `${item.id === 'starter' ? 'Downgrade' : 'Upgrade'} to ${item.name}`}</button></article>)}</div></section>
+    <div className="grid gap-5 lg:grid-cols-2"><section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"><h2 className="font-semibold text-slate-900 dark:text-slate-50">HMO Claim Sync Micro-Fee</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">Applied to verified claim values processed through VitaLink automated HMO sync.</p><div className="mt-4 flex items-end gap-2"><span className="text-3xl font-bold text-slate-900 dark:text-slate-50">{tier.hmoMicroFeePercent}%</span><span className="pb-1 text-sm text-slate-600 dark:text-slate-400">of verified claim value</span></div></section><section className="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-900"><h2 className="font-semibold text-slate-900 dark:text-slate-50">Deployment hardware</h2><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">One-time setup: N{tier.hardwareFee.toLocaleString()} (USD {tier.hardwareFeeUSD.toLocaleString()})</p><ul className="mt-3 space-y-1.5">{tier.hardwareIncludes.map((item) => <li key={item} className="text-sm text-slate-700 dark:text-slate-200">{item}</li>)}</ul></section></div>
+    {!tier.sentinelIncluded && <section id="sentinel-addon" className={`rounded-2xl border p-6 transition-colors ${highlightSentinel ? 'border-purple-500 bg-purple-50 dark:bg-purple-500/15' : 'border-purple-200 bg-purple-50/60 dark:border-purple-500/30 dark:bg-purple-500/5'}`}><div className="flex flex-col justify-between gap-5 sm:flex-row"><div className="flex gap-4"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-500/15 text-purple-700 dark:text-purple-300"><Activity className="h-5 w-5" /></div><div><h2 className="font-bold text-slate-900 dark:text-slate-50">VitaLink Sentinel <span className="ml-1 rounded-full bg-purple-500/15 px-2 py-0.5 text-[10px] text-purple-700 dark:text-purple-200">Add-on</span></h2><p className="mt-1 max-w-xl text-sm text-slate-600 dark:text-slate-400">{SENTINEL_ADDON.description}</p><div className="mt-3 grid gap-1.5 sm:grid-cols-2">{addonFeatures.map((feature) => <p key={feature} className="text-xs text-slate-700 dark:text-slate-300"><span className="mr-1 text-purple-600 dark:text-purple-300">+</span>{feature}</p>)}</div><p className="mt-3 text-xs text-purple-700 dark:text-purple-300">Included free in Enterprise & NGO Corridor</p></div></div><div className="shrink-0 sm:text-right"><p className="text-2xl font-bold text-slate-900 dark:text-slate-50">N{SENTINEL_ADDON.monthlyPrice.toLocaleString()}</p><p className="text-xs text-slate-600 dark:text-slate-400">/month</p><p className="mt-1 text-xs text-purple-700 dark:text-purple-300">N{SENTINEL_ADDON.annualPrice.toLocaleString()}/year, save N{SENTINEL_ADDON.annualSavings.toLocaleString()}</p><button type="button" disabled={plan?.sentinelAddon} onClick={addSentinel} className="mt-3 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-purple-500 disabled:opacity-60">{plan?.sentinelAddon ? 'Sentinel active' : 'Add Sentinel'}</button></div></div></section>}
+    <Dialog open={showEnquiry} onOpenChange={setShowEnquiry}><DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto bg-white dark:bg-slate-900"><DialogHeader><DialogTitle>Enterprise & NGO Enquiry</DialogTitle><DialogDescription>Tell us about your organization and requirements. We will prepare a custom quote and implementation plan.</DialogDescription></DialogHeader><div className="grid gap-4 sm:grid-cols-2">{([['name', 'Your name'], ['role', 'Your role'], ['email', 'Email'], ['phone', 'Phone'], ['orgName', 'Organization name'], ['sites', 'Number of sites'], ['beds', 'Bed capacity']] as const).map(([field, label]) => <label key={field} className={`text-sm text-slate-700 dark:text-slate-200 ${field === 'orgName' ? 'sm:col-span-2' : ''}`}>{label}<input type={field === 'email' ? 'email' : field === 'beds' || field === 'sites' ? 'number' : 'text'} value={enquiry[field]} onChange={(event) => setEnquiry((current) => ({ ...current, [field]: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50" /></label>)}<label className="text-sm text-slate-700 dark:text-slate-200">Organization type<select value={enquiry.orgType} onChange={(event) => setEnquiry((current) => ({ ...current, orgType: event.target.value }))} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50">{['Tertiary Hospital', 'Hospital Network', 'State Health Board', 'NGO', 'Government Agency', 'International Organization'].map((type) => <option key={type}>{type}</option>)}</select></label><label className="text-sm text-slate-700 dark:text-slate-200 sm:col-span-2">Special requirements<textarea rows={4} value={enquiry.requirements} onChange={(event) => setEnquiry((current) => ({ ...current, requirements: event.target.value }))} placeholder="e.g. NHIA integration, custom NTD modules, multi-state deployment" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-50" /></label></div><div className="rounded-xl border border-purple-200 bg-purple-50 p-4 text-sm text-purple-800 dark:border-purple-500/30 dark:bg-purple-500/15 dark:text-purple-200">Enterprise includes Sentinel surveillance, custom API integrations, hardware replacement SLA, zero-downtime guarantee, and an NDPA 2023 compliance package.</div><DialogFooter><button type="button" onClick={() => setShowEnquiry(false)} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">Cancel</button><button type="button" onClick={submitEnquiry} className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white"><Send className="h-4 w-4" />Submit enquiry</button></DialogFooter></DialogContent></Dialog>
+  </div>;
 }

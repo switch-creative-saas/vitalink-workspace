@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { LifeBuoy } from 'lucide-react';
+import { LifeBuoy, Lock } from 'lucide-react';
 import { ResponsiveProvider } from '@/contexts/ResponsiveContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
@@ -27,16 +27,19 @@ import { SubscriptionPage } from '@/pages/SubscriptionPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { HelpSupportPage } from '@/pages/HelpSupportPage';
-import { VitaLinkSentinelPage } from '@/pages/VitaLinkSentinelPage';
+import { NFCCardsPage } from '@/pages/NFCCardsPage';
 import { AuthGatewayPage } from '@/pages/AuthGatewayPage';
 import { Toaster } from '@/components/ui/sonner';
 import type { PageType } from '@/types';
 import { GuidedTourProvider } from '@/contexts/GuidedTourContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { SecurityAuditProvider } from '@/contexts/SecurityAuditContext';
-import { SentinelProvider } from '@/contexts/SentinelContext';
 import { AppointmentProvider } from '@/contexts/AppointmentContext';
 import { BRAND } from '@/config/brand';
+import { defaultPageForWorkspace, workspaceDescriptor } from '@/lib/workspace/workspace';
+import type { OrganizationProfile } from '@/lib/workspace/organizationTypes';
+import { usePlan } from '@/hooks/usePlan';
+import { UpgradeGate } from '@/components/UpgradeGate';
 
 function App() {
   return (
@@ -51,12 +54,24 @@ function App() {
 }
 
 function AppShell() {
-  const { currentRole, userName, userEmail, setCurrentRole, setUserProfile, clearUserProfile } = useAuth();
+  const {
+    currentRole,
+    userName,
+    userEmail,
+    setCurrentRole,
+    setUserProfile,
+    clearUserProfile,
+    canAccessPage,
+    organization,
+    workspaceType,
+    setActiveOrganization,
+  } = useAuth();
+  const { hasModule } = usePlan();
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Boolean(localStorage.getItem('vitalink-auth-session')));
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
   const [vitaMindPanelOpen, setVitaMindPanelOpen] = useState(false);
   const [emrSwitchId, setEmrSwitchId] = useState<string | null>(null);
-  const pagePathMap: Record<Exclude<PageType, 'emr'>, string> = {
+  const pagePathMap: Partial<Record<Exclude<PageType, 'emr'>, string>> = {
     dashboard: '/',
     'patient-identity': '/patient-identity',
     patients: '/patients',
@@ -68,9 +83,9 @@ function AppShell() {
     pharmacy: '/pharmacy',
     billing: '/billing',
     analytics: '/analytics',
-    'switch-sentinel': '/switch-sentinel',
     'human-resources': '/human-resources',
     administration: '/administration',
+    'nfc-cards': '/nfc-cards',
     subscription: '/subscription',
     'audit-logs': '/audit-logs',
     settings: '/settings',
@@ -92,11 +107,6 @@ function AppShell() {
     }
     if (path === '/patients') {
       setCurrentPage('patients');
-      setEmrSwitchId(null);
-      return;
-    }
-    if (path === '/switch-sentinel' || path.startsWith('/switch-sentinel')) {
-      setCurrentPage('switch-sentinel');
       setEmrSwitchId(null);
       return;
     }
@@ -150,10 +160,6 @@ function AppShell() {
       window.history.pushState({}, '', path);
       return;
     }
-    if (page === 'switch-sentinel') {
-      window.history.pushState({}, '', '/switch-sentinel?view=surveillance');
-      return;
-    }
     const path = pagePathMap[page as Exclude<PageType, 'emr'>] ?? '/';
     window.history.pushState({}, '', path);
   };
@@ -166,6 +172,28 @@ function AppShell() {
   };
 
   const renderPage = () => {
+    if (!canAccessPage(currentPage)) {
+      return (
+        <AccessRestricted
+          pageTitle={getPageTitle()}
+          workspaceDescription={workspaceDescriptor(organization)}
+          onNavigateHome={() => navigateToPage(defaultPageForWorkspace(workspaceType))}
+        />
+      );
+    }
+
+    const gatedPages: Partial<Record<PageType, { requiredPlan: string; moduleName: string; description: string; features: string[] }>> = {
+      telemedicine: { requiredPlan: 'Growth Corridor', moduleName: 'Telemedicine', description: 'Enable virtual consultations integrated with patient EMR records.', features: ['Video and voice consultations', 'Prescription generation', 'EMR-connected consultation notes'] },
+      laboratory: { requiredPlan: 'Growth Corridor', moduleName: 'Laboratory', description: 'Manage lab orders and result workflows from the patient record.', features: ['Lab order management', 'Result validation', 'EMR-linked diagnostics'] },
+      pharmacy: { requiredPlan: 'Growth Corridor', moduleName: 'Pharmacy', description: 'Coordinate dispensing and medicine inventory from a single workspace.', features: ['Dispensing workflows', 'Inventory visibility', 'EMR-linked prescriptions'] },
+      'human-resources': { requiredPlan: 'Growth Corridor', moduleName: 'Human Resources', description: 'Coordinate staffing, schedules, and workforce operations.', features: ['Staff records', 'Workforce scheduling', 'Operational reporting'] },
+      analytics: { requiredPlan: 'Growth Corridor', moduleName: 'Analytics', description: 'Unlock advanced hospital performance analytics and reporting.', features: ['Performance dashboards', 'Operational trends', 'Exportable reports'] },
+      administration: { requiredPlan: 'Enterprise', moduleName: 'Administration', description: 'Manage multi-site controls and enterprise workspace settings.', features: ['Multi-site controls', 'Custom workflows', 'Enterprise administration'] },
+      'audit-logs': { requiredPlan: 'Enterprise', moduleName: 'Security & Audit', description: 'Review enterprise-grade security and audit history.', features: ['Detailed audit trails', 'Security oversight', 'Compliance reporting'] },
+    };
+    const gate = gatedPages[currentPage];
+    if (gate && !hasModule(currentPage)) return <UpgradeGate {...gate} onBack={() => navigateToPage('dashboard')} />;
+
     switch (currentPage) {
       case 'dashboard':
         return <DashboardPage />;
@@ -191,12 +219,12 @@ function AppShell() {
         return <BillingPage />;
       case 'analytics':
         return <AnalyticsPage />;
-      case 'switch-sentinel':
-        return <VitaLinkSentinelPage />;
       case 'human-resources':
         return <HumanResourcesPage />;
       case 'administration':
         return <AdministrationPage />;
+      case 'nfc-cards':
+        return <NFCCardsPage />;
       case 'subscription':
         return <SubscriptionPage />;
       case 'audit-logs':
@@ -236,12 +264,12 @@ function AppShell() {
         return 'Billing & Insurance';
       case 'analytics':
         return 'Analytics';
-      case 'switch-sentinel':
-        return BRAND.sentinel;
       case 'human-resources':
         return 'Human Resources';
       case 'administration':
         return 'Administration';
+      case 'nfc-cards':
+        return 'Order NFC Cards';
       case 'subscription':
         return 'Subscription & Billing';
       case 'audit-logs':
@@ -255,9 +283,28 @@ function AppShell() {
     }
   };
 
-  const handleAuthenticated = (payload: { role: typeof currentRole; name: string; email: string; redirectPage: PageType }) => {
+  const handleAuthenticated = (payload: { role: typeof currentRole; name: string; email: string; redirectPage: PageType; organization: OrganizationProfile }) => {
     setCurrentRole(payload.role);
+    setActiveOrganization(payload.organization);
     setUserProfile({ name: payload.name, email: payload.email, avatar: payload.name.split(' ').map((part) => part[0]).slice(0, 2).join('') });
+
+    if (payload.organization.workspaceType === 'public-health') {
+      const sentinelUrl = new URL(import.meta.env.VITE_SENTINEL_WORKSPACE_URL ?? 'http://127.0.0.1:5173/');
+      sentinelUrl.searchParams.set('sentinelAuto', '1');
+      sentinelUrl.searchParams.set('orgId', payload.organization.id);
+      sentinelUrl.searchParams.set('orgName', payload.organization.name);
+      sentinelUrl.searchParams.set('orgSlug', payload.organization.slug ?? payload.organization.id);
+      sentinelUrl.searchParams.set('orgType', payload.organization.organizationType);
+      if (payload.organization.sector) sentinelUrl.searchParams.set('sector', payload.organization.sector);
+      if (payload.organization.state) sentinelUrl.searchParams.set('state', payload.organization.state);
+      if (payload.organization.contactEmail) sentinelUrl.searchParams.set('contactEmail', payload.organization.contactEmail);
+      if (payload.organization.contactPhone) sentinelUrl.searchParams.set('contactPhone', payload.organization.contactPhone);
+      if (typeof payload.organization.joinedNetwork === 'boolean') sentinelUrl.searchParams.set('joinedNetwork', String(payload.organization.joinedNetwork));
+      if (payload.organization.subscriptionTier) sentinelUrl.searchParams.set('subscriptionTier', payload.organization.subscriptionTier);
+      window.location.href = sentinelUrl.toString();
+      return;
+    }
+
     setIsAuthenticated(true);
     setCurrentPage(payload.redirectPage);
     if (payload.redirectPage === 'emr') {
@@ -271,6 +318,7 @@ function AppShell() {
   const handleLogout = () => {
     if (!canLeaveOnboardingWizard()) return;
     localStorage.removeItem('vitalink-auth-session');
+    setActiveOrganization(null);
     setIsAuthenticated(false);
     setCurrentPage('dashboard');
     setVitaMindPanelOpen(false);
@@ -299,7 +347,6 @@ function AppShell() {
         <AuthGatewayPage onAuthenticated={handleAuthenticated} defaultTheme={document.documentElement.classList.contains('dark-theme') ? 'dark' : 'light'} />
       ) : (
         <GuidedTourProvider currentPage={currentPage} currentRole={currentRole} userName={userName} onNavigate={navigateToPage}>
-          <SentinelProvider>
           <AppointmentProvider>
           <AppLayout>
             <div className="app-shell flex h-screen overflow-hidden min-w-0 max-w-[100vw]">
@@ -341,7 +388,6 @@ function AppShell() {
             </div>
           </AppLayout>
           </AppointmentProvider>
-          </SentinelProvider>
         </GuidedTourProvider>
       )}
     </SecurityAuditProvider>
@@ -349,3 +395,35 @@ function AppShell() {
 }
 
 export default App;
+
+function AccessRestricted({
+  pageTitle,
+  workspaceDescription,
+  onNavigateHome,
+}: {
+  pageTitle: string;
+  workspaceDescription: string;
+  onNavigateHome: () => void;
+}) {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="max-w-lg rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300">
+          <Lock className="h-5 w-5" />
+        </div>
+        <p className="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Workspace Access Restricted</p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-50">{pageTitle}</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-400">
+          This route is not available in the active {workspaceDescription}. Switch to an eligible healthcare workspace or return to your workspace home.
+        </p>
+        <button
+          type="button"
+          onClick={onNavigateHome}
+          className="mt-6 rounded-xl bg-vitalink-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-vitalink-700"
+        >
+          Return to Workspace Home
+        </button>
+      </div>
+    </div>
+  );
+}

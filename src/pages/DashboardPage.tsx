@@ -619,6 +619,36 @@ export function DashboardPage() {
             </div>
           </div>
 
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { path: '/subscription?addon=sentinel' } }))}
+            className="group flex w-full cursor-pointer flex-col justify-between rounded-2xl border border-dashed border-indigo-400/40 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 p-5 text-left transition-all hover:border-indigo-400/70 hover:from-indigo-500/10 dark:from-indigo-500/10 dark:to-purple-500/10"
+          >
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-500/20">
+                  <Activity className="h-[18px] w-[18px] text-indigo-500 dark:text-indigo-300" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-300">Add-on Available</span>
+              </div>
+              <h3 className="mb-1 text-base font-bold text-slate-900 dark:text-slate-50">VitaLink Sentinel</h3>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                Connect your clinical data to Africa's public health surveillance network with outbreak detection, heatmaps, and NCDC reporting powered by your EMR data.
+              </p>
+            </div>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Starting from</p>
+                <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
+                  +₦50,000 <span className="font-normal text-slate-500 dark:text-slate-400">/month</span>
+                </p>
+              </div>
+              <span className="inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors group-hover:bg-indigo-500">
+                Learn More →
+              </span>
+            </div>
+          </button>
+
           {/* Upcoming Appointments */}
           <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
             <div className="flex flex-col gap-3 mb-4">

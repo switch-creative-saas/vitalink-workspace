@@ -76,7 +76,7 @@ const introTour: TourDefinition = {
   ],
 };
 
-const workflowTours: Record<UserRole, TourDefinition> = {
+const workflowTours: Partial<Record<UserRole, TourDefinition>> = {
   doctor: {
     id: 'workflow-doctor',
     type: 'workflow',
