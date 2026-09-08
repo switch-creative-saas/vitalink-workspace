@@ -29,7 +29,11 @@ export function SubscriptionPage() {
     saveWorkspacePlan(createPlan(nextTier, cycle, plan?.sentinelAddon ?? false));
     toast.success(`Workspace plan updated to ${nextTier.name}`);
   };
-  const addSentinel = () => { saveWorkspacePlan(createPlan(tier, plan?.billingCycle ?? cycle, true)); toast.success('Sentinel add-on activated'); };
+  const addSentinel = () => {
+    const billingCycle = plan?.billingCycle === 'monthly' || plan?.billingCycle === 'annual' ? plan.billingCycle : cycle;
+    saveWorkspacePlan(createPlan(tier, billingCycle, true));
+    toast.success('Sentinel add-on activated');
+  };
   const submitEnquiry = () => { localStorage.setItem('enterprise_enquiry', JSON.stringify({ ...enquiry, id: `ENQ-${Date.now()}`, submittedAt: new Date().toISOString(), status: 'received' })); setShowEnquiry(false); toast.success('Enterprise enquiry submitted. Our team will contact you within 24 hours.'); };
   const effectivePrice = plan?.billingCycle === 'annual' ? tier.monthlyEffective : tier.monthlyPrice;
   const usagePercent = tier.encountersPerMonth ? Math.min(100, (encounterUsage / tier.encountersPerMonth) * 100) : 0;
