@@ -35,6 +35,10 @@ import { defaultPageForWorkspace } from '@/lib/workspace/workspace';
 import { PUBLIC_HEALTH_ROLES, defaultRoleForOrganizationType } from '@/lib/workspace/roles';
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import * as backend from '@/lib/supabase/auth';
+import { acceptInvitation, getInvitation, roleLabel, type InvitationPreview } from '@/lib/supabase/staff';
+import { saveWorkspacePlan } from '@/hooks/usePlan';
 
 type Stage = 
   | 'checking-session'
@@ -50,7 +54,8 @@ type Stage =
   | 'forgot-password' 
   | 'reset-password' 
   | 'email-sent'
-  | 'workspace-select';
+  | 'workspace-select'
+  | 'accept-invite';
 
 type AuthUser = {
   id: string;
@@ -113,6 +118,57 @@ function roleRedirect(user: AuthUser): PageType {
   return defaultPageForWorkspace(organizationForUser(user).workspaceType);
 }
 
+function membershipToAuthUser(sessionUser: backend.SessionUser, membership: backend.WorkspaceMembership): AuthUser {
+  const org = membership.organization;
+  return {
+    id: `${sessionUser.id}:${org.id}`,
+    fullName: sessionUser.fullName || sessionUser.email,
+    email: sessionUser.email,
+    role: membership.role,
+    provider: 'email',
+    onboardingComplete: true,
+    tenantId: org.id,
+    orgSlug: org.slug,
+    orgName: org.name,
+    organizationType: org.organization_type,
+    workspaceType: org.workspace_type,
+    orgSector: org.sector ?? undefined,
+    orgState: org.state ?? undefined,
+    orgContactPhone: org.contact_phone ?? undefined,
+    joinedNetwork: org.joined_network,
+    orgCreatedAt: org.created_at,
+    subscriptionTier: org.subscription_tier,
+  };
+}
+
+/** Mirrors the server-side subscription into the local plan store the UI gates modules on. */
+async function syncWorkspacePlan(organizationId: string) {
+  const sub = await backend.getSubscription(organizationId);
+  if (!sub) return null;
+  const trialActive = sub.status === 'trialing' && sub.effectivePlanId !== 'free';
+  saveWorkspacePlan({
+    tierId: trialActive ? 'trial' : sub.effectivePlanId as 'free' | 'starter' | 'growth' | 'enterprise',
+    tierName: trialActive ? '14-Day Free Trial' : sub.planName,
+    billingCycle: trialActive ? 'trial' : sub.billingCycle,
+    price: null,
+    modules: sub.modules,
+    sentinelIncluded: sub.effectivePlanId === 'enterprise',
+    status: sub.status,
+    isTrialActive: trialActive,
+    trialEndDate: trialActive ? sub.currentPeriodEnd ?? undefined : undefined,
+  });
+  return sub;
+}
+
+function backendErrorMessage(error: unknown, fallback: string): string {
+  const message = error instanceof Error ? error.message : '';
+  if (/invalid login credentials/i.test(message)) return 'Invalid credentials';
+  if (/email not confirmed/i.test(message)) return 'Please verify your email before signing in.';
+  if (/organizations_slug_key|duplicate key/i.test(message)) return 'That workspace URL is already taken. Choose another.';
+  if (/token has expired|otp.*invalid/i.test(message)) return 'That code is invalid or has expired.';
+  return message || fallback;
+}
+
 function ErrorText({ text }: { text: string }) {
   return (
     <div className="rounded-[14px] bg-red-500/10 border border-red-500/20 px-4 py-3 text-[14px] text-red-400 flex items-start gap-2 animate-[auth-form-slide-up_0.3s_ease-out_both] mb-6">
@@ -161,7 +217,8 @@ function getActiveSlugFromURL(): string | null {
       'login', 'register', 'dashboard', 'patient-identity', 'patients', 'emr',
       'telemedicine', 'ai-clinical-intelligence', 'switch-network', 'appointments',
       'laboratory', 'pharmacy', 'billing', 'analytics', 'switch-sentinel',
-      'human-resources', 'administration', 'subscription', 'audit-logs', 'settings', 'help'
+      'human-resources', 'administration', 'subscription', 'audit-logs', 'settings', 'help',
+      'payment-callback', 'reset-password', 'invite'
     ];
     if (!excludedRoutes.includes(firstSegment)) {
       return firstSegment;
@@ -191,6 +248,73 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   const [authError, setAuthError] = useState('');
   
   const [pendingUser, setPendingUser] = useState<AuthUser | null>(null);
+
+  // ── Staff invitation (/invite?token=...) ──────────────────────────
+  const inviteToken = new URLSearchParams(window.location.search).get('token') ?? '';
+  const [invite, setInvite] = useState<InvitationPreview | null | 'missing'>(null);
+  const [inviteSessionEmail, setInviteSessionEmail] = useState<string | null>(null);
+  const [inviteMode, setInviteMode] = useState<'signin' | 'signup'>('signin');
+  const [inviteForm, setInviteForm] = useState({ fullName: '', password: '' });
+  const [inviteNotice, setInviteNotice] = useState('');
+
+  async function loadInvite() {
+    try {
+      const [preview, sessionUser] = await Promise.all([getInvitation(inviteToken), backend.getSessionUser()]);
+      setInvite(preview ?? 'missing');
+      setInviteSessionEmail(sessionUser?.email ?? null);
+    } catch {
+      setInvite('missing');
+    }
+  }
+
+  const joinInvitedWorkspace = async () => {
+    if (!invite || invite === 'missing') return;
+    setAuthError('');
+    setLoading(true);
+    try {
+      await acceptInvitation(inviteToken);
+      localStorage.setItem('vitalink-last-workspace', invite.organizationSlug);
+      toast.success(`Welcome to ${invite.organizationName}`);
+      window.location.replace('/'); // session restore opens the new workspace
+    } catch (error) {
+      setAuthError(backendErrorMessage(error, 'Could not accept the invitation.'));
+      setLoading(false);
+    }
+  };
+
+  const signInForInvite = async () => {
+    if (!invite || invite === 'missing') return;
+    setAuthError('');
+    setLoading(true);
+    try {
+      await backend.signIn(invite.email, inviteForm.password);
+    } catch (error) {
+      setLoading(false);
+      return setAuthError(backendErrorMessage(error, 'Sign in failed.'));
+    }
+    await joinInvitedWorkspace();
+  };
+
+  const signUpForInvite = async () => {
+    if (!invite || invite === 'missing') return;
+    setAuthError('');
+    if (!inviteForm.fullName.trim()) return setAuthError('Enter your full name.');
+    if (inviteForm.password.length < 8) return setAuthError('Password must be at least 8 characters.');
+    setLoading(true);
+    try {
+      await backend.signUp(invite.email, inviteForm.password, inviteForm.fullName.trim(), `/invite?token=${encodeURIComponent(inviteToken)}`);
+      setInviteNotice(`We sent a confirmation email to ${invite.email}. Open the link in it to finish joining ${invite.organizationName}.`);
+    } catch (error) {
+      setAuthError(backendErrorMessage(error, 'Could not create your account.'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signOutForInvite = async () => {
+    await backend.signOut();
+    setInviteSessionEmail(null);
+  };
   const [pendingUsers, setPendingUsers] = useState<AuthUser[]>([]);
   const [detectedOrgName, setDetectedOrgName] = useState<string | null>(null);
   const [showEnterpriseEnquiry, setShowEnterpriseEnquiry] = useState(false);
@@ -209,7 +333,60 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       setDetectedOrgName(name || urlSlug.toUpperCase());
     }
 
-    if (window.location.pathname.replace(/\/+$/, '') === '/register') {
+    const isRegisterPath = window.location.pathname.replace(/\/+$/, '') === '/register';
+
+    if (isSupabaseConfigured) {
+      if (window.location.pathname.replace(/\/+$/, '') === '/invite') {
+        setStage('accept-invite');
+        void loadInvite();
+        return;
+      }
+      if (window.location.pathname.replace(/\/+$/, '') === '/reset-password') {
+        setStage('reset-password');
+        return backend.onPasswordRecovery(() => setStage('reset-password'));
+      }
+      let cancelled = false;
+      (async () => {
+        try {
+          // Also covers returning from the email confirmation link, which lands with a fresh session.
+          const sessionUser = await backend.getSessionUser();
+          if (!sessionUser) throw new Error('no session');
+          if (window.location.pathname.replace(/\/+$/, '') === '/payment-callback') {
+            const reference = new URLSearchParams(window.location.search).get('reference');
+            window.history.replaceState({}, '', '/');
+            if (reference) {
+              try {
+                const { outcome } = await backend.verifyPayment(reference);
+                if (outcome === 'activated' || outcome === 'already_applied') toast.success('Payment received. Your plan is active.');
+                else toast.error('Payment was not completed. Your workspace stays on the Free plan until it is.');
+              } catch (error) {
+                toast.error(backendErrorMessage(error, 'Could not confirm the payment yet.'));
+              }
+            }
+          }
+          const memberships = await backend.listMemberships(sessionUser.id);
+          const lastWorkspaceSlug = urlSlug || localStorage.getItem('vitalink-last-workspace');
+          const membership = memberships.find((m) => m.organization.slug === lastWorkspaceSlug) ?? memberships[0];
+          if (cancelled) return;
+          if (!membership) return resumeOnboarding(sessionUser);
+          const sessionUserRecord = membershipToAuthUser(sessionUser, membership);
+          await syncWorkspacePlan(membership.organization.id).catch(() => null);
+          if (cancelled) return;
+          onAuthenticatedRef.current({
+            role: sessionUserRecord.role,
+            name: sessionUserRecord.fullName,
+            email: sessionUserRecord.email,
+            redirectPage: roleRedirect(sessionUserRecord),
+            organization: organizationForUser(sessionUserRecord),
+          });
+        } catch {
+          if (!cancelled) setStage(isRegisterPath ? 'org-signup-start' : 'login');
+        }
+      })();
+      return () => { cancelled = true; };
+    }
+
+    if (isRegisterPath) {
       setStage('org-signup-start');
       return;
     }
@@ -279,6 +456,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     website: '',
     plan: 'starter'
   });
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   const [networkForm, setNetworkForm] = useState({
     joinedNetwork: true,
     visibleInDirectory: true,
@@ -322,11 +500,46 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+  // Signed-in account with no workspace yet (e.g. confirmed via email link in another tab): finish setup.
+  function resumeOnboarding(sessionUser: backend.SessionUser) {
+    const [firstName = '', ...rest] = sessionUser.fullName.split(' ');
+    setSignupForm((form) => ({ ...form, email: sessionUser.email, firstName, lastName: rest.join(' ') }));
+    setStage('org-info');
+  }
+
+  // The confirmation email may carry a link instead of a code; once it's clicked
+  // (in any tab, supabase-js syncs sessions across tabs) continue from here.
+  useEffect(() => {
+    if (!isSupabaseConfigured || stage !== 'verify-email') return;
+    return backend.onSignedIn(() => setStage('provisioning'));
+  }, [stage]);
+
   const handleLogin = async () => {
     setAuthError('');
     if (!validateEmail(loginForm.email)) return setAuthError('Please enter a valid work email address');
     if (!loginForm.password) return setAuthError('Password is required');
     setLoading(true);
+    if (isSupabaseConfigured) {
+      try {
+        const sessionUser = await backend.signIn(loginForm.email.trim(), loginForm.password);
+        logLoginAttempt('success', 'Password login');
+        const memberships = await backend.listMemberships(sessionUser.id);
+        if (memberships.length === 0) return resumeOnboarding(sessionUser);
+        const users = memberships.map((membership) => membershipToAuthUser(sessionUser, membership));
+        if (users.length > 1) {
+          setPendingUsers(users);
+          setStage('workspace-select');
+        } else {
+          authenticateSuccess(users[0]);
+        }
+      } catch (error) {
+        setAuthError(backendErrorMessage(error, 'Login failed. Check your network.'));
+        logLoginAttempt('failed', 'Invalid credentials');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     try {
       await new Promise((r) => setTimeout(r, 800));
       const users = getUsers();
@@ -359,7 +572,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     }
   };
 
-  const authenticateSuccess = (user: AuthUser) => {
+  const authenticateSuccess = async (user: AuthUser) => {
+    if (isSupabaseConfigured && user.tenantId) await syncWorkspacePlan(user.tenantId).catch(() => null);
     const token = `${BRAND.tokenPrefix}.jwt.${btoa(`${user.email}:${Date.now()}`)}`;
     localStorage.setItem(sessionKey(), token);
     
@@ -385,6 +599,17 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
      ───────────────────────────────────────────────────────── */
   const handleOAuth = async (provider: 'google' | 'microsoft' | 'apple') => {
     setLoading(true);
+    if (isSupabaseConfigured) {
+      setAuthError('');
+      try {
+        // Leaves the page; the session check on return signs in or resumes workspace setup.
+        await backend.signInWithProvider(provider, stage === 'login' ? '/' : '/register');
+      } catch (error) {
+        setAuthError(backendErrorMessage(error, `Could not start ${provider} sign-in.`));
+        setLoading(false);
+      }
+      return;
+    }
     try {
       await new Promise((r) => setTimeout(r, 1200));
       // Simulate retrieving details automatically
@@ -411,7 +636,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     if (signupForm.password.length < 8) return setAuthError('Password must be at least 8 characters');
     if (signupForm.password !== signupForm.confirmPassword) return setAuthError('Passwords do not match');
     
-    const users = getUsers();
+    const users = isSupabaseConfigured ? [] : getUsers();
     if (users.some((u) => u.email.toLowerCase() === signupForm.email.toLowerCase())) {
       setAuthError('An account with this email already exists.');
       return;
@@ -431,23 +656,44 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   /* ─────────────────────────────────────────────────────────
      ORG SIGNUP FLOW (Step 3: Subscription & Verification)
      ───────────────────────────────────────────────────────── */
-  const handleSubscriptionSelect = async (planId: string) => {
+  const handleSubscriptionSelect = async (planId: string, cycle: 'monthly' | 'annual') => {
     setOrgForm({ ...orgForm, plan: planId });
+    setBillingCycle(cycle);
     setStage('workspace-url');
   };
 
-  const handleWorkspaceURL = (slug: string) => {
+  const handleWorkspaceURL = async (slug: string) => {
     setOrgForm({ ...orgForm, name: orgForm.name }); // keep name
     // Store slug for provisioning
     localStorage.setItem('vitalink-pending-slug', slug);
+    if (isSupabaseConfigured) {
+      setAuthError('');
+      setLoading(true);
+      try {
+        // A resumed signup already has a session, so skip straight to provisioning.
+        if (await backend.getSessionUser()) return setStage('provisioning');
+        await backend.signUp(signupForm.email.trim(), signupForm.password, `${signupForm.firstName} ${signupForm.lastName}`.trim());
+      } catch (error) {
+        return setAuthError(backendErrorMessage(error, 'Could not start signup.'));
+      } finally {
+        setLoading(false);
+      }
+    }
     setStage('verify-email');
   };
 
   const handleVerifyOTP = async (otp: string) => {
     if (otp.length !== 6) return;
+    setAuthError('');
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setLoading(false);
+    try {
+      if (isSupabaseConfigured) await backend.verifySignupCode(signupForm.email.trim(), otp);
+      else await new Promise((r) => setTimeout(r, 1000));
+    } catch (error) {
+      return setAuthError(backendErrorMessage(error, 'Verification failed.'));
+    } finally {
+      setLoading(false);
+    }
     setStage('provisioning');
   };
 
@@ -459,7 +705,48 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     const tenantId = `ORG-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
     const organizationType = normalizeOrganizationType(orgForm.type);
     const workspaceType = workspaceForOrganizationType(organizationType);
-    const subscriptionTier = orgForm.plan === 'starter' || orgForm.plan === 'trial' ? 'free' : orgForm.plan === 'enterprise' ? 'premium' : 'standard';
+    const subscriptionTier = orgForm.plan === 'starter' || orgForm.plan === 'free' || orgForm.plan === 'trial' ? 'free' : orgForm.plan === 'enterprise' ? 'premium' : 'standard';
+    if (isSupabaseConfigured) {
+      try {
+        const sessionUser = await backend.getSessionUser();
+        if (!sessionUser) throw new Error('Your session expired. Please sign in again.');
+        const org = await backend.createWorkspace({
+          name: orgForm.name.trim(),
+          slug: orgSlug,
+          organizationType,
+          state: orgForm.state || publicHealthSetup.jurisdiction || networkForm.location,
+          contactPhone: orgForm.phone,
+          joinedNetwork: networkForm.joinedNetwork,
+          planId: ['starter', 'growth', 'trial'].includes(orgForm.plan) ? orgForm.plan : 'free',
+          billingCycle,
+        });
+        const createdUser = membershipToAuthUser(sessionUser, { role: defaultRoleForOrganizationType(organizationType), organization: org });
+        localStorage.setItem('vitalink-active-organization', JSON.stringify(organizationForUser(createdUser)));
+        localStorage.setItem('vitalink-last-workspace', org.slug);
+        localStorage.removeItem('vitalink-pending-slug');
+        const sub = await syncWorkspacePlan(org.id);
+        if (sub?.status === 'pending_payment') {
+          try {
+            const checkout = await backend.startCheckout(org.id, sub.planId, sub.billingCycle);
+            if (checkout.authorizationUrl) {
+              window.location.href = checkout.authorizationUrl; // returns to /payment-callback
+              return;
+            }
+          } catch (error) {
+            toast.error(`${backendErrorMessage(error, 'Payment could not start.')} Your workspace is on the Free plan until payment completes.`);
+          }
+        } else if (sub?.status === 'comped') {
+          toast.success(`Platform admin: ${sub.planName} activated without payment.`);
+        }
+        setPendingUser(createdUser);
+        setStage('welcome');
+        toast.success('Workspace created successfully!');
+      } catch (error) {
+        setAuthError(backendErrorMessage(error, 'Workspace setup failed.'));
+        setStage('workspace-url');
+      }
+      return;
+    }
     const orgCreatedAt = new Date().toISOString();
     const createdUser: AuthUser = {
       id: `usr-${Date.now()}`,
@@ -538,7 +825,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       <div className="flex w-full flex-col justify-center">
         
         {/* Back Button for multi-step */}
-        {stage !== 'login' && stage !== 'org-signup-start' && stage !== 'provisioning' && stage !== 'welcome' && stage !== 'email-sent' && stage !== 'checking-session' && (
+        {stage !== 'login' && stage !== 'org-signup-start' && stage !== 'provisioning' && stage !== 'welcome' && stage !== 'email-sent' && stage !== 'checking-session' && stage !== 'accept-invite' && (
           <button 
             onClick={() => {
               setAuthError('');
@@ -568,6 +855,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             {stage === 'verify-email' && 'Verify Work Email'}
             {stage === 'welcome' && 'Workspace Ready'}
             {stage === 'forgot-password' && 'Reset your password'}
+            {stage === 'accept-invite' && 'Join your team'}
             {stage === 'reset-password' && 'Create new password'}
             {stage === 'email-sent' && 'Check your email'}
             {stage === 'workspace-select' && 'Choose Workspace'}
@@ -809,11 +1097,20 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             <p className="text-[var(--auth-text-primary)] font-medium text-base mb-3">{signupForm.email}</p>
             
             <OTPInput onComplete={handleVerifyOTP} />
+            {isSupabaseConfigured && (
+              <p className="text-xs text-[var(--auth-text-secondary)] mt-3">
+                Got a confirmation link instead? Click it and this page will continue automatically.
+              </p>
+            )}
             
             {loading && <Loader2 className="w-5 h-5 animate-spin text-[var(--auth-accent)] mt-3" />}
             
             <p className="text-xs text-[var(--auth-text-secondary)] mt-4">
-              Didn't receive the code? <button className="text-[var(--auth-text-primary)] hover:underline">Resend OTP</button>
+              Didn't receive the code? <button className="text-[var(--auth-text-primary)] hover:underline" onClick={async () => {
+                if (!isSupabaseConfigured) return;
+                try { await backend.resendSignupCode(signupForm.email.trim()); toast.success('A new code is on its way.'); }
+                catch (error) { setAuthError(backendErrorMessage(error, 'Could not resend the code.')); }
+              }}>Resend OTP</button>
             </p>
           </div>
         )}
@@ -847,6 +1144,61 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
           </div>
         )}
 
+        {/* ── Accept staff invitation ─────────────────────────────── */}
+        {stage === 'accept-invite' && (
+          <div className="animate-[auth-form-slide-up_0.5s_ease-out_both] flex flex-col gap-3">
+            {invite === null && <p className="text-[14px] text-[var(--auth-text-secondary)]">Loading invitation…</p>}
+            {(invite === 'missing' || (invite !== null && !invite.isValid)) && (
+              <>
+                <p className="text-[14px] text-[var(--auth-text-secondary)]">This invitation link is invalid, has already been used, or has expired. Ask your workspace admin for a new one.</p>
+                <AuthPrimaryButton label="Go to Sign In" onClick={() => { window.history.replaceState({}, '', '/'); setStage('login'); }} />
+              </>
+            )}
+            {invite && invite !== 'missing' && invite.isValid && (
+              <>
+                <div className="rounded-xl border border-[var(--auth-border)] bg-[var(--auth-input-bg)] p-4">
+                  <p className="text-[15px] font-semibold text-[var(--auth-text-primary)]">{invite.organizationName}</p>
+                  <p className="text-[13px] text-[var(--auth-text-secondary)]">
+                    You're invited as <strong>{roleLabel(invite.role)}</strong>{invite.department ? ` · ${invite.department}` : ''}
+                  </p>
+                  <p className="mt-1 text-[12px] text-[var(--auth-text-secondary)]">For {invite.email} · expires {new Date(invite.expiresAt).toLocaleDateString()}</p>
+                </div>
+
+                {inviteNotice ? (
+                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-[13px] text-[var(--auth-text-primary)]">{inviteNotice}</p>
+                ) : inviteSessionEmail && inviteSessionEmail.toLowerCase() === invite.email.toLowerCase() ? (
+                  <AuthPrimaryButton label={`Join ${invite.organizationName}`} onClick={joinInvitedWorkspace} loading={loading} />
+                ) : inviteSessionEmail ? (
+                  <>
+                    <p className="text-[13px] text-[var(--auth-text-secondary)]">You're signed in as {inviteSessionEmail}, but this invitation is for {invite.email}.</p>
+                    <AuthPrimaryButton label="Sign out and continue" onClick={signOutForInvite} />
+                  </>
+                ) : (
+                  <>
+                    <div className="flex gap-1 rounded-lg bg-[var(--auth-input-bg)] p-1">
+                      {(['signin', 'signup'] as const).map((mode) => (
+                        <button key={mode} type="button" onClick={() => { setAuthError(''); setInviteMode(mode); }}
+                          className={`flex-1 rounded-md px-3 py-1.5 text-[12px] font-semibold ${inviteMode === mode ? 'bg-[var(--auth-accent)] text-white' : 'text-[var(--auth-text-secondary)]'}`}>
+                          {mode === 'signin' ? 'I have an account' : 'Create my account'}
+                        </button>
+                      ))}
+                    </div>
+                    {inviteMode === 'signup' && (
+                      <AuthField value={inviteForm.fullName} onChange={(v) => setInviteForm((f) => ({ ...f, fullName: v }))} placeholder="Full name" />
+                    )}
+                    <AuthField value={inviteForm.password} onChange={(v) => setInviteForm((f) => ({ ...f, password: v }))} type="password" placeholder={inviteMode === 'signup' ? 'Create password (min 8 chars)' : 'Password'} />
+                    <AuthPrimaryButton
+                      label={inviteMode === 'signup' ? 'Create account & join' : 'Sign in & join'}
+                      onClick={inviteMode === 'signup' ? signUpForInvite : signInForInvite}
+                      loading={loading}
+                    />
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {/* ── Forgot Password ────────────────────────────────────── */}
         {stage === 'forgot-password' && (
           <div className="animate-[auth-form-slide-up_0.5s_ease-out_both] flex flex-col gap-3">
@@ -865,8 +1217,14 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
               onClick={async () => {
                 if (!validateEmail(loginForm.email)) return setAuthError('Enter a valid email');
                 setLoading(true);
-                await new Promise(r => setTimeout(r, 600));
-                setLoading(false);
+                try {
+                  if (isSupabaseConfigured) await backend.sendPasswordReset(loginForm.email.trim());
+                  else await new Promise(r => setTimeout(r, 600));
+                } catch (error) {
+                  return setAuthError(backendErrorMessage(error, 'Could not send the reset link.'));
+                } finally {
+                  setLoading(false);
+                }
                 setStage('email-sent');
               }} 
               loading={loading} 
@@ -879,7 +1237,9 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             <p className="text-[14px] text-[var(--auth-text-secondary)] mb-4">
               We've sent a password reset link to <strong className="text-[var(--auth-text-primary)] font-medium">{loginForm.email}</strong>.
             </p>
-            <AuthPrimaryButton label="Simulate Opening Link" onClick={() => setStage('reset-password')} />
+            {isSupabaseConfigured
+              ? <AuthPrimaryButton label="Back to Sign In" onClick={() => setStage('login')} />
+              : <AuthPrimaryButton label="Simulate Opening Link" onClick={() => setStage('reset-password')} />}
           </div>
         )}
 
@@ -899,6 +1259,20 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                   return;
                 }
                 setLoading(true);
+                if (isSupabaseConfigured) {
+                  try {
+                    await backend.updatePassword(loginForm.password);
+                    await backend.signOut();
+                  } catch (error) {
+                    return setAuthError(backendErrorMessage(error, 'Could not update password.'));
+                  } finally {
+                    setLoading(false);
+                  }
+                  window.history.replaceState({}, '', '/');
+                  toast.success('Password updated');
+                  setStage('login');
+                  return;
+                }
                 await new Promise(r => setTimeout(r, 600));
                 const updatedHash = await hashPassword(loginForm.password);
                 const users = getUsers();

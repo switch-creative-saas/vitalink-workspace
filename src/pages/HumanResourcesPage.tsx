@@ -28,6 +28,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useAuth } from '@/contexts/AuthContext';
 import type { Role, Staff, PermissionModule, PermissionAction } from '@/types/rbac';
 import { DEFAULT_ROLE_TEMPLATES } from '@/types/rbac';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { StaffManagement } from '@/components/staff/StaffManagement';
 
 const modules: { id: PermissionModule; label: string }[] = [
   { id: 'patients', label: 'Patients' },
@@ -72,7 +74,12 @@ function csvExport(name: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
+// With Supabase the real staff directory, invitations and schedules replace the demo HR data.
 export function HumanResourcesPage() {
+  return isSupabaseConfigured ? <StaffManagement /> : <DemoHumanResourcesPage />;
+}
+
+function DemoHumanResourcesPage() {
   const { currentRole, hasPermission, userName } = useAuth();
   const [activeTab, setActiveTab] = useState<'staff' | 'roles' | 'profile'>('staff');
   const [roles, setRoles] = useState<Role[]>(baseRoles);

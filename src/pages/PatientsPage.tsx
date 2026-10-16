@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Download, Filter, Loader2, MoreHorizontal, Nfc, Plus, Search, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -8,9 +8,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { PatientOnboardingWizard } from '@/components/patients/PatientOnboardingWizard';
-import { buildCsv, getAge, getPatients, parseCsvRows, queryPatients, sampleImportTemplate, type RegistryPatient } from '@/lib/patientRegistry';
+import { buildCsv, getAge, getPatientSummary, listTenantPatients, parseCsvRows, queryPatients, sampleImportTemplate, type PatientSummary, type RegistryPatient } from '@/lib/patientRegistry';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 
-const tenants = [
+// Demo tenants for the offline mock; with Supabase the active workspace is the only tenant.
+const demoTenants = [
   { id: 'lagos-central-hospital', name: 'Lagos Central Hospital' },
   { id: 'abuja-specialist-hospital', name: 'Abuja Specialist Hospital' },
 ];
@@ -35,9 +37,11 @@ const defaultFilters = {
 };
 
 export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
-  const { canCreate, canExport, canView, userName } = useAuth();
+  const { canCreate, canExport, canView, userName, organization } = useAuth();
   const searchParams = new URLSearchParams(window.location.search);
-  const [tenantId, setTenantId] = useState(searchParams.get('tenantId') ?? tenants[0].id);
+  const tenants = isSupabaseConfigured ? [{ id: organization.id, name: organization.name }] : demoTenants;
+  const [tenantId, setTenantId] = useState(isSupabaseConfigured ? organization.id : searchParams.get('tenantId') ?? tenants[0].id);
+  const [patientSummary, setPatientSummary] = useState<PatientSummary>({ total: 0, active: 0, inpatient: 0, withNfc: 0 });
   const [query, setQuery] = useState(searchParams.get('query') ?? '');
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('query') ?? '');
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -68,7 +72,9 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
         setPageRows(result.rows);
         setTotalCount(result.total);
       })
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Could not load patients'))
       .finally(() => setLoading(false));
+    getPatientSummary(tenantId).then(setPatientSummary).catch(() => undefined);
   };
 
   useEffect(() => {
@@ -96,12 +102,11 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
   }, [page, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const allTenantRows = useMemo(() => getPatients().filter((p) => p.tenantId === tenantId), [tenantId, pageRows, totalCount]);
   const summary = [
-    { label: 'All Patients', value: totalCount },
-    { label: 'Active', value: allTenantRows.filter((x) => x.status === 'active').length },
-    { label: 'Inpatient', value: allTenantRows.filter((x) => x.status === 'inpatient').length },
-    { label: 'With NFC', value: allTenantRows.filter((x) => x.nfcActive).length },
+    { label: 'All Patients', value: patientSummary.total },
+    { label: 'Active', value: patientSummary.active },
+    { label: 'Inpatient', value: patientSummary.inpatient },
+    { label: 'With NFC', value: patientSummary.withNfc },
   ];
 
   const saveTemplate = () => {
@@ -133,12 +138,12 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
     toast.info(`Queued ${parsed.rows.length} rows for background processing`, { description: 'Preview and validation complete.' });
   };
 
-  const exportRows = (mode: 'filtered' | 'selected' | 'all', format: 'csv' | 'xlsx' | 'pdf') => {
+  const exportRows = async (mode: 'filtered' | 'selected' | 'all', format: 'csv' | 'xlsx' | 'pdf') => {
     if (!canExport('Patients')) {
       toast.error('RBAC policy prevents export for your role.');
       return;
     }
-    const outputRows = mode === 'all' ? getPatients().filter((x) => x.tenantId === tenantId) : pageRows;
+    const outputRows = mode === 'all' ? await listTenantPatients(tenantId) : pageRows;
     if (format !== 'csv') {
       toast.success(`Prepared ${format.toUpperCase()} export (${mode})`, {
         description: 'Enterprise export adapters are queued server-side in production mode.',

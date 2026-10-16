@@ -40,6 +40,8 @@ import { defaultPageForWorkspace, workspaceDescriptor } from '@/lib/workspace/wo
 import type { OrganizationProfile } from '@/lib/workspace/organizationTypes';
 import { usePlan } from '@/hooks/usePlan';
 import { UpgradeGate } from '@/components/UpgradeGate';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { signOut } from '@/lib/supabase/auth';
 
 function App() {
   return (
@@ -67,7 +69,8 @@ function AppShell() {
     setActiveOrganization,
   } = useAuth();
   const { hasModule } = usePlan();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => Boolean(localStorage.getItem('vitalink-auth-session')));
+  // With Supabase the gateway always re-validates the real session on load.
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !isSupabaseConfigured && Boolean(localStorage.getItem('vitalink-auth-session')));
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
   const [vitaMindPanelOpen, setVitaMindPanelOpen] = useState(false);
   const [emrSwitchId, setEmrSwitchId] = useState<string | null>(null);
@@ -315,9 +318,11 @@ function AppShell() {
     window.history.pushState({}, '', path);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     if (!canLeaveOnboardingWizard()) return;
     localStorage.removeItem('vitalink-auth-session');
+    // Must finish before the gateway mounts, or its session check signs the user straight back in.
+    if (isSupabaseConfigured) await signOut().catch(() => undefined);
     setActiveOrganization(null);
     setIsAuthenticated(false);
     setCurrentPage('dashboard');

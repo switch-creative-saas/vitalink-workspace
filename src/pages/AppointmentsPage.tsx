@@ -18,10 +18,10 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResponsive } from '@/contexts/ResponsiveContext';
 import { toast } from 'sonner';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 import {
   appointmentStatuses,
   useAppointments,
-  type AppointmentRecord,
   type AppointmentStatus,
   type AppointmentType,
 } from '@/contexts/AppointmentContext';
@@ -68,7 +68,9 @@ export function AppointmentsPage() {
   const [view, setView] = useState<'calendar' | 'list'>(isMobile ? 'list' : 'calendar');
   const [showNotifications, setShowNotifications] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
-  const [selected, setSelected] = useState<AppointmentRecord | null>(null);
+  // Track the id only so the drawer always shows the latest server copy.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = useMemo(() => appointments.find((item) => item.id === selectedId) ?? null, [appointments, selectedId]);
   const [expandedMobile, setExpandedMobile] = useState<Record<string, boolean>>({});
   const [newForm, setNewForm] = useState({
     patient: '',
@@ -142,7 +144,8 @@ export function AppointmentsPage() {
       toast.error('RBAC: You cannot create appointments.');
       return;
     }
-    if (!newForm.patient || !newForm.patientSwitchId || !newForm.doctorId || !newForm.department) {
+    // With Supabase the patient's name comes from their record, so only the VitaLink ID is needed.
+    if ((!isSupabaseConfigured && !newForm.patient) || !newForm.patientSwitchId || !newForm.doctorId || !newForm.department) {
       toast.error('Fill patient, doctor, department and schedule fields.');
       return;
     }
@@ -211,7 +214,7 @@ export function AppointmentsPage() {
       return (
         <button
           key={appointment.id}
-          onClick={() => setSelected(appointment)}
+          onClick={() => setSelectedId(appointment.id)}
           className="absolute left-2 right-2 rounded-xl p-3 text-left shadow-sm hover:shadow-md transition-all active:scale-[0.99]"
           style={{ top: `${index * (isTablet ? 56 : 72) + 6}px`, height: `${(appointment.duration / 30) * (isTablet ? 56 : 72) - 12}px` }}
         >
@@ -367,7 +370,7 @@ export function AppointmentsPage() {
                       <Button size="sm" variant="outline" onClick={() => updateStatus(appointment.id, 'confirmed', 'Accepted from schedule')}>Accept</Button>
                       <Button size="sm" variant="outline" onClick={() => runAction(appointment.id, 'reschedule')}>Reschedule</Button>
                       <Button size="sm" variant="outline" onClick={() => runAction(appointment.id, 'cancel')}>Cancel</Button>
-                      <Button size="sm" variant="outline" onClick={() => setSelected(appointment)}>Open</Button>
+                      <Button size="sm" variant="outline" onClick={() => setSelectedId(appointment.id)}>Open</Button>
                     </div>
                   </div>
                 </div>
@@ -393,7 +396,7 @@ export function AppointmentsPage() {
               <button className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50" onClick={() => setShowNewModal(false)}><XCircle className="w-5 h-5" /></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input placeholder="Patient name" value={newForm.patient} onChange={(e) => setNewForm((p) => ({ ...p, patient: e.target.value }))} />
+              <Input placeholder={isSupabaseConfigured ? 'Patient name (filled from VitaLink ID)' : 'Patient name'} disabled={isSupabaseConfigured} value={newForm.patient} onChange={(e) => setNewForm((p) => ({ ...p, patient: e.target.value }))} />
               <Input placeholder="Patient VitaLink ID" value={newForm.patientSwitchId} onChange={(e) => setNewForm((p) => ({ ...p, patientSwitchId: e.target.value }))} />
               <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.doctorId} onChange={(e) => setNewForm((p) => ({ ...p, doctorId: e.target.value, department: doctors.find((d) => d.id === e.target.value)?.department ?? '' }))}>
                 <option value="">Select doctor by availability</option>
@@ -421,11 +424,11 @@ export function AppointmentsPage() {
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm flex justify-end" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm flex justify-end" onClick={() => setSelectedId(null)}>
           <aside className="w-full max-w-md h-full bg-white/90 backdrop-blur-xl border-l border-white/70 p-4 space-y-3 dark:border-slate-700 dark:bg-slate-900/95" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-slate-900 dark:text-slate-50">Appointment Detail</h3>
-              <button onClick={() => setSelected(null)}><XCircle className="w-5 h-5 text-slate-600 dark:text-slate-400" /></button>
+              <button onClick={() => setSelectedId(null)}><XCircle className="w-5 h-5 text-slate-600 dark:text-slate-400" /></button>
             </div>
             <div className="rounded-xl bg-gray-50 p-3 text-sm space-y-1 text-slate-900 dark:bg-slate-800 dark:text-slate-50">
               <p><span className="text-slate-600 dark:text-slate-400">Patient:</span> <button className="text-royal-700 hover:underline dark:text-blue-300" onClick={() => openPatient(selected.patientSwitchId)}>{selected.patient}</button></p>

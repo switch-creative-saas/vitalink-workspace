@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Check, X, Loader2 } from 'lucide-react';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { isSlugAvailable } from '@/lib/supabase/auth';
 
 const RESERVED_NAMES = new Set([
   'admin', 'www', 'support', 'help', 'dashboard', 'mail', 'root',
@@ -61,16 +63,17 @@ export function WorkspaceURLPicker({ orgName, onConfirm }: WorkspaceURLPickerPro
 
     // Simulated availability check (debounced)
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      // Simulate: check against existing orgs in localStorage
-      const existingOrgs: string[] = (() => {
+    debounceRef.current = setTimeout(async () => {
+      const existingOrgs: string[] = isSupabaseConfigured ? [] : (() => {
         try {
           const users = JSON.parse(localStorage.getItem('vitalink-auth-users') || '[]');
           return users.map((u: { orgSlug?: string }) => u.orgSlug).filter(Boolean);
         } catch { return []; }
       })();
+      // Network errors fall through as "available"; create_workspace enforces uniqueness anyway.
+      const takenRemotely = isSupabaseConfigured ? !(await isSlugAvailable(value).catch(() => true)) : false;
 
-      const taken = existingOrgs.includes(value) || RESERVED_NAMES.has(value);
+      const taken = takenRemotely || existingOrgs.includes(value) || RESERVED_NAMES.has(value);
       setAvailable(!taken);
       setChecking(false);
 

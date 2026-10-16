@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FREE_TRIAL, PRICING_TIERS, type PricingTierId } from '@/data/pricingTiers';
+import { FREE_PLAN, FREE_TRIAL, PRICING_TIERS, type PricingTierId } from '@/data/pricingTiers';
 
-export type WorkspacePlan = { tierId: PricingTierId | 'trial'; tierName: string; billingCycle: 'monthly' | 'annual' | 'trial'; price: number | null; modules: string[]; sentinelIncluded: boolean; sentinelAddon?: boolean; isTrialActive?: boolean; trialEndDate?: string };
+export type WorkspacePlan = { tierId: PricingTierId | 'trial' | 'free'; tierName: string; billingCycle: 'monthly' | 'annual' | 'trial'; status?: string; price: number | null; modules: string[]; sentinelIncluded: boolean; sentinelAddon?: boolean; isTrialActive?: boolean; trialEndDate?: string };
 const PLAN_CHANGE_EVENT = 'vitalink:workspace-plan-changed';
 
 function readPlan(): WorkspacePlan | null {
@@ -23,7 +23,8 @@ export function usePlan() {
   }, []);
   const tier = useMemo(() => PRICING_TIERS.find((item) => item.id === (plan?.tierId === 'trial' ? 'growth' : plan?.tierId)) ?? PRICING_TIERS[0], [plan?.tierId]);
   const isTrialActive = Boolean(plan?.isTrialActive && plan.trialEndDate && new Date(plan.trialEndDate).getTime() > Date.now());
-  const hasModule = useCallback((moduleId: string) => (isTrialActive ? FREE_TRIAL.modules : tier.modules).includes(moduleId), [isTrialActive, tier.modules]);
-  const hasSentinel = useCallback(() => tier.sentinelIncluded || plan?.sentinelAddon === true, [plan?.sentinelAddon, tier.sentinelIncluded]);
+  const isFree = plan?.tierId === 'free';
+  const hasModule = useCallback((moduleId: string) => (isTrialActive ? FREE_TRIAL.modules : isFree ? FREE_PLAN.modules : tier.modules).includes(moduleId), [isTrialActive, isFree, tier.modules]);
+  const hasSentinel = useCallback(() => (!isFree && tier.sentinelIncluded) || plan?.sentinelAddon === true, [isFree, plan?.sentinelAddon, tier.sentinelIncluded]);
   return { tier, plan, hasModule, hasSentinel, encounterLimit: tier.encountersPerMonth, isTrialActive };
 }

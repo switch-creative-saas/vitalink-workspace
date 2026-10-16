@@ -1,10 +1,10 @@
 import { Check, Sparkles, X } from 'lucide-react';
 import { useState } from 'react';
-import { FREE_TRIAL, PRICING_TIERS, type PricingTierId } from '@/data/pricingTiers';
+import { FREE_PLAN, FREE_TRIAL, PRICING_TIERS, type PricingTierId } from '@/data/pricingTiers';
 import { saveWorkspacePlan } from '@/hooks/usePlan';
 
 interface EnterpriseSubscriptionProps {
-  onSelect: (planId: PricingTierId | 'trial') => void;
+  onSelect: (planId: PricingTierId | 'free' | 'trial', billingCycle: 'monthly' | 'annual') => void;
   onContactSales: () => void;
 }
 
@@ -14,7 +14,7 @@ export function EnterpriseSubscription({ onSelect, onContactSales }: EnterpriseS
   const selectPlan = () => {
     const tier = PRICING_TIERS.find((item) => item.id === selectedPlan)!;
     saveWorkspacePlan({ tierId: tier.id, tierName: tier.name, billingCycle, price: billingCycle === 'annual' ? tier.annualPrice : tier.monthlyPrice, modules: tier.modules, sentinelIncluded: tier.sentinelIncluded });
-    onSelect(tier.id);
+    onSelect(tier.id, billingCycle);
   };
   const startTrial = () => {
     saveWorkspacePlan({
@@ -22,16 +22,24 @@ export function EnterpriseSubscription({ onSelect, onContactSales }: EnterpriseS
       modules: FREE_TRIAL.modules, sentinelIncluded: false, isTrialActive: true,
       trialEndDate: new Date(Date.now() + FREE_TRIAL.durationDays * 24 * 60 * 60 * 1000).toISOString(),
     });
-    onSelect('trial');
+    onSelect('trial', 'monthly');
+  };
+  const startFree = () => {
+    saveWorkspacePlan({ tierId: 'free', tierName: FREE_PLAN.name, billingCycle: 'monthly', price: 0, modules: FREE_PLAN.modules, sentinelIncluded: false });
+    onSelect('free', 'monthly');
   };
 
   return <div className="w-full animate-[auth-form-slide-up_0.5s_ease-out_both]">
     <div className="mb-4 flex items-center justify-center gap-1 rounded-lg bg-[var(--auth-input-bg)] p-1">
       {(['monthly', 'annual'] as const).map((cycle) => <button key={cycle} type="button" onClick={() => setBillingCycle(cycle)} className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors ${billingCycle === cycle ? 'bg-[var(--auth-accent)] text-white' : 'text-[var(--auth-text-secondary)] hover:text-[var(--auth-text-primary)]'}`}>{cycle === 'monthly' ? 'Monthly' : 'Annual (save 15%)'}</button>)}
     </div>
-    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
-      <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-500"><Sparkles className="h-4 w-4" /></span><div><p className="text-sm font-semibold text-[var(--auth-text-primary)]">Start with a 14-day free trial</p><p className="text-[11px] text-[var(--auth-text-secondary)]">Full Growth Corridor access. No card required.</p></div></div>
+    <div className="mb-2 flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+      <div className="flex min-w-0 items-center gap-3"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-500"><Sparkles className="h-4 w-4" /></span><div><p className="text-sm font-semibold text-[var(--auth-text-primary)]">Start with a 14-day free trial</p><p className="text-[11px] text-[var(--auth-text-secondary)]">Full Growth Corridor access, then the Free plan unless you upgrade. No card required.</p></div></div>
       <button type="button" onClick={startTrial} className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-500">Start Free Trial</button>
+    </div>
+    <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-[var(--auth-border)] bg-[var(--auth-input-bg)] p-3">
+      <div className="flex min-w-0 items-center gap-3"><div><p className="text-sm font-semibold text-[var(--auth-text-primary)]">Or start on the Free plan</p><p className="text-[11px] text-[var(--auth-text-secondary)]">{FREE_PLAN.description} No card required.</p></div></div>
+      <button type="button" onClick={startFree} className="shrink-0 rounded-lg border border-[var(--auth-border)] px-3 py-2 text-xs font-semibold text-[var(--auth-text-primary)] transition-colors hover:bg-[var(--auth-border)]">Continue Free</button>
     </div>
     <div className="grid items-start gap-3 md:grid-cols-3">
       {PRICING_TIERS.map((tier) => {
@@ -50,6 +58,7 @@ export function EnterpriseSubscription({ onSelect, onContactSales }: EnterpriseS
       })}
     </div>
     <p className="mt-3 text-center text-[10px] text-[var(--auth-text-secondary)]">NFC VitaCards: N2,500 per bulk card. Minimum 100 cards for Starter/Growth and 500 for Enterprise.</p>
-    <button type="button" onClick={selectPlan} className="mt-3 h-10 w-full rounded-xl bg-[var(--auth-accent)] text-xs font-bold text-white transition-colors hover:bg-[var(--auth-accent-hover)]">Continue with {PRICING_TIERS.find((tier) => tier.id === selectedPlan)?.name}</button>
+    <button type="button" onClick={selectPlan} className="mt-3 h-10 w-full rounded-xl bg-[var(--auth-accent)] text-xs font-bold text-white transition-colors hover:bg-[var(--auth-accent-hover)]">Continue to payment: {PRICING_TIERS.find((tier) => tier.id === selectedPlan)?.name}</button>
+    <p className="mt-2 text-center text-[10px] text-[var(--auth-text-secondary)]">You'll pay the first {billingCycle === 'annual' ? 'year' : 'month'} plus the one-time setup fee securely with Paystack after your workspace is created.</p>
   </div>;
 }

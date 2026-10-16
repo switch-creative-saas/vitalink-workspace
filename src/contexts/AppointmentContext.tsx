@@ -1,6 +1,14 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import {
+  createAppointmentRemote,
+  listAppointmentsRemote,
+  listCliniciansRemote,
+  subscribeToAppointments,
+  updateAppointmentStatusRemote,
+} from '@/lib/supabase/appointments';
 
 export type AppointmentStatus =
   | 'confirmed'
@@ -368,6 +376,29 @@ const defaultFilters: AppointmentFilters = {
   query: '',
 };
 
+/** Position in the day's queue for each department, by appointment time. */
+function withQueuePositions(items: AppointmentRecord[]) {
+  const counters = new Map<string, number>();
+  return [...items]
+    .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+    .map((item) => {
+      const key = `${item.date}|${item.department}`;
+      const position = (counters.get(key) ?? 0) + 1;
+      counters.set(key, position);
+      return { ...item, queuePosition: position };
+    });
+}
+
+function shiftDate(date: string, days: number) {
+  const next = new Date(`${date}T00:00:00`);
+  next.setDate(next.getDate() + days);
+  return next.toISOString().slice(0, 10);
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 function readJson<T>(key: string, fallback: T): T {
   const saved = localStorage.getItem(key);
   if (!saved) return fallback;
@@ -413,13 +444,49 @@ function allowedAction(role: UserRole, action: AppointmentAction, appointment?: 
 }
 
 export function AppointmentProvider({ children }: { children: ReactNode }) {
-  const { currentRole, userName } = useAuth();
-  const [appointments, setAppointments] = useState<AppointmentRecord[]>(() => readJson(appointmentsKey, seedAppointments));
+  const { currentRole, userName, organization } = useAuth();
+  const organizationId = organization.id;
+  // With Supabase, appointments and clinicians are loaded per workspace; otherwise the local demo data is used.
+  const [appointments, setAppointments] = useState<AppointmentRecord[]>(() => (isSupabaseConfigured ? [] : readJson(appointmentsKey, seedAppointments)));
+  const [clinicians, setClinicians] = useState<AppointmentDoctor[]>(isSupabaseConfigured ? [] : doctors);
   const [filters, setFilterState] = useState<AppointmentFilters>(() => ({ ...defaultFilters, ...readJson<Partial<AppointmentFilters>>(filtersKey, {}) }));
   const [pendingSyncCount, setPendingSyncCount] = useState(() => readJson<unknown[]>(offlineQueueKey, []).length);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
 
-  useEffect(() => localStorage.setItem(appointmentsKey, JSON.stringify(appointments)), [appointments]);
+  useEffect(() => {
+    if (!isSupabaseConfigured) localStorage.setItem(appointmentsKey, JSON.stringify(appointments));
+  }, [appointments]);
+
+  // Load a window around the selected day; reload on any change pushed by Realtime.
+  const windowStart = shiftDate(filters.date, -7);
+  const windowEnd = shiftDate(filters.date, 31);
+  const reload = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const [rows, staff] = await Promise.all([
+        listAppointmentsRemote(organizationId, windowStart, windowEnd),
+        listCliniciansRemote(organizationId),
+      ]);
+      setAppointments(withQueuePositions(rows));
+      setClinicians(staff);
+    } catch (error) {
+      toast.error(errorMessage(error, 'Could not load appointments'));
+    }
+  }, [organizationId, windowStart, windowEnd]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    void reload();
+    let timer: number | undefined;
+    const unsubscribe = subscribeToAppointments(organizationId, () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void reload(), 300);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [organizationId, reload]);
   useEffect(() => localStorage.setItem(filtersKey, JSON.stringify(filters)), [filters]);
 
   useEffect(() => {
@@ -493,9 +560,39 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
       `status-${status}`,
       `${userName} changed ${id} to ${status}`,
     );
+    if (isSupabaseConfigured) {
+      updateAppointmentStatusRemote(id, status, reason)
+        .then((saved) => setAppointments((prev) => withQueuePositions(prev.map((item) => (item.id === id ? { ...saved, lastVitals: item.lastVitals } : item)))))
+        .catch((error) => {
+          toast.error(errorMessage(error, 'Could not update the appointment'));
+          void reload(); // drop the optimistic change
+        });
+    }
   };
 
   const createAppointment: AppointmentContextType['createAppointment'] = (payload) => {
+    if (isSupabaseConfigured) {
+      createAppointmentRemote(organizationId, {
+        patientSwitchId: payload.patientSwitchId,
+        clinicianId: payload.doctorId,
+        department: payload.department,
+        date: payload.date,
+        time: payload.time,
+        duration: payload.duration,
+        type: payload.type,
+        priority: payload.priority,
+        insuranceType: payload.insuranceType,
+        visitReason: payload.visitReason,
+        note: payload.history[0],
+      })
+        .then((saved) => {
+          setAppointments((prev) => withQueuePositions([...prev, saved]));
+          notify('appointments', 'appointment-created', `${saved.patient} booked with ${saved.doctor}`);
+          toast.success('Appointment created', { description: `${saved.patient} · queue ${saved.queueNumber}` });
+        })
+        .catch((error) => toast.error(errorMessage(error, 'Could not create the appointment')));
+      return;
+    }
     const next: AppointmentRecord = {
       ...payload,
       id: crypto.randomUUID(),
@@ -620,7 +717,7 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AppointmentContextType>(
     () => ({
       appointments,
-      doctors,
+      doctors: clinicians,
       appointmentTypes,
       filters,
       pendingSyncCount,
@@ -639,7 +736,7 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
         setFilterState(next);
       },
     }),
-    [appointments, filters, pendingSyncCount, isOnline, analytics],
+    [appointments, clinicians, filters, pendingSyncCount, isOnline, analytics],
   );
 
   return <AppointmentContext.Provider value={value}>{children}</AppointmentContext.Provider>;

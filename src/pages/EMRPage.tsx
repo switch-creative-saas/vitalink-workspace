@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   Bot,
@@ -26,8 +26,23 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { getPatientBySwitchId } from '@/lib/patientRegistry';
+import { findPatientBySwitchId, type RegistryPatient } from '@/lib/patientRegistry';
 import { SENTINEL_CLINICAL_EVENT, type SentinelClinicalPayload } from '@/lib/sentinel/events';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import {
+  addLabResults,
+  completeLab,
+  formatVitals,
+  listLabs,
+  listNotes,
+  listVitals,
+  parseLabOrders,
+  recordVitals,
+  saveNote,
+  type ClinicalNote,
+  type NewVitals,
+  type VitalsReading,
+} from '@/lib/supabase/clinical';
 
 type EmrTab = 'overview' | 'clinical-notes' | 'lab-results' | 'documents' | 'timeline';
 type TimelineType = 'clinical-note' | 'lab-uploaded' | 'document-added' | 'diagnosis-updated' | 'prescription-issued';
@@ -54,6 +69,9 @@ interface LabResultItem {
   flag: 'Normal' | 'High' | 'Low' | 'Critical';
   orderingDoctor: string;
   technician: string;
+  interpretation?: string;
+  orderedAt?: string;
+  resultedAt?: string | null;
 }
 
 interface DocumentItem {
@@ -86,6 +104,38 @@ const defaultDocs: DocumentItem[] = [
   { id: 'doc_2', name: 'Consent Form - Procedure', category: 'Consent forms', size: '420 KB', version: 1, uploadedBy: 'Nurse Amina', uploadedAt: '2026-04-15', tags: ['consent'] },
 ];
 
+const blankSoap = {
+  chiefComplaint: '',
+  hpi: '',
+  reviewSystems: '',
+  patientNarrative: '',
+  symptomSummary: '',
+  vitalSigns: '',
+  physicalExam: '',
+  labRefs: '',
+  imagingRef: '',
+  attachments: '',
+  measurements: '',
+  primaryDiagnosis: '',
+  secondaryDiagnosis: '',
+  differentialDiagnosis: '',
+  riskLevel: 'moderate' as RiskLevel,
+  aiSuggestion: '',
+  prescriptions: '',
+  labOrders: '',
+  imagingOrders: '',
+  referralNotes: '',
+  followUp: '',
+  telemedicineFollowup: 'No telemedicine follow-up',
+  addendum: '',
+};
+type SoapForm = typeof blankSoap;
+
+const emptyVitalsForm = { systolic: '', diastolic: '', heartRate: '', temperatureC: '', spo2: '', respiratoryRate: '', weightKg: '', notes: '' };
+const emptyLabForm = { testName: '', testType: '', department: '', referenceRange: '', value: '', flag: 'Normal' as LabResultItem['flag'] };
+
+const toNumber = (value: string) => (value.trim() === '' ? undefined : Number(value));
+
 function createAuditLog(action: string, user: string) {
   return {
     id: crypto.randomUUID(),
@@ -102,7 +152,7 @@ interface EMRPageProps {
 }
 
 export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
-  const { currentRole, canView, canCreate, canEdit, userName } = useAuth();
+  const { currentRole, canView, canCreate, canEdit, userName, organization } = useAuth();
   const [activeTab, setActiveTab] = useState<EmrTab>('overview');
   const [editorOpen, setEditorOpen] = useState(false);
   const [timeSpent, setTimeSpent] = useState(0);
@@ -111,40 +161,89 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   const [noteLocked, setNoteLocked] = useState(false);
   const [noteVersions, setNoteVersions] = useState<string[]>([]);
   const [auditTrail, setAuditTrail] = useState<{ id: string; when: string; action: string; user: string; source: string }[]>([]);
-  const [timeline, setTimeline] = useState<TimelineEvent[]>([
+  const [localTimeline, setTimeline] = useState<TimelineEvent[]>(isSupabaseConfigured ? [] : [
     { id: 't1', type: 'lab-uploaded', title: 'Lab result uploaded', detail: 'HbA1c result available', actor: 'Lab Scientist Okonkwo', createdAt: '2026-04-20T12:22:00Z' },
     { id: 't2', type: 'diagnosis-updated', title: 'Diagnosis updated', detail: 'Type 2 Diabetes with improved control', actor: 'Dr. Sarah Johnson', createdAt: '2026-04-20T12:50:00Z' },
   ]);
-  const [labResults, setLabResults] = useState<LabResultItem[]>(defaultLabResults);
+  const [labResults, setLabResults] = useState<LabResultItem[]>(isSupabaseConfigured ? [] : defaultLabResults);
+  const [notes, setNotes] = useState<ClinicalNote[]>([]);
+  const [vitals, setVitals] = useState<VitalsReading[]>([]);
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const [vitalsForm, setVitalsForm] = useState(emptyVitalsForm);
+  const [labForm, setLabForm] = useState(emptyLabForm);
+  const [labCompletion, setLabCompletion] = useState({ value: '', flag: 'Normal' as LabResultItem['flag'], interpretation: '' });
   const [documents, setDocuments] = useState<DocumentItem[]>(defaultDocs);
   const [selectedLab, setSelectedLab] = useState<LabResultItem | null>(null);
-  const patient = useMemo(() => (patientSwitchId ? getPatientBySwitchId(patientSwitchId) : null), [patientSwitchId]);
+  // Lookup result is keyed by the switch ID it was fetched for, so loading state is derived.
+  const [lookup, setLookup] = useState<{ switchId?: string; patient: RegistryPatient | null }>({ patient: null });
+  useEffect(() => {
+    if (!patientSwitchId) return;
+    let cancelled = false;
+    findPatientBySwitchId(patientSwitchId)
+      .then((found) => { if (!cancelled) setLookup({ switchId: patientSwitchId, patient: found }); })
+      .catch(() => { if (!cancelled) setLookup({ switchId: patientSwitchId, patient: null }); });
+    return () => { cancelled = true; };
+  }, [patientSwitchId]);
+  const patientLoading = Boolean(patientSwitchId) && lookup.switchId !== patientSwitchId;
+  const patient = patientSwitchId && !patientLoading ? lookup.patient : null;
+  const patientId = patient?.id;
+  const organizationId = organization.id;
 
-  const [soap, setSoap] = useState({
-    chiefComplaint: '',
-    hpi: '',
-    reviewSystems: '',
-    patientNarrative: '',
-    symptomSummary: '',
-    vitalSigns: 'BP 128/82 | HR 72 bpm | Temp 36.8C | SpO2 98%',
-    physicalExam: '',
-    labRefs: '',
-    imagingRef: '',
-    attachments: '',
-    measurements: '',
-    primaryDiagnosis: '',
-    secondaryDiagnosis: '',
-    differentialDiagnosis: '',
-    riskLevel: 'moderate' as RiskLevel,
-    aiSuggestion: 'Possible uncontrolled glycemic trend. Consider medication adjustment and closer interval follow-up.',
-    prescriptions: '',
-    labOrders: '',
-    imagingOrders: '',
-    referralNotes: '',
-    followUp: '',
-    telemedicineFollowup: 'No',
-    addendum: '',
-  });
+  const refreshClinical = useCallback(async () => {
+    if (!isSupabaseConfigured || !patientId) return;
+    try {
+      const [noteRows, vitalRows, labRows] = await Promise.all([
+        listNotes(organizationId, patientId),
+        listVitals(organizationId, patientId),
+        listLabs(organizationId, patientId),
+      ]);
+      setNotes(noteRows);
+      setVitals(vitalRows);
+      setLabResults(labRows);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not load clinical records');
+    }
+  }, [organizationId, patientId]);
+
+  useEffect(() => {
+    void refreshClinical();
+  }, [refreshClinical]);
+
+  const latestVitals = vitals[0] ?? null;
+
+  // With Supabase the timeline is built from the stored records.
+  const timeline = useMemo<TimelineEvent[]>(() => {
+    if (!isSupabaseConfigured) return localTimeline;
+    const events: TimelineEvent[] = [
+      ...notes.map((note) => ({
+        id: `note-${note.id}`,
+        type: 'clinical-note' as const,
+        title: note.status === 'signed' ? 'Clinical note signed' : 'Clinical note drafted',
+        detail: [note.chiefComplaint, note.primaryDiagnosis].filter(Boolean).join(' · ') || 'SOAP note',
+        actor: note.status === 'signed' ? note.signedByName || note.authorName : note.authorName,
+        createdAt: note.signedAt ?? note.updatedAt,
+      })),
+      ...labResults.map((lab) => ({
+        id: `lab-${lab.id}`,
+        type: 'lab-uploaded' as const,
+        title: lab.status === 'Completed' ? 'Lab result recorded' : 'Lab ordered',
+        detail: lab.status === 'Completed' ? `${lab.testName}: ${lab.patientValue} (${lab.flag})` : lab.testName,
+        actor: lab.status === 'Completed' ? lab.technician : lab.orderingDoctor,
+        createdAt: lab.resultedAt ?? lab.orderedAt ?? lab.date,
+      })),
+      ...vitals.map((reading) => ({
+        id: `vitals-${reading.id}`,
+        type: 'diagnosis-updated' as const,
+        title: 'Vitals recorded',
+        detail: formatVitals(reading),
+        actor: reading.recordedByName,
+        createdAt: reading.recordedAt,
+      })),
+    ];
+    return events.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [localTimeline, notes, labResults, vitals]);
+
+  const [soap, setSoap] = useState(blankSoap);
 
   const [labFilters, setLabFilters] = useState({ date: '', testType: '', status: '', department: '' });
   const [docSearch, setDocSearch] = useState('');
@@ -158,6 +257,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   const canEditLab = currentRole === 'doctor' || currentRole === 'lab-scientist';
   const canUploadDocuments = currentRole !== 'receptionist';
   const canReadOnlyAdmin = currentRole === 'hospital-admin';
+  const canRecordVitals = currentRole === 'doctor' || currentRole === 'nurse';
 
   useEffect(() => {
     if (currentRole === 'lab-scientist' && activeTab !== 'lab-results') {
@@ -173,7 +273,24 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
     setAuditTrail((prev) => [createAuditLog(action, userName), ...prev]);
   };
 
+  const persistNote = async (sign: boolean) => {
+    if (!patientId) return null;
+    const saved = await saveNote(organizationId, patientId, soap as unknown as Record<string, string>, { noteId: activeNoteId ?? undefined, sign });
+    setActiveNoteId(saved.id);
+    setNotes((prev) => [saved, ...prev.filter((note) => note.id !== saved.id)]);
+    setAutosaveAt(new Date(saved.updatedAt).toLocaleTimeString());
+    setNoteVersions(Array.from({ length: saved.version }, (_, i) => `Version ${saved.version - i}`));
+    return saved;
+  };
+
   const saveDraft = () => {
+    if (isSupabaseConfigured) {
+      if (noteLocked) return;
+      persistNote(false)
+        .then(() => { toast.success('Draft saved'); addAudit('clinical_note_draft_saved'); })
+        .catch((error) => toast.error(error instanceof Error ? error.message : 'Could not save the note'));
+      return;
+    }
     setAutosaveAt(new Date().toLocaleTimeString());
     setNoteVersions((prev) => [`Version ${prev.length + 1} saved at ${new Date().toLocaleTimeString()}`, ...prev]);
     toast.success('Draft autosaved securely');
@@ -185,8 +302,25 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
       toast.error('RBAC: only doctors can create clinical notes.');
       return;
     }
+    setActiveNoteId(null);
+    setSoap({ ...blankSoap, vitalSigns: formatVitals(latestVitals) });
+    setSigned(false);
+    setNoteLocked(false);
+    setNoteVersions([]);
+    setAutosaveAt('');
     setEditorOpen(true);
     setTimeSpent(0);
+  };
+
+  const openNote = (note: ClinicalNote) => {
+    setActiveNoteId(note.id);
+    setSoap({ ...blankSoap, ...(note.content as Partial<SoapForm>) });
+    const locked = note.status === 'signed';
+    setSigned(locked);
+    setNoteLocked(locked);
+    setNoteVersions(Array.from({ length: note.version }, (_, i) => `Version ${note.version - i}`));
+    setAutosaveAt(new Date(note.updatedAt).toLocaleTimeString());
+    setEditorOpen(true);
   };
 
   const saveClinicalNote = () => {
@@ -195,6 +329,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
       return;
     }
     saveDraft();
+    if (isSupabaseConfigured) return; // timeline is derived from saved notes
     addTimeline({
       type: 'clinical-note',
       title: 'Clinical note created',
@@ -208,10 +343,36 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
       toast.error('Only doctors can sign and lock notes.');
       return;
     }
+    if (isSupabaseConfigured) {
+      persistNote(true)
+        .then(async (saved) => {
+          if (!saved || !patientId) return;
+          setSigned(true);
+          setNoteLocked(true);
+          addAudit('clinical_note_signed_and_locked');
+          const orders = parseLabOrders(soap.labOrders);
+          if (orders.length) {
+            const pending = await addLabResults(organizationId, patientId, orders.map((testName) => ({
+              testName, testType: 'General', department: 'Laboratory', status: 'Pending' as const, noteId: saved.id,
+            })));
+            setLabResults((prev) => [...pending, ...prev]);
+          }
+          toast.success('Note signed and locked.', {
+            description: orders.length ? `${orders.length} lab order(s) sent to the laboratory.` : undefined,
+          });
+          notifySentinel();
+        })
+        .catch((error) => toast.error(error instanceof Error ? error.message : 'Could not sign the note'));
+      return;
+    }
     setSigned(true);
     setNoteLocked(true);
     addAudit('clinical_note_signed_and_locked');
     toast.success('Electronic signature applied and note locked.');
+    notifySentinel();
+  };
+
+  const notifySentinel = () => {
     const sid = patient?.switchId ?? patientSwitchId ?? '';
     if (sid && (soap.primaryDiagnosis.trim() || soap.secondaryDiagnosis.trim())) {
       window.dispatchEvent(
@@ -220,7 +381,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
             patientSwitchId: sid,
             primaryDiagnosis: soap.primaryDiagnosis,
             secondaryDiagnosis: soap.secondaryDiagnosis,
-            facilityName: 'Lagos Central Hospital',
+            facilityName: organization.name,
             state: patient?.state ?? 'Lagos',
             lga: 'Ikeja',
           },
@@ -230,6 +391,26 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   };
 
   const copyPrevious = () => {
+    if (isSupabaseConfigured) {
+      const previous = notes.find((note) => note.status === 'signed' && note.id !== activeNoteId);
+      if (!previous) {
+        toast.info('No earlier signed note for this patient.');
+        return;
+      }
+      const content = previous.content as Partial<SoapForm>;
+      setSoap((prev) => ({
+        ...prev,
+        hpi: content.hpi ?? prev.hpi,
+        reviewSystems: content.reviewSystems ?? prev.reviewSystems,
+        physicalExam: content.physicalExam ?? prev.physicalExam,
+        primaryDiagnosis: content.primaryDiagnosis ?? prev.primaryDiagnosis,
+        secondaryDiagnosis: content.secondaryDiagnosis ?? prev.secondaryDiagnosis,
+        prescriptions: content.prescriptions ?? prev.prescriptions,
+      }));
+      addAudit('clinical_note_copied_from_previous');
+      toast.success(`Copied from note of ${new Date(previous.signedAt ?? previous.createdAt).toLocaleDateString()}.`);
+      return;
+    }
     setSoap((prev) => ({
       ...prev,
       hpi: 'Copied from previous encounter: patient reports improved exercise tolerance and reduced dizziness.',
@@ -260,7 +441,90 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
     return timelineFilter === 'all' ? timeline : timeline.filter((item) => item.type === timelineFilter);
   }, [timeline, timelineFilter]);
 
+  const addLabResult = () => {
+    if (!canUploadLab || !patientId) {
+      toast.error('RBAC: your role cannot upload lab results.');
+      return;
+    }
+    if (!labForm.testName.trim()) {
+      toast.error('Enter the test name.');
+      return;
+    }
+    const completed = labForm.value.trim() !== '';
+    addLabResults(organizationId, patientId, [{
+      testName: labForm.testName,
+      testType: labForm.testType,
+      department: labForm.department,
+      referenceRange: labForm.referenceRange,
+      value: labForm.value,
+      flag: labForm.flag,
+      status: completed ? 'Completed' : 'Pending',
+    }])
+      .then(([saved]) => {
+        setLabResults((prev) => [saved, ...prev]);
+        setLabForm(emptyLabForm);
+        addAudit(completed ? 'lab_result_recorded' : 'lab_ordered');
+        toast.success(completed ? 'Lab result recorded.' : 'Lab order created.');
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Could not save the lab result'));
+  };
+
+  const completeSelectedLab = () => {
+    if (!selectedLab || !canEditLab) return;
+    if (!labCompletion.value.trim()) {
+      toast.error('Enter the result value.');
+      return;
+    }
+    completeLab(selectedLab.id, labCompletion)
+      .then((saved) => {
+        setLabResults((prev) => prev.map((lab) => (lab.id === saved.id ? saved : lab)));
+        setSelectedLab(saved);
+        setLabCompletion({ value: '', flag: 'Normal', interpretation: '' });
+        addAudit('lab_result_completed');
+        toast.success('Lab result recorded.');
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Could not record the result'));
+  };
+
+  const recordVitalsReading = () => {
+    if (!canRecordVitals || !patientId) return;
+    const reading: NewVitals = {
+      systolic: toNumber(vitalsForm.systolic),
+      diastolic: toNumber(vitalsForm.diastolic),
+      heartRate: toNumber(vitalsForm.heartRate),
+      temperatureC: toNumber(vitalsForm.temperatureC),
+      spo2: toNumber(vitalsForm.spo2),
+      respiratoryRate: toNumber(vitalsForm.respiratoryRate),
+      weightKg: toNumber(vitalsForm.weightKg),
+      notes: vitalsForm.notes,
+    };
+    if (Object.entries(reading).every(([key, value]) => key === 'notes' || value === undefined)) {
+      toast.error('Enter at least one measurement.');
+      return;
+    }
+    recordVitals(organizationId, patientId, reading)
+      .then((saved) => {
+        setVitals((prev) => [saved, ...prev]);
+        setVitalsForm(emptyVitalsForm);
+        addAudit('vitals_recorded');
+        toast.success('Vitals recorded.');
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : 'Could not record vitals'));
+  };
+
+  // Earlier results for the same test, newest first, for the detail panel.
+  const labHistory = useMemo(() => {
+    if (!selectedLab) return [];
+    return labResults
+      .filter((lab) => lab.testName.toLowerCase() === selectedLab.testName.toLowerCase() && lab.status === 'Completed')
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [labResults, selectedLab]);
+
   const uploadLabResult = () => {
+    if (isSupabaseConfigured) {
+      addLabResult();
+      return;
+    }
     if (!canUploadLab) {
       toast.error('RBAC: your role cannot upload lab results.');
       return;
@@ -308,6 +572,10 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   if (!emrReadAllowed) {
     return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Access denied by EMR RBAC policy.</div>;
   }
+  if (patientSwitchId && patientLoading) {
+    return <div className="rounded-2xl border border-gray-100 bg-white p-6 text-sm text-gray-500">Loading patient record...</div>;
+  }
+
   if (patientSwitchId && !patient) {
     return (
       <div className="space-y-3">
@@ -402,7 +670,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                   <option value="high">High risk</option>
                   <option value="critical">Critical risk</option>
                 </select>
-                <textarea className="min-h-20 rounded-md border border-input p-3 text-sm md:col-span-2 w-full min-w-0" placeholder="AI diagnostic suggestions (non-final)" value={soap.aiSuggestion} onChange={(e) => setSoap((p) => ({ ...p, aiSuggestion: e.target.value }))} />
+                <textarea className="min-h-20 rounded-md border border-input p-3 text-sm md:col-span-2 w-full min-w-0" placeholder="Clinical decision support notes (non-final, clinician-reviewed)" value={soap.aiSuggestion} onChange={(e) => setSoap((p) => ({ ...p, aiSuggestion: e.target.value }))} />
               </div>
             </section>
 
@@ -419,7 +687,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                   <option>Schedule telemedicine in 48h</option>
                   <option>Schedule telemedicine in 7 days</option>
                 </select>
-                <Input placeholder="Doctor digital stamp" value="SWITCH-DOCTOR-STAMP-VERIFIED" readOnly className="min-w-0" />
+                <Input placeholder="Doctor digital stamp" value={signed ? `Signed by ${notes.find((note) => note.id === activeNoteId)?.signedByName || userName}` : 'Applied when the note is signed'} readOnly className="min-w-0" />
                 <textarea className="min-h-16 rounded-md border border-input p-3 text-sm md:col-span-2 w-full min-w-0" placeholder="Addendum support" value={soap.addendum} onChange={(e) => setSoap((p) => ({ ...p, addendum: e.target.value }))} />
               </div>
             </section>
@@ -428,6 +696,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
           <div className="sticky bottom-0 mt-4 p-3 rounded-xl border bg-white/90 backdrop-blur flex flex-wrap gap-2 justify-end min-w-0 dark:border-slate-700 dark:bg-slate-900/90">
             <span className="text-xs text-gray-500 mr-auto flex items-center gap-1 shrink-0 dark:text-slate-400"><Clock3 className="w-3 h-3" />Time spent: {timeSpent} min</span>
             <Button variant="outline" onClick={() => setTimeSpent((v) => v + 5)} className="min-w-0">Track +5 min</Button>
+            <Button variant="outline" onClick={() => setEditorOpen(false)} className="min-w-0">Close</Button>
             <Button variant="outline" onClick={saveClinicalNote} disabled={!canEditClinical || noteLocked} className="min-w-0">Save Draft</Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white min-w-0" onClick={signAndLock} disabled={signed || !canEditClinical}>
               <ShieldCheck className="w-4 h-4 mr-2 shrink-0" />
@@ -446,12 +715,12 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
           <aside className="xl:col-span-1 premium-card p-4 min-w-0 overflow-hidden">
             <div className="text-center">
-              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-royal-500 to-royal-700 mx-auto mb-2 text-white flex items-center justify-center font-bold text-xl shrink-0">AJ</div>
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-royal-500 to-royal-700 mx-auto mb-2 text-white flex items-center justify-center font-bold text-xl shrink-0">{patient ? `${patient.firstName[0] ?? ''}${patient.lastName[0] ?? ''}`.toUpperCase() : '--'}</div>
               <h3 className="font-semibold text-gray-900 truncate dark:text-slate-50">{patient ? `${patient.firstName} ${patient.lastName}` : 'No Patient Selected'}</h3>
               <p className="text-xs text-gray-500 truncate dark:text-slate-400">VitaLink ID: {patient?.switchId ?? '--'}</p>
             </div>
             <div className="mt-4 space-y-2 text-sm">
-              <div className="p-2 rounded-lg bg-white dark:bg-slate-800/60 truncate">Tenant: Lagos Central Hospital</div>
+              <div className="p-2 rounded-lg bg-white dark:bg-slate-800/60 truncate">Tenant: {organization.name}</div>
               <div className="p-2 rounded-lg bg-white dark:bg-slate-800/60 truncate">EMR Role: {currentRole}</div>
               <div className="p-2 rounded-lg bg-white dark:bg-slate-800/60 truncate">Encryption at rest: Enabled</div>
             </div>
@@ -475,6 +744,31 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
 
             {activeTab === 'overview' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {isSupabaseConfigured && (
+                  <div className="premium-card p-4 md:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-semibold text-gray-900 dark:text-slate-50">Vital Signs</h3>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">
+                        {latestVitals ? `Last recorded ${new Date(latestVitals.recordedAt).toLocaleString()} by ${latestVitals.recordedByName}` : 'No vitals recorded yet'}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-gray-800 dark:text-slate-200">{formatVitals(latestVitals) || '—'}</p>
+                    {canRecordVitals ? (
+                      <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-8">
+                        <Input inputMode="numeric" placeholder="Systolic" value={vitalsForm.systolic} onChange={(e) => setVitalsForm((v) => ({ ...v, systolic: e.target.value }))} />
+                        <Input inputMode="numeric" placeholder="Diastolic" value={vitalsForm.diastolic} onChange={(e) => setVitalsForm((v) => ({ ...v, diastolic: e.target.value }))} />
+                        <Input inputMode="numeric" placeholder="Heart rate" value={vitalsForm.heartRate} onChange={(e) => setVitalsForm((v) => ({ ...v, heartRate: e.target.value }))} />
+                        <Input inputMode="decimal" placeholder="Temp °C" value={vitalsForm.temperatureC} onChange={(e) => setVitalsForm((v) => ({ ...v, temperatureC: e.target.value }))} />
+                        <Input inputMode="numeric" placeholder="SpO2 %" value={vitalsForm.spo2} onChange={(e) => setVitalsForm((v) => ({ ...v, spo2: e.target.value }))} />
+                        <Input inputMode="numeric" placeholder="Resp. rate" value={vitalsForm.respiratoryRate} onChange={(e) => setVitalsForm((v) => ({ ...v, respiratoryRate: e.target.value }))} />
+                        <Input inputMode="decimal" placeholder="Weight kg" value={vitalsForm.weightKg} onChange={(e) => setVitalsForm((v) => ({ ...v, weightKg: e.target.value }))} />
+                        <Button onClick={recordVitalsReading}>Record vitals</Button>
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-gray-500 dark:text-slate-400">Doctors and nurses can record vitals.</p>
+                    )}
+                  </div>
+                )}
                 <div className="premium-card p-4">
                   <h3 className="font-semibold text-gray-900 mb-3 dark:text-slate-50">Clinical Workspace Status</h3>
                   <ul className="text-sm text-gray-600 space-y-2 dark:text-slate-300">
@@ -508,7 +802,27 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                     New Clinical Note
                   </Button>
                 </div>
-                <p className="text-sm text-gray-500 mt-2 dark:text-slate-400">Structured SOAP documentation with doctor-controlled AI suggestions and signature lock.</p>
+                <p className="text-sm text-gray-500 mt-2 dark:text-slate-400">Structured SOAP documentation with signature lock. Signed notes are read-only.</p>
+                {isSupabaseConfigured && (
+                  <div className="mt-4 space-y-2">
+                    {notes.length === 0 ? <p className="text-sm text-gray-500 dark:text-slate-400">No clinical notes for this patient yet.</p> : null}
+                    {notes.map((note) => (
+                      <button key={note.id} onClick={() => openNote(note)} className="w-full rounded-lg border border-gray-100 p-3 text-left hover:bg-gray-50 dark:border-slate-700 dark:hover:bg-slate-800/60">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-medium text-gray-900 dark:text-slate-50">{note.chiefComplaint || 'Untitled note'}</p>
+                          <span className={cn('rounded-full px-2 py-0.5 text-xs', note.status === 'signed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}>
+                            {note.status === 'signed' ? 'Signed' : `Draft v${note.version}`}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-slate-300">{note.primaryDiagnosis || 'No diagnosis recorded'}</p>
+                        <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                          {note.authorName} • {new Date(note.signedAt ?? note.updatedAt).toLocaleString()}
+                          {note.status === 'signed' && note.signedByName ? ` • signed by ${note.signedByName}` : ''}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -521,9 +835,26 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                   <Input placeholder="Department" value={labFilters.department} onChange={(e) => setLabFilters((p) => ({ ...p, department: e.target.value }))} />
                   <Button variant="outline" onClick={() => setLabFilters({ date: '', testType: '', status: '', department: '' })}><Filter className="w-4 h-4 mr-2" />Reset</Button>
                 </div>
-                <div className="premium-card p-3 flex justify-end">
-                  <Button onClick={uploadLabResult} disabled={!canUploadLab}><Upload className="w-4 h-4 mr-2" />Upload External Lab</Button>
-                </div>
+                {isSupabaseConfigured ? (
+                  canUploadLab ? (
+                    <div className="premium-card p-3 grid grid-cols-2 gap-2 md:grid-cols-7">
+                      <Input placeholder="Test name *" value={labForm.testName} onChange={(e) => setLabForm((f) => ({ ...f, testName: e.target.value }))} />
+                      <Input placeholder="Test type" value={labForm.testType} onChange={(e) => setLabForm((f) => ({ ...f, testType: e.target.value }))} />
+                      <Input placeholder="Department" value={labForm.department} onChange={(e) => setLabForm((f) => ({ ...f, department: e.target.value }))} />
+                      <Input placeholder="Reference range" value={labForm.referenceRange} onChange={(e) => setLabForm((f) => ({ ...f, referenceRange: e.target.value }))} />
+                      <Input placeholder="Value (blank = order)" value={labForm.value} onChange={(e) => setLabForm((f) => ({ ...f, value: e.target.value }))} />
+                      <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={labForm.flag} onChange={(e) => setLabForm((f) => ({ ...f, flag: e.target.value as LabResultItem['flag'] }))}>
+                        {(['Normal', 'High', 'Low', 'Critical'] as const).map((flag) => <option key={flag}>{flag}</option>)}
+                      </select>
+                      <Button onClick={addLabResult}><Upload className="w-4 h-4 mr-2" />{labForm.value.trim() ? 'Add result' : 'Order test'}</Button>
+                    </div>
+                  ) : null
+                ) : (
+                  <div className="premium-card p-3 flex justify-end">
+                    <Button onClick={uploadLabResult} disabled={!canUploadLab}><Upload className="w-4 h-4 mr-2" />Upload External Lab</Button>
+                  </div>
+                )}
+                {isSupabaseConfigured && filteredLabs.length === 0 ? <p className="text-sm text-gray-500 dark:text-slate-400">No lab results for this patient yet.</p> : null}
                 <div className="premium-card overflow-auto">
                   <table className="min-w-full text-sm">
                     <thead className="bg-gray-100 dark:bg-slate-800/80">
@@ -548,12 +879,41 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                       <h4 className="font-semibold text-gray-900 dark:text-slate-50">Detailed Lab Report: {selectedLab.testName}</h4>
                       <Button variant="outline" onClick={() => setSelectedLab(null)}>Close</Button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
-                      <div className="rounded-lg bg-gray-50 p-3 dark:bg-slate-800/60">AI anomaly highlight: Mild deviation compared with previous trend.</div>
-                      <div className="rounded-lg bg-gray-50 p-3 dark:bg-slate-800/60">Compare previous: Prior value was 6.9, now 7.3.</div>
-                      <div className="rounded-lg bg-gray-50 p-3 md:col-span-2 dark:bg-slate-800/60">Trend graph (time-based): ▁▂▃▅▆</div>
-                      <textarea className="min-h-20 rounded-md border border-input p-3 text-sm md:col-span-2" placeholder="Clinical interpretation note" />
-                    </div>
+                    {isSupabaseConfigured ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
+                        <div className="rounded-lg bg-gray-50 p-3 dark:bg-slate-800/60">
+                          Status: {selectedLab.status} • Reference range: {selectedLab.referenceRange}
+                        </div>
+                        <div className="rounded-lg bg-gray-50 p-3 dark:bg-slate-800/60">
+                          {labHistory.length > 1
+                            ? `Previous ${selectedLab.testName}: ${labHistory.filter((lab) => lab.id !== selectedLab.id).slice(0, 3).map((lab) => `${lab.patientValue} (${lab.date})`).join(', ')}`
+                            : 'No earlier results for this test.'}
+                        </div>
+                        {selectedLab.status === 'Completed' ? (
+                          <div className="rounded-lg bg-gray-50 p-3 md:col-span-2 dark:bg-slate-800/60">
+                            Interpretation: {selectedLab.interpretation || 'None recorded'}
+                          </div>
+                        ) : canEditLab ? (
+                          <div className="md:col-span-2 grid grid-cols-1 gap-2 md:grid-cols-4">
+                            <Input placeholder="Result value *" value={labCompletion.value} onChange={(e) => setLabCompletion((c) => ({ ...c, value: e.target.value }))} />
+                            <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={labCompletion.flag} onChange={(e) => setLabCompletion((c) => ({ ...c, flag: e.target.value as LabResultItem['flag'] }))}>
+                              {(['Normal', 'High', 'Low', 'Critical'] as const).map((flag) => <option key={flag}>{flag}</option>)}
+                            </select>
+                            <Input placeholder="Interpretation" value={labCompletion.interpretation} onChange={(e) => setLabCompletion((c) => ({ ...c, interpretation: e.target.value }))} />
+                            <Button onClick={completeSelectedLab}>Record result</Button>
+                          </div>
+                        ) : (
+                          <p className="md:col-span-2 text-xs text-gray-500 dark:text-slate-400">Awaiting result from the laboratory.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
+                        <div className="rounded-lg bg-gray-50 p-3 dark:bg-slate-800/60">AI anomaly highlight: Mild deviation compared with previous trend.</div>
+                        <div className="rounded-lg bg-gray-50 p-3 dark:bg-slate-800/60">Compare previous: Prior value was 6.9, now 7.3.</div>
+                        <div className="rounded-lg bg-gray-50 p-3 md:col-span-2 dark:bg-slate-800/60">Trend graph (time-based): ▁▂▃▅▆</div>
+                        <textarea className="min-h-20 rounded-md border border-input p-3 text-sm md:col-span-2" placeholder="Clinical interpretation note" />
+                      </div>
+                    )}
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button variant="outline"><FileDigit className="w-4 h-4 mr-2" />Export PDF</Button>
                       <Button variant="outline"><Share2 className="w-4 h-4 mr-2" />Share referral hospital</Button>

@@ -88,6 +88,15 @@ export const PRICING_TIERS: PricingTier[] = [
 
 export const NFC_CARD_PRICING = { unitProductionCost: 1700, bulkWholesalePrice: 2500, directRetailPrice: 3000, minimumBulkOrder: 100, minimumEnterpriseOrder: 100 };
 export const SENTINEL_ADDON = { monthlyPrice: 50000, annualPrice: 480000, annualSavings: 120000, description: 'Real-time disease surveillance, outbreak detection, and NCDC reporting powered by your EMR data.' };
+// Permanent free tier; keep modules in sync with the `free` row in public.plans.
+export const FREE_PLAN = {
+  id: 'free' as const,
+  name: 'Free',
+  modules: ['dashboard', 'patients', 'health-identity', 'patient-identity', 'appointments', 'emr', 'subscription', 'settings', 'help'],
+  sentinelIncluded: false,
+  description: 'Patient registry, core EMR and appointments. Upgrade anytime.',
+};
+
 export const FREE_TRIAL = {
   id: 'trial' as const,
   name: '14-Day Free Trial',

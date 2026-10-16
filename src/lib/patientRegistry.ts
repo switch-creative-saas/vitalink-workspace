@@ -1,4 +1,13 @@
 import { BRAND, formatBrandId } from '@/config/brand';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import {
+  createPatientRemote,
+  getPatientBySwitchIdRemote,
+  getPatientSummaryRemote,
+  listAllPatientsRemote,
+  queryPatientsRemote,
+  type PatientSummary,
+} from '@/lib/supabase/patients';
 
 export type PatientStatus = 'active' | 'inpatient' | 'outpatient' | 'discharged' | 'referred';
 
@@ -166,6 +175,7 @@ export async function createPatient(
   creator: string,
   patient: Omit<RegistryPatient, 'id' | 'switchId' | 'createdAt' | 'updatedAt' | 'createdBy' | 'updatedBy'>,
 ): Promise<RegistryPatient> {
+  if (isSupabaseConfigured) return createPatientRemote(patient);
   await new Promise((resolve) => setTimeout(resolve, randomLatency()));
   const duplicate = detectDuplicate(patient.tenantId, patient);
   if (duplicate) {
@@ -233,6 +243,7 @@ export function getPatientById(id: string, tenantId?: string) {
 }
 
 export async function queryPatients(input: PatientQueryInput): Promise<ServerPageResult> {
+  if (isSupabaseConfigured) return queryPatientsRemote(input);
   const key = getQueryCacheKey(input);
   const now = Date.now();
   const cached = queryCache.get(key);
@@ -285,6 +296,29 @@ export async function queryPatients(input: PatientQueryInput): Promise<ServerPag
   };
   queryCache.set(key, { value, expiresAt: now + QUERY_CACHE_TTL_MS });
   return value;
+}
+
+export async function findPatientBySwitchId(switchId: string, tenantId?: string): Promise<RegistryPatient | null> {
+  if (isSupabaseConfigured) return getPatientBySwitchIdRemote(switchId);
+  return getPatientBySwitchId(switchId, tenantId);
+}
+
+export async function listTenantPatients(tenantId: string): Promise<RegistryPatient[]> {
+  if (isSupabaseConfigured) return listAllPatientsRemote(tenantId);
+  return getPatients().filter((patient) => patient.tenantId === tenantId);
+}
+
+export type { PatientSummary };
+
+export async function getPatientSummary(tenantId: string): Promise<PatientSummary> {
+  if (isSupabaseConfigured) return getPatientSummaryRemote(tenantId);
+  const rows = getPatients().filter((patient) => patient.tenantId === tenantId);
+  return {
+    total: rows.length,
+    active: rows.filter((patient) => patient.status === 'active').length,
+    inpatient: rows.filter((patient) => patient.status === 'inpatient').length,
+    withNfc: rows.filter((patient) => patient.nfcActive).length,
+  };
 }
 
 export async function fetchPatientsPage(
