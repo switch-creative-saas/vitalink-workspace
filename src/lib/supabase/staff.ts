@@ -1,5 +1,5 @@
 import type { UserRole } from '@/contexts/AuthContext';
-import { requireSupabase } from './client';
+import { requireSupabase, functionErrorMessage } from './client';
 
 export interface StaffMember {
   membershipId: string;
@@ -181,9 +181,7 @@ export async function sendInvitationEmail(invitationId: string): Promise<{ sent:
     body: { invitationId, appOrigin: window.location.origin },
   });
   if (error) {
-    const context = (error as { context?: Response }).context;
-    const detail = context ? await context.json().catch(() => null) : null;
-    throw new Error(detail?.error ?? error.message);
+    throw new Error(await functionErrorMessage(error));
   }
   return data as { sent: boolean; link: string; reason?: string };
 }

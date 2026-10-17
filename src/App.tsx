@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { LifeBuoy, Lock } from 'lucide-react';
 import { ResponsiveProvider } from '@/contexts/ResponsiveContext';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -29,6 +29,8 @@ import { SettingsPage } from '@/pages/SettingsPage';
 import { HelpSupportPage } from '@/pages/HelpSupportPage';
 import { NFCCardsPage } from '@/pages/NFCCardsPage';
 import { AuthGatewayPage } from '@/pages/AuthGatewayPage';
+import { PatientVisitPage } from '@/pages/PatientVisitPage';
+import { resetPlatformAdminCheck } from '@/hooks/usePlatformAdmin';
 import { Toaster } from '@/components/ui/sonner';
 import type { PageType } from '@/types';
 import { GuidedTourProvider } from '@/contexts/GuidedTourContext';
@@ -43,7 +45,15 @@ import { UpgradeGate } from '@/components/UpgradeGate';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { signOut } from '@/lib/supabase/auth';
 
+// The VitaLink Console is its own app (own sign-in, own layout); only its code is downloaded at /console.
+const ConsoleApp = lazy(() => import('@/components/console/ConsoleApp'));
+
 function App() {
+  // Patients open video-visit links without an account.
+  if (isSupabaseConfigured && window.location.pathname === '/visit') return <PatientVisitPage />;
+  if (isSupabaseConfigured && /^\/console(\/|$)/.test(window.location.pathname)) {
+    return <Suspense fallback={null}><ConsoleApp /></Suspense>;
+  }
   return (
     <ResponsiveProvider>
       <AuthProvider>
@@ -74,6 +84,12 @@ function AppShell() {
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
   const [vitaMindPanelOpen, setVitaMindPanelOpen] = useState(false);
   const [emrSwitchId, setEmrSwitchId] = useState<string | null>(null);
+  // The address the app was opened on (e.g. a bookmark, or a payment provider's
+  // return URL with ?reference=...). Sign-in redirects would otherwise replace it.
+  const [deepLink, setDeepLink] = useState<string | null>(() => {
+    const { pathname, search } = window.location;
+    return pathname === '/' || pathname === '' ? null : `${pathname}${search}`;
+  });
   const pagePathMap: Partial<Record<Exclude<PageType, 'emr'>, string>> = {
     dashboard: '/',
     'patient-identity': '/patient-identity',
@@ -308,7 +324,18 @@ function AppShell() {
       return;
     }
 
+    resetPlatformAdminCheck();
     setIsAuthenticated(true);
+    // Return to the page the app was opened on, once, if it is a page this app knows.
+    if (deepLink) {
+      setDeepLink(null);
+      const path = deepLink.split('?')[0];
+      if (path.startsWith('/emr/') || Object.values(pagePathMap).includes(path)) {
+        window.history.replaceState({}, '', deepLink);
+        parseRoute();
+        return;
+      }
+    }
     setCurrentPage(payload.redirectPage);
     if (payload.redirectPage === 'emr') {
       window.history.pushState({}, '', '/emr');
@@ -323,6 +350,7 @@ function AppShell() {
     localStorage.removeItem('vitalink-auth-session');
     // Must finish before the gateway mounts, or its session check signs the user straight back in.
     if (isSupabaseConfigured) await signOut().catch(() => undefined);
+    resetPlatformAdminCheck();
     setActiveOrganization(null);
     setIsAuthenticated(false);
     setCurrentPage('dashboard');

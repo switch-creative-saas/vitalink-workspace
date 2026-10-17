@@ -18,3 +18,21 @@ export function requireSupabase(): SupabaseClient {
   if (!supabase) throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');
   return supabase;
 }
+
+/**
+ * Readable message for a failed Edge Function call: the function's own
+ * `{ error }` body when there is one, otherwise the client's message.
+ */
+export async function functionErrorMessage(error: unknown): Promise<string> {
+  const err = error as { message?: string; context?: unknown } | null;
+  const context = err?.context as Response | undefined;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await (typeof context.clone === 'function' ? context.clone() : context).json();
+      if (body && typeof body.error === 'string') return body.error;
+    } catch {
+      // not JSON; fall through
+    }
+  }
+  return err?.message || 'The request failed. Check your connection and try again.';
+}

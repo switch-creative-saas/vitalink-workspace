@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Barcode,
@@ -28,6 +28,22 @@ import { SENTINEL_PHARMACY_EVENT, type SentinelPharmacyPayload } from '@/lib/sen
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { allergyConflicts } from '@/lib/allergyCheck';
+import {
+  cancelPrescription,
+  createPurchaseOrder,
+  deleteStock,
+  dispensePrescription,
+  listInventory,
+  listPrescriptions,
+  listPurchaseOrders,
+  receiveStock,
+  setPurchaseOrderStatus,
+  updateStock,
+  type PrescriptionItem,
+  type StockItem,
+} from '@/lib/supabase/pharmacy';
 
 type PharmacyTab = 'inventory' | 'dispensations' | 'orders';
 type MedicationStatus = 'available' | 'low' | 'out-of-stock' | 'expiring' | 'expired';
@@ -64,9 +80,10 @@ type Dispensation = {
 
 type PurchaseOrder = {
   id: string;
+  poNumber?: string;
   supplier: string;
   drugItems: { medicationId: string; medicationName: string; quantity: number }[];
-  status: PurchaseOrderStatus;
+  status: PurchaseOrderStatus | 'cancelled';
   createdAt: string;
 };
 
@@ -99,9 +116,40 @@ const tabs = [
   { id: 'orders', label: 'Purchase Orders' },
 ] as const;
 
+const toMedication = (item: StockItem): Medication => ({
+  id: item.id,
+  name: item.name,
+  category: item.category,
+  stock: item.stock,
+  unit_price: item.unitPrice,
+  expiry_date: item.expiryDate,
+  batch_no: item.batchNo,
+  supplier: item.supplier,
+  reorder_threshold: item.reorderThreshold,
+  status: 'available',
+});
+
+const toDispensation = (rx: PrescriptionItem): Dispensation => ({
+  id: rx.id,
+  patient_id: rx.patientId,
+  patient_name: rx.patientName,
+  doctor_id: '',
+  doctor_name: rx.prescriberName,
+  medication_id: '',
+  medication_name: rx.dispensedFrom ? `${rx.drugName} (from ${rx.dispensedFrom})` : rx.drugName,
+  quantity: rx.dispensedQuantity ?? 0,
+  date: (rx.dispensedAt ?? rx.prescribedAt).slice(0, 10),
+  pharmacist_id: '',
+  pharmacist_name: rx.dispenserName,
+  status: 'dispensed',
+});
+
+const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
+
 function medicationStatus(item: Medication): MedicationStatus {
   if (item.stock <= 0) return 'out-of-stock';
   if (item.stock <= item.reorder_threshold) return 'low';
+  if (!item.expiry_date) return 'available';
   const days = Math.ceil((new Date(item.expiry_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   if (days < 0) return 'expired';
   if (days <= 60) return 'expiring';
@@ -109,12 +157,43 @@ function medicationStatus(item: Medication): MedicationStatus {
 }
 
 export function PharmacyPage() {
-  const { currentRole, hasPermission, userName } = useAuth();
+  const { currentRole, hasPermission, userName, organization } = useAuth();
   const { hasAccess } = useSubscription();
+  const organizationId = organization.id;
   const [activeTab, setActiveTab] = useState<PharmacyTab>('inventory');
-  const [medications, setMedications] = useState<Medication[]>(seedMedications);
-  const [dispensations, setDispensations] = useState<Dispensation[]>(seedDispensations);
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(seedPOs);
+  // With Supabase these load from the workspace; the seeds are demo data for the offline mock.
+  const [medications, setMedications] = useState<Medication[]>(isSupabaseConfigured ? [] : seedMedications);
+  const [dispensations, setDispensations] = useState<Dispensation[]>(isSupabaseConfigured ? [] : seedDispensations);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(isSupabaseConfigured ? [] : seedPOs);
+  const [rxQueue, setRxQueue] = useState<PrescriptionItem[]>([]);
+
+  const reload = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const [stock, rx, pos] = await Promise.all([
+        listInventory(organizationId),
+        listPrescriptions(organizationId),
+        listPurchaseOrders(organizationId).catch(() => []),
+      ]);
+      setMedications(stock.map(toMedication));
+      setRxQueue(rx.filter((item) => item.status === 'active'));
+      setDispensations(rx.filter((item) => item.status === 'dispensed').map(toDispensation));
+      setPurchaseOrders(pos.map((po) => ({
+        id: po.id,
+        poNumber: po.poNumber,
+        supplier: po.supplier,
+        drugItems: po.items.map((item) => ({ medicationId: item.inventoryId, medicationName: item.drugName, quantity: item.quantity })),
+        status: po.status,
+        createdAt: po.createdAt.slice(0, 10),
+      })));
+    } catch (error) {
+      toast.error(errorText(error, 'Could not load pharmacy data'));
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
   const [search, setSearch] = useState('');
   const [showLow, setShowLow] = useState(false);
   const [showExpiring, setShowExpiring] = useState(false);
@@ -122,6 +201,7 @@ export function PharmacyPage() {
   const [showRecentDispensed, setShowRecentDispensed] = useState(false);
   const [addStockOpen, setAddStockOpen] = useState(false);
   const [dispenseOpen, setDispenseOpen] = useState(false);
+  const [allergyChecked, setAllergyChecked] = useState(false);
   const [poOpen, setPoOpen] = useState(false);
   const [selectedExport, setSelectedExport] = useState<'inventory' | 'dispensations' | 'expiry'>('inventory');
   const [newStock, setNewStock] = useState({
@@ -211,7 +291,7 @@ export function PharmacyPage() {
                 sku: m.id,
                 quantityInStock: m.stock,
                 reorderLevel: m.reorder_threshold,
-                facilityName: 'Pharmacy node',
+                facilityName: organization.name,
               },
             }),
           );
@@ -243,6 +323,22 @@ export function PharmacyPage() {
   function handleAddStock() {
     if (!canCreate) return toast.error('You do not have permission to add stock');
     if (!newStock.name || !newStock.batch_no || !newStock.supplier || !newStock.expiry_date) return toast.error('Complete required fields');
+    if (isSupabaseConfigured) {
+      if (Number(newStock.quantity) <= 0) return toast.error('Quantity must be at least 1');
+      receiveStock(organizationId, {
+        name: newStock.name,
+        category: newStock.category,
+        batchNo: newStock.batch_no,
+        supplier: newStock.supplier,
+        quantity: Number(newStock.quantity),
+        unitPrice: Number(newStock.unit_price),
+        expiryDate: newStock.expiry_date,
+        reorderThreshold: Number(newStock.reorder_threshold),
+      })
+        .then(() => { toast.success('Stock added to inventory'); setAddStockOpen(false); void reload(); })
+        .catch((error) => toast.error(errorText(error, 'Could not add stock')));
+      return;
+    }
     const id = `med-${Date.now()}`;
     const exists = medications.find((m) => m.name.toLowerCase() === newStock.name.toLowerCase() && m.batch_no === newStock.batch_no);
     if (exists) {
@@ -277,6 +373,26 @@ export function PharmacyPage() {
 
   function handleDispense() {
     if (!(isPharmacist || currentRole === 'super-admin' || isHospitalAdmin)) return toast.error('Only pharmacy team can dispense medication');
+    if (isSupabaseConfigured) {
+      const rx = rxQueue.find((item) => item.id === dispenseForm.patient_id);
+      if (!rx || !dispenseForm.medication_id || !dispenseForm.quantity) return toast.error('Choose a prescription, a stock batch and a quantity');
+      const stockName = medications.find((m) => m.id === dispenseForm.medication_id)?.name ?? '';
+      if (allergyConflicts(rx.patientAllergies, `${rx.drugName} ${stockName}`).length && !allergyChecked) {
+        return toast.error('Confirm the allergy check before dispensing.');
+      }
+      dispensePrescription(rx.id, dispenseForm.medication_id, Number(dispenseForm.quantity))
+        .then(() => {
+          toast.success(`Dispensed for ${rx.patientName}`);
+          notify('dispensed', `${rx.drugName} dispensed for ${rx.patientName}`);
+          window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'pharmacy:dispensed' } }));
+          setDispenseOpen(false);
+          setDispenseForm({ patient_id: '', medication_id: '', quantity: 0 });
+          setAllergyChecked(false);
+          void reload();
+        })
+        .catch((error) => toast.error(errorText(error, 'Could not dispense')));
+      return;
+    }
     const patientPrescription = prescriptions.find((p) => p.patient_id === dispenseForm.patient_id);
     const med = medications.find((m) => m.id === dispenseForm.medication_id);
     if (!patientPrescription || !med || !dispenseForm.quantity) return toast.error('Complete dispensation details');
@@ -315,6 +431,12 @@ export function PharmacyPage() {
     if (!poForm.supplier || !poForm.medication_id || !poForm.quantity) return toast.error('Complete purchase order form');
     const med = medications.find((m) => m.id === poForm.medication_id);
     if (!med) return toast.error('Medication not found');
+    if (isSupabaseConfigured) {
+      createPurchaseOrder(organizationId, poForm.supplier, [{ inventoryId: med.id, drugName: med.name, quantity: Number(poForm.quantity) }])
+        .then(() => { toast.success('Purchase order created'); setPoOpen(false); void reload(); })
+        .catch((error) => toast.error(errorText(error, 'Could not create the purchase order')));
+      return;
+    }
     setPurchaseOrders((prev) => [
       {
         id: `PO-${new Date().getFullYear()}-${String(prev.length + 1).padStart(4, '0')}`,
@@ -331,6 +453,13 @@ export function PharmacyPage() {
 
   function setPOStatus(po: PurchaseOrder, status: PurchaseOrderStatus) {
     if (status !== 'pending' && !canApprove) return toast.error('Only admin roles can approve/deliver orders');
+    if (isSupabaseConfigured) {
+      if (status === 'pending') return;
+      setPurchaseOrderStatus(po.id, status)
+        .then(() => { toast.success(status === 'delivered' ? 'Delivered: stock added to inventory' : `PO marked ${status}`); void reload(); })
+        .catch((error) => toast.error(errorText(error, 'Could not update the purchase order')));
+      return;
+    }
     setPurchaseOrders((prev) => prev.map((item) => (item.id === po.id ? { ...item, status } : item)));
     if (status === 'delivered') {
       setMedications((prev) =>
@@ -348,6 +477,26 @@ export function PharmacyPage() {
   function rowAction(action: 'view' | 'edit' | 'adjust' | 'expire' | 'delete', med: Medication) {
     if (action === 'delete' && !canDelete) return toast.error('Only Super Admin can delete stock');
     if ((action === 'edit' || action === 'adjust' || action === 'expire') && !canEdit) return toast.error('You do not have edit permission');
+    if (isSupabaseConfigured && action !== 'view') {
+      const done = (message: string) => () => { toast.success(message); void reload(); };
+      const fail = (error: unknown) => toast.error(errorText(error, 'Could not update stock'));
+      if (action === 'delete') {
+        if (!window.confirm(`Delete ${med.name} (batch ${med.batch_no || '-'}) from inventory?`)) return;
+        deleteStock(med.id).then(done('Stock line deleted')).catch(fail);
+      } else if (action === 'expire') {
+        const date = new Date();
+        date.setDate(date.getDate() - 1);
+        const yesterday = date.toISOString().slice(0, 10);
+        updateStock(med.id, { expiryDate: yesterday }).then(done(`${med.name} marked as expired`)).catch(fail);
+      } else {
+        const answer = window.prompt(`Counted stock for ${med.name} (currently ${med.stock}):`, String(med.stock));
+        if (answer === null) return;
+        const counted = Number(answer);
+        if (!Number.isFinite(counted) || counted < 0) return toast.error('Enter a whole number of 0 or more');
+        updateStock(med.id, { stock: counted }).then(done(`Stock for ${med.name} set to ${counted}`)).catch(fail);
+      }
+      return;
+    }
     if (action === 'delete') setMedications((prev) => prev.filter((m) => m.id !== med.id));
     if (action === 'expire') setMedications((prev) => prev.map((m) => (m.id === med.id ? { ...m, expiry_date: '2024-01-01' } : m)));
     if (action === 'adjust') setMedications((prev) => prev.map((m) => (m.id === med.id ? { ...m, stock: Math.max(0, m.stock - 5) } : m)));
@@ -506,6 +655,9 @@ export function PharmacyPage() {
 
       {activeTab === 'inventory' && (
         <>
+          {isSupabaseConfigured && medications.length === 0 ? (
+            <p className="premium-card p-4 text-sm text-gray-500 dark:text-slate-400">No stock yet. Use “Add Stock” to record your first delivery.</p>
+          ) : null}
           <div className="hidden md:block premium-card glass-panel overflow-hidden border border-white/60">
             <table className="w-full">
               <thead>
@@ -574,6 +726,43 @@ export function PharmacyPage() {
         </>
       )}
 
+      {activeTab === 'dispensations' && isSupabaseConfigured && (
+        <div className="premium-card glass-panel overflow-hidden border border-white/60">
+          <div className="flex items-center justify-between px-4 py-3">
+            <h3 className="font-semibold text-gray-900 dark:text-slate-50">Waiting to be dispensed ({rxQueue.length})</h3>
+          </div>
+          {rxQueue.length === 0 ? (
+            <p className="px-4 pb-4 text-sm text-gray-500 dark:text-slate-400">No prescriptions waiting. Prescriptions appear here when a doctor signs a clinical note.</p>
+          ) : (
+            <table className="w-full">
+              <tbody>
+                {rxQueue.map((rx) => (
+                  <tr key={rx.id} className="border-t border-gray-50 dark:border-slate-700">
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-slate-50">{rx.patientName}<span className="block text-xs text-gray-500">{rx.patientSwitchId}</span></td>
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-200">{rx.drugName}{rx.quantity ? ` · qty ${rx.quantity}` : ''}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-400">{rx.prescriberName} · {new Date(rx.prescribedAt).toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="inline-flex gap-2">
+                        <Button size="sm" className="bg-emerald-600 text-white" disabled={!(isPharmacist || currentRole === 'super-admin' || isHospitalAdmin)} onClick={() => {
+                          const firstWord = rx.drugName.split(/\s+/)[0]?.toLowerCase() ?? '';
+                          const match = medications.find((m) => firstWord && m.name.toLowerCase().includes(firstWord) && m.stock > 0);
+                          setDispenseForm({ patient_id: rx.id, medication_id: match?.id ?? '', quantity: rx.quantity ?? 0 });
+                          setDispenseOpen(true);
+                        }}>Dispense</Button>
+                        <Button size="sm" variant="outline" disabled={!isDoctor && !isHospitalAdmin && currentRole !== 'super-admin'} onClick={() => {
+                          if (!window.confirm(`Cancel ${rx.drugName} for ${rx.patientName}?`)) return;
+                          cancelPrescription(rx.id).then(() => { toast.success('Prescription cancelled'); void reload(); }).catch((error) => toast.error(errorText(error, 'Could not cancel')));
+                        }}>Cancel</Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
       {activeTab === 'dispensations' && (
         <div className="premium-card glass-panel overflow-hidden border border-white/60">
           <table className="w-full">
@@ -620,7 +809,7 @@ export function PharmacyPage() {
               <tbody>
                 {purchaseOrders.map((po) => (
                   <tr key={po.id} className="border-b border-gray-50 dark:border-slate-700 hover:bg-white/70 dark:hover:bg-slate-800/60">
-                    <td className="px-4 py-3 text-sm font-medium text-[#1E4ED8]">{po.id}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-[#1E4ED8]">{po.poNumber ?? po.id}</td>
                     <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-200">{po.supplier}</td>
                     <td className="px-4 py-3 text-sm text-gray-700 dark:text-slate-200">{po.drugItems.map((d) => `${d.medicationName} (${d.quantity})`).join(', ')}</td>
                     <td className="px-4 py-3">
@@ -628,6 +817,7 @@ export function PharmacyPage() {
                         po.status === 'pending' && 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
                         po.status === 'approved' && 'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300',
                         po.status === 'delivered' && 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+                        po.status === 'cancelled' && 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-slate-300',
                       )}>{po.status}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -644,6 +834,8 @@ export function PharmacyPage() {
         </div>
       )}
 
+      {/* Offline demo only: these integrations are not connected in live workspaces. */}
+      {!isSupabaseConfigured && (
       <div className="glass-panel premium-card p-4 border border-white/60">
         <h3 className="font-semibold text-[#1E4ED8] mb-2">Smart automation & integrations</h3>
         <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-600 dark:text-slate-400">
@@ -659,6 +851,7 @@ export function PharmacyPage() {
           <Button size="sm" variant="outline" onClick={() => toast.message('Offline mode enabled (demo)')}><WifiOff className="w-4 h-4 mr-1" /> Offline mode</Button>
         </div>
       </div>
+      )}
 
       <Dialog open={addStockOpen} onOpenChange={setAddStockOpen}>
         <DialogContent className="glass-panel border-white/60 sm:max-w-lg">
@@ -695,11 +888,27 @@ export function PharmacyPage() {
         <DialogContent className="glass-panel border-white/60 sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Dispense medication</DialogTitle>
-            <DialogDescription>Pulling active prescription from EMR and posting to billing automatically.</DialogDescription>
+            <DialogDescription>
+              {isSupabaseConfigured
+                ? "Dispenses an active EMR prescription and deducts the batch; the drug is added to the patient's next invoice."
+                : 'Pulling active prescription from EMR and posting to billing automatically.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <Label>Patient</Label>
+              <Label>{isSupabaseConfigured ? 'Prescription' : 'Patient'}</Label>
+              {isSupabaseConfigured ? (
+                <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm bg-white text-slate-900 dark:bg-slate-900/50 dark:text-slate-50 dark:border-slate-700" value={dispenseForm.patient_id} onChange={(e) => {
+                  const rx = rxQueue.find((item) => item.id === e.target.value);
+                  const firstWord = rx?.drugName.split(/\s+/)[0]?.toLowerCase() ?? '';
+                  const match = medications.find((m) => firstWord && m.name.toLowerCase().includes(firstWord) && m.stock > 0);
+                  setDispenseForm({ patient_id: e.target.value, medication_id: match?.id ?? '', quantity: rx?.quantity ?? 0 });
+                  setAllergyChecked(false);
+                }}>
+                  <option value="">{rxQueue.length ? 'Select prescription' : 'No prescriptions waiting'}</option>
+                  {rxQueue.map((rx) => <option key={rx.id} value={rx.id}>{rx.patientName} — {rx.drugName}</option>)}
+                </select>
+              ) : (
               <select className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm bg-white text-slate-900 dark:bg-slate-900/50 dark:text-slate-50 dark:border-slate-700" value={dispenseForm.patient_id} onChange={(e) => {
                 const p = prescriptions.find((pr) => pr.patient_id === e.target.value);
                 setDispenseForm((s) => ({ ...s, patient_id: e.target.value, medication_id: p?.medication_id ?? '', quantity: p?.quantity ?? 0 }));
@@ -708,7 +917,31 @@ export function PharmacyPage() {
                 <option value="">Select patient</option>
                 {prescriptions.map((p) => <option key={p.patient_id} value={p.patient_id}>{p.patient_name}</option>)}
               </select>
+              )}
             </div>
+            {isSupabaseConfigured && (() => {
+              const rx = rxQueue.find((item) => item.id === dispenseForm.patient_id);
+              if (!rx) return null;
+              const stockName = medications.find((m) => m.id === dispenseForm.medication_id)?.name ?? '';
+              const conflicts = allergyConflicts(rx.patientAllergies, `${rx.drugName} ${stockName}`);
+              return (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Recorded allergies: <span className="font-medium text-slate-900 dark:text-slate-50">{rx.patientAllergies.trim() || 'none recorded'}</span>
+                  </p>
+                  {conflicts.length > 0 && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      <p className="font-semibold">Possible allergy conflict</p>
+                      <p className="text-xs mt-1">{rx.patientName} is recorded as allergic to {conflicts.join(', ')}. Check with the prescriber before dispensing.</p>
+                      <label className="mt-2 flex items-center gap-2 text-xs">
+                        <input type="checkbox" checked={allergyChecked} onChange={(e) => setAllergyChecked(e.target.checked)} />
+                        I have confirmed with the prescriber; dispense anyway
+                      </label>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div>
               <Label>Medication</Label>
               <select
@@ -723,7 +956,7 @@ export function PharmacyPage() {
                 }}
               >
                 <option value="">Select medication</option>
-                {medications.map((m) => <option key={m.id} value={m.id}>{m.name} ({m.stock} in stock)</option>)}
+                {medications.map((m) => <option key={m.id} value={m.id}>{m.name}{m.batch_no ? ` · ${m.batch_no}` : ''} ({m.stock} in stock{m.expiry_date ? `, exp ${m.expiry_date}` : ''})</option>)}
               </select>
             </div>
             <div>

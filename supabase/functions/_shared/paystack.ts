@@ -161,3 +161,21 @@ export async function activateFromTransaction(db: SupabaseClient, tx: PaystackTr
 
   return { outcome: 'activated' as const, organizationId: payment.organization_id };
 }
+
+/**
+ * Idempotently marks a VitaCard order paid from a verified Paystack transaction
+ * (amount and currency must match the order total).
+ */
+export async function markNfcOrderPaid(db: SupabaseClient, tx: PaystackTransaction) {
+  const { data: order } = await db.from('nfc_card_orders')
+    .select('id, organization_id, status, total_kobo')
+    .eq('paystack_reference', tx.reference)
+    .maybeSingle();
+  if (!order) return { outcome: 'unknown_reference' as const };
+  if (order.status !== 'processing') return { outcome: 'already_applied' as const, organizationId: order.organization_id };
+  const amountMatches = Number(tx.amount) === Number(order.total_kobo) && tx.currency === 'NGN';
+  if (tx.status !== 'success' || !amountMatches) return { outcome: 'not_successful' as const, organizationId: order.organization_id };
+  const { error } = await db.from('nfc_card_orders').update({ status: 'paid' }).eq('id', order.id);
+  if (error) throw new HttpError(500, error.message);
+  return { outcome: 'paid' as const, organizationId: order.organization_id };
+}

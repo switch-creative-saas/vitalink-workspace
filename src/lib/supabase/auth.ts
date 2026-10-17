@@ -1,7 +1,7 @@
 import type { UserRole } from '@/contexts/AuthContext';
 import type { User } from '@supabase/supabase-js';
 import type { OrganizationType } from '@/lib/workspace/organizationTypes';
-import { requireSupabase } from './client';
+import { requireSupabase, functionErrorMessage } from './client';
 
 export type OAuthProvider = 'google' | 'microsoft' | 'apple';
 export type BillingCycle = 'monthly' | 'annual';
@@ -197,9 +197,7 @@ async function invokeCheckout<T>(body: Record<string, unknown>): Promise<T> {
   const { data, error } = await requireSupabase().functions.invoke('paystack-checkout', { body });
   if (error) {
     // Surface the function's own error message instead of the generic one.
-    const context = (error as { context?: Response }).context;
-    const detail = context ? await context.json().catch(() => null) : null;
-    throw new Error(detail?.error ?? error.message);
+    throw new Error(await functionErrorMessage(error));
   }
   return data as T;
 }

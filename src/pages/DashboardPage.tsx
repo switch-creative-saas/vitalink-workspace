@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { 
   Users, 
   CalendarCheck, 
@@ -42,9 +42,21 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { PatientOnboardingWizard } from '@/components/patients/PatientOnboardingWizard';
 import { DashboardHero } from '@/components/dashboard/DashboardHero';
 import { VitaCardWidget } from '@/components/dashboard/VitaCardWidget';
+import {
+  LiveBookAppointmentDialog,
+  LiveDispenseDialog,
+  LiveOrderLabDialog,
+  PatientLookupDialog,
+} from '@/components/dashboard/LiveQuickActions';
+import { getDashboardSummary, type DashboardSummary } from '@/lib/supabase/dashboard';
+import { RecentActivityCard } from '@/components/dashboard/RecentActivityCard';
+import { timeAgo } from '@/lib/timeAgo';
+import { usePlan } from '@/hooks/usePlan';
+import { SENTINEL_ADDON } from '@/data/pricingTiers';
 import {
   appointmentStatuses,
   useAppointments,
@@ -52,6 +64,18 @@ import {
   type AppointmentRecord,
   type AppointmentStatus,
 } from '@/contexts/AppointmentContext';
+
+// Offline demo registry tenant; with Supabase the signed-in workspace is used.
+const DEMO_TENANT_ID = 'lagos-central-hospital';
+
+const nairaShort = (value: number) =>
+  value >= 1_000_000 ? `₦${(value / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+    : value >= 10_000 ? `₦${Math.round(value / 1000)}K`
+      : `₦${Math.round(value).toLocaleString()}`;
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+const goTo = (page: string) => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page } }));
+const openEmr = (switchId: string) => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { switchId } }));
 
 interface StatCardProps {
   title: string;
@@ -61,9 +85,10 @@ interface StatCardProps {
   icon: React.ElementType;
   color: string;
   subtitle?: string;
+  onClick?: () => void;
 }
 
-function StatCard({ title, value, change, changeType, icon: Icon, color, subtitle }: StatCardProps) {
+function StatCard({ title, value, change, changeType, icon: Icon, color, subtitle, onClick }: StatCardProps) {
   const [displayValue, setDisplayValue] = useState(0);
   const numericValue = typeof value === 'string' ? parseInt(value.replace(/[^0-9]/g, '')) || 0 : value;
 
@@ -92,7 +117,13 @@ function StatCard({ title, value, change, changeType, icon: Icon, color, subtitl
     : displayValue.toLocaleString();
 
   return (
-    <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl p-5 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-1 cursor-pointer group card-equal-height h-full min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => { if (onClick && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onClick(); } }}
+      className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl p-5 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-1 cursor-pointer group card-equal-height h-full min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80"
+    >
       <div className="flex items-start justify-between mb-4 gap-2 min-w-0">
         <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", color)}>
           <Icon className="w-6 h-6 text-white" />
@@ -129,11 +160,12 @@ function NewPatientModal({
   creatorName: string;
   canCreatePatient: boolean;
 }) {
+  const { organization } = useAuth();
   return (
     <PatientOnboardingWizard
       open={open}
       onOpenChange={onClose}
-      tenantId="lagos-central-hospital"
+      tenantId={isSupabaseConfigured ? organization.id : DEMO_TENANT_ID}
       creatorName={creatorName}
       canCreate={canCreatePatient}
     />
@@ -465,7 +497,8 @@ const actionConfig: Array<{ id: AppointmentAction; label: string; icon: React.El
 ];
 
 export function DashboardPage() {
-  const { canCreate, canView, currentRole, userName } = useAuth();
+  const { canCreate, canView, currentRole, userName, organization } = useAuth();
+  const { hasSentinel } = usePlan();
   const {
     doctors,
     filters,
@@ -478,19 +511,50 @@ export function DashboardPage() {
     preserveDashboardContext,
     pendingSyncCount,
     isOnline,
+    appointments,
   } = useAppointments();
   const [showNewPatient, setShowNewPatient] = useState(false);
   const [showBookAppointment, setShowBookAppointment] = useState(false);
   const [showOrderLab, setShowOrderLab] = useState(false);
   const [showDispense, setShowDispense] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentRecord | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [demoLoading, setDemoLoading] = useState(!isSupabaseConfigured);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [summaryError, setSummaryError] = useState('');
+  const [lookupMode, setLookupMode] = useState<'nfc' | 'qr' | null>(null);
+  const loading = isSupabaseConfigured ? !summary && !summaryError : demoLoading;
 
-  // Simulate loading
+  const refreshSummary = useCallback(() => {
+    if (!isSupabaseConfigured) return;
+    getDashboardSummary(organization.id)
+      .then((next) => { setSummary(next); setSummaryError(''); })
+      .catch((error) => setSummaryError(error instanceof Error ? error.message : 'Could not load the dashboard'));
+  }, [organization.id]);
+
+  // The dashboard is about today: reset the shared schedule date when it opens.
   useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 800);
-    return () => clearTimeout(timer);
+    const todayLocal = new Date().toLocaleDateString('en-CA');
+    if (filters.date !== todayLocal) setFilters({ date: todayLocal });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only on open
   }, []);
+
+  // Live: load on open, after appointment changes, and every minute. Demo: brief skeleton.
+  useEffect(() => {
+    if (!isSupabaseConfigured) {
+      const timer = setTimeout(() => setDemoLoading(false), 800);
+      return () => clearTimeout(timer);
+    }
+    refreshSummary();
+    const timer = window.setInterval(refreshSummary, 60_000);
+    return () => window.clearInterval(timer);
+  }, [refreshSummary]);
+
+  // Any change to the live schedule (own bookings, status changes, Realtime pushes) refreshes the figures.
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const timer = window.setTimeout(refreshSummary, 400);
+    return () => window.clearTimeout(timer);
+  }, [appointments, refreshSummary]);
 
   const quickActions = [
     { 
@@ -528,32 +592,94 @@ export function DashboardPage() {
   const completedToday = dashboardAppointments.filter((appointment) => appointment.status === 'completed').length;
   const pendingToday = dashboardAppointments.filter((appointment) => ['pending', 'confirmed', 'checked-in', 'waiting-lab'].includes(appointment.status)).length;
 
-  const pendingTasks = pendingToday + 18;
-  const scheduledToday = 12;
-
-  const heroKpis = [
-    { label: "Today's Patients", value: String(scheduledToday), sublabel: 'Scheduled' },
+  // ----- Offline demo figures (no Supabase) -----
+  const demoPendingTasks = pendingToday + 18;
+  const demoScheduledToday = 12;
+  const demoHeroKpis = [
+    { label: "Today's Patients", value: String(demoScheduledToday), sublabel: 'Scheduled' },
     { label: 'Appointments', value: String(dashboardAppointments.length), sublabel: `${completedToday} done` },
     { label: 'Revenue', value: '₦1.2M', sublabel: '+23% vs yesterday' },
-    { label: 'Pending Tasks', value: String(pendingTasks), sublabel: `${pendingToday} appts · 18 labs` },
+    { label: 'Pending Tasks', value: String(demoPendingTasks), sublabel: `${pendingToday} appts · 18 labs` },
   ];
-
-  const dailySummary = `${scheduledToday} patients scheduled · ${dashboardAppointments.length} appointments · ${pendingTasks} items need attention`;
-
-  const stats = [
+  const demoStats: StatCardProps[] = [
     { title: 'Registry Total', value: '2,847', change: 12, changeType: 'increase' as const, icon: Users, color: 'bg-gradient-to-br from-blue-500 to-blue-700', subtitle: '+156 this month' },
     { title: 'Pending Lab Results', value: '18', change: -5, changeType: 'decrease' as const, icon: FlaskConical, color: 'bg-gradient-to-br from-vitamind-500 to-vitamind-700', subtitle: '3 urgent, 15 routine' },
     { title: 'Completed Today', value: completedToday, change: 8, changeType: 'increase' as const, icon: CalendarCheck, color: 'bg-gradient-to-br from-green-500 to-green-700', subtitle: `${pendingToday} still active` },
     { title: 'Claims Queue', value: '7', change: 2, changeType: 'neutral' as const, icon: CreditCard, color: 'bg-gradient-to-br from-slate-500 to-slate-700', subtitle: 'Billing follow-ups' },
   ];
+  const demoActivity = [
+    { id: '1', message: 'New patient registered: Adebayo Johnson', time: '2 min ago', icon: UserPlus, color: 'bg-blue-500', switchId: null },
+    { id: '2', message: 'Appointment completed: Sarah Williams', time: '15 min ago', icon: CheckCircle2, color: 'bg-green-500', switchId: null },
+    { id: '3', message: 'Lab results ready: Michael Brown', time: '32 min ago', icon: FlaskConical, color: 'bg-purple-500', switchId: null },
+    { id: '4', message: 'Critical: High BP alert for patient #4521', time: '1 hour ago', icon: AlertCircle, color: 'bg-red-500', switchId: null },
+    { id: '5', message: 'Invoice #VLI-2026-001 paid', time: '2 hours ago', icon: CreditCard, color: 'bg-amber-500', switchId: null },
+  ] as Array<{ id: string; message: string; time: string; icon: React.ElementType; color: string; switchId: string | null }>;
 
-  const recentActivity = [
-    { id: 1, type: 'patient', message: 'New patient registered: Adebayo Johnson', time: '2 min ago', icon: UserPlus, color: 'bg-blue-500' },
-    { id: 2, type: 'appointment', message: 'Appointment completed: Sarah Williams', time: '15 min ago', icon: CheckCircle2, color: 'bg-green-500' },
-    { id: 3, type: 'lab', message: 'Lab results ready: Michael Brown', time: '32 min ago', icon: FlaskConical, color: 'bg-purple-500' },
-    { id: 4, type: 'alert', message: 'Critical: High BP alert for patient #4521', time: '1 hour ago', icon: AlertCircle, color: 'bg-red-500' },
-    { id: 5, type: 'billing', message: 'Invoice #VLI-2026-001 paid', time: '2 hours ago', icon: CreditCard, color: 'bg-amber-500' },
+  // ----- Live figures (Supabase): only what the signed-in role may see -----
+  const s = summary;
+  const labsOpen = s && s.labsPending !== null ? (s.labsPending ?? 0) + (s.labsProcessing ?? 0) : null;
+  const liveTasks = s ? s.appointmentsOpenToday + (labsOpen ?? 0) + (s.claimsSubmitted ?? 0) : 0;
+  // Only compare once money has come in today; "-100%" first thing in the morning says nothing.
+  const revenueChange = s && s.revenueToday && s.revenueYesterday
+    ? Math.round(((s.revenueToday - s.revenueYesterday) / s.revenueYesterday) * 100)
+    : null;
+  const liveHeroKpis = s ? [
+    { label: "Today's Patients", value: String(s.patientsToday), sublabel: 'Scheduled' },
+    { label: 'Appointments', value: String(s.appointmentsToday), sublabel: `${s.appointmentsCompletedToday} done` },
+    s.revenueToday !== null
+      ? {
+          label: 'Revenue',
+          value: nairaShort(s.revenueToday),
+          sublabel: revenueChange !== null ? `${revenueChange > 0 ? '+' : ''}${revenueChange}% vs yesterday` : `${nairaShort(s.revenueYesterday ?? 0)} yesterday`,
+        }
+      : { label: 'Open labs', value: labsOpen !== null ? String(labsOpen) : '—', sublabel: labsOpen !== null ? `${s.labsUrgentOpen ?? 0} urgent` : 'Clinical staff only' },
+    {
+      label: 'Pending Tasks',
+      value: String(liveTasks),
+      sublabel: [`${s.appointmentsOpenToday} appts`, labsOpen !== null ? `${labsOpen} labs` : '', s.claimsSubmitted ? `${s.claimsSubmitted} claims` : ''].filter(Boolean).join(' · '),
+    },
+  ] : [
+    { label: "Today's Patients", value: '—', sublabel: 'Loading' },
+    { label: 'Appointments', value: '—', sublabel: 'Loading' },
+    { label: 'Revenue', value: '—', sublabel: 'Loading' },
+    { label: 'Pending Tasks', value: '—', sublabel: 'Loading' },
   ];
+  const liveStats: StatCardProps[] = s ? [
+    { title: 'Registry Total', value: s.patientsTotal, icon: Users, color: 'bg-gradient-to-br from-blue-500 to-blue-700', subtitle: `+${s.patientsNewThisMonth} this month`, onClick: () => goTo('patients') },
+    ...(labsOpen !== null ? [{
+      title: 'Pending Lab Results', value: labsOpen, icon: FlaskConical, color: 'bg-gradient-to-br from-vitamind-500 to-vitamind-700',
+      subtitle: `${s.labsUrgentOpen ?? 0} urgent, ${labsOpen - (s.labsUrgentOpen ?? 0)} routine`, onClick: () => goTo('laboratory'),
+    }] : []),
+    { title: 'Completed Today', value: s.appointmentsCompletedToday, icon: CalendarCheck, color: 'bg-gradient-to-br from-green-500 to-green-700', subtitle: `${s.appointmentsOpenToday} still active`, onClick: navigateToAppointmentsSafe },
+    ...(s.claimsSubmitted !== null ? [{
+      title: 'Claims Queue', value: s.claimsSubmitted, icon: CreditCard, color: 'bg-gradient-to-br from-slate-500 to-slate-700',
+      subtitle: s.claimsSubmitted ? `${nairaShort(s.claimsSubmittedValue ?? 0)} awaiting HMOs` : 'No HMO claims waiting', onClick: () => goTo('billing'),
+    }] : s.prescriptionsActive !== null ? [{
+      title: 'Prescriptions to dispense', value: s.prescriptionsActive, icon: Pill, color: 'bg-gradient-to-br from-slate-500 to-slate-700',
+      subtitle: 'Active, not yet dispensed', onClick: () => goTo('pharmacy'),
+    }] : []),
+  ] : [];
+
+  // Things that need someone's attention, from real data (replaces the demo AI insights).
+  const attention: Array<{ tone: 'red' | 'amber' | 'blue'; title: string; detail: string; onClick: () => void }> = [];
+  if (s) {
+    s.criticalLabs.forEach((lab) => attention.push({ tone: 'red', title: 'Critical lab result', detail: `${lab.patient} · ${lab.orderNumber}`, onClick: () => openEmr(lab.switchId) }));
+    if (s.labsUrgentOpen) attention.push({ tone: 'amber', title: 'Urgent labs waiting', detail: `${s.labsUrgentOpen} urgent/STAT order${s.labsUrgentOpen === 1 ? '' : 's'} not yet resulted`, onClick: () => goTo('laboratory') });
+    if (s.stockLow) attention.push({ tone: 'amber', title: 'Low stock', detail: `${s.stockLow} item${s.stockLow === 1 ? '' : 's'} at or below reorder level`, onClick: () => goTo('pharmacy') });
+    if (s.stockExpiring30d) attention.push({ tone: 'amber', title: 'Expiring soon', detail: `${s.stockExpiring30d} batch${s.stockExpiring30d === 1 ? '' : 'es'} expire within 30 days`, onClick: () => goTo('pharmacy') });
+    if (s.invoicesOverdue) attention.push({ tone: 'blue', title: 'Overdue invoices', detail: `${s.invoicesOverdue} overdue · ${nairaShort(s.outstanding ?? 0)} outstanding in total`, onClick: () => goTo('billing') });
+    if (s.claimsSubmitted) attention.push({ tone: 'blue', title: 'HMO claims pending', detail: `${s.claimsSubmitted} claim${s.claimsSubmitted === 1 ? '' : 's'} awaiting a decision`, onClick: () => goTo('billing') });
+  }
+
+  const heroKpis = isSupabaseConfigured ? liveHeroKpis : demoHeroKpis;
+  const stats = isSupabaseConfigured ? liveStats : demoStats;
+  const dailySummary = isSupabaseConfigured
+    ? s ? `${plural(s.patientsToday, 'patient')} scheduled · ${plural(s.appointmentsToday, 'appointment')} · ${plural(liveTasks, 'item')} need${liveTasks === 1 ? 's' : ''} attention` : summaryError || 'Loading today\'s figures...'
+    : `${demoScheduledToday} patients scheduled · ${dashboardAppointments.length} appointments · ${demoPendingTasks} items need attention`;
+
+  function navigateToAppointmentsSafe() {
+    navigateToAppointments();
+  }
 
   const navigateToAppointments = () => {
     if (!canOpenAppointmentsHub(currentRole) || !canView('Appointments')) {
@@ -583,11 +709,18 @@ export function DashboardPage() {
 
       <VitaCardWidget
         isOnline={isOnline}
-        onTapCard={() => toast.info('Hold VitaCard near the reader')}
-        onQrScan={() => toast.info('Opening QR scanner')}
+        onTapCard={() => (isSupabaseConfigured ? setLookupMode('nfc') : toast.info('Hold VitaCard near the reader'))}
+        onQrScan={() => (isSupabaseConfigured ? setLookupMode('qr') : toast.info('Opening QR scanner'))}
       />
 
       {/* Secondary metrics */}
+      {isSupabaseConfigured && summaryError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 flex items-center justify-between gap-2">
+          <span>{summaryError}</span>
+          <Button size="sm" variant="outline" onClick={refreshSummary}>Retry</Button>
+        </div>
+      )}
+
       <div className="dashboard-stat-grid">
         {loading 
           ? Array(4).fill(0).map((_, i) => <StatCardSkeleton key={i} />)
@@ -619,6 +752,7 @@ export function DashboardPage() {
             </div>
           </div>
 
+          {!hasSentinel() && (
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { path: '/subscription?addon=sentinel' } }))}
@@ -640,7 +774,7 @@ export function DashboardPage() {
               <div>
                 <p className="text-xs text-slate-500 dark:text-slate-400">Starting from</p>
                 <p className="text-sm font-bold text-slate-900 dark:text-slate-50">
-                  +₦50,000 <span className="font-normal text-slate-500 dark:text-slate-400">/month</span>
+                  +₦{SENTINEL_ADDON.monthlyPrice.toLocaleString()} <span className="font-normal text-slate-500 dark:text-slate-400">/month</span>
                 </p>
               </div>
               <span className="inline-flex rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition-colors group-hover:bg-indigo-500">
@@ -648,6 +782,7 @@ export function DashboardPage() {
               </span>
             </div>
           </button>
+          )}
 
           {/* Upcoming Appointments */}
           <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
@@ -758,7 +893,40 @@ export function DashboardPage() {
 
         {/* Right Column */}
         <div className="space-y-4 sm:space-y-6">
-          {/* AI Insights Preview */}
+          {/* Needs attention (live data) */}
+          {isSupabaseConfigured && (
+          <div className="bg-white/70 backdrop-blur-xl border-l-4 border-l-vitamind-500 rounded-2xl p-4 shadow-soft min-w-0 overflow-hidden dark:bg-slate-800/80">
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle className="w-4 h-4 text-vitamind-600 shrink-0" />
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">Needs Attention</h2>
+                <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate">From labs, pharmacy and billing in this workspace</p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {attention.length === 0 && (
+                <p className="text-xs text-slate-600 dark:text-slate-400">{s ? 'Nothing needs attention right now.' : 'Loading...'}</p>
+              )}
+              {attention.slice(0, 5).map((item) => (
+                <button
+                  key={`${item.title}-${item.detail}`}
+                  type="button"
+                  onClick={item.onClick}
+                  className={cn(
+                    'w-full text-left p-3 rounded-lg border min-w-0 transition-colors',
+                    item.tone === 'red' ? 'bg-red-50 border-red-100 hover:bg-red-100' : item.tone === 'amber' ? 'bg-amber-50 border-amber-100 hover:bg-amber-100' : 'bg-blue-50 border-blue-100 hover:bg-blue-100',
+                  )}
+                >
+                  <span className={cn('block text-xs sm:text-sm font-medium truncate', item.tone === 'red' ? 'text-red-700' : item.tone === 'amber' ? 'text-amber-700' : 'text-blue-700')}>{item.title}</span>
+                  <span className={cn('block text-xs truncate', item.tone === 'red' ? 'text-red-600' : item.tone === 'amber' ? 'text-amber-600' : 'text-blue-600')}>{item.detail}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          )}
+
+          {/* AI Insights Preview (offline demo) */}
+          {!isSupabaseConfigured && (
           <div className="bg-white/70 backdrop-blur-xl border-l-4 border-l-vitamind-500 rounded-2xl p-4 shadow-soft min-w-0 overflow-hidden dark:bg-slate-800/80">
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-vitamind-600 shrink-0" />
@@ -798,12 +966,16 @@ export function DashboardPage() {
               Open VitaMind
             </button>
           </div>
+          )}
 
           {/* Recent Activity */}
+          {isSupabaseConfigured ? (
+            <RecentActivityCard organizationId={organization.id} refreshKey={summary?.generatedAt} />
+          ) : (
           <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
             <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-50 mb-4">Recent Activity</h2>
             <div className="space-y-3 sm:space-y-4">
-              {recentActivity.map((activity) => (
+              {demoActivity.map((activity) => (
                 <div key={activity.id} className="flex items-start gap-3">
                   <div className={cn("w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center flex-shrink-0", activity.color)}>
                     <activity.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
@@ -816,6 +988,7 @@ export function DashboardPage() {
               ))}
             </div>
           </div>
+          )}
 
           {/* Offline Sync Status */}
           <div className="bg-white/70 backdrop-blur-xl border border-green-100 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft bg-gradient-to-br from-green-50/50 to-emerald-50/50 dark:border-emerald-900/60 dark:from-slate-800 dark:to-slate-900">
@@ -825,21 +998,23 @@ export function DashboardPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900 dark:text-slate-50 text-sm sm:text-base">Sync Status</h3>
-                <p className="text-xs sm:text-sm text-green-600">All data synced</p>
+                <p className={cn('text-xs sm:text-sm', isOnline && !summaryError ? 'text-green-600' : 'text-amber-600')}>
+                  {!isSupabaseConfigured ? 'All data synced' : !isOnline ? 'Offline · changes queued' : summaryError ? 'Server unreachable' : 'Connected · live data'}
+                </p>
               </div>
             </div>
             <div className="space-y-2 text-xs sm:text-sm">
               <div className="flex justify-between">
-                <span className="text-slate-600 dark:text-slate-400">Last sync</span>
-                <span className="text-slate-900 dark:text-slate-50">2 minutes ago</span>
+                <span className="text-slate-600 dark:text-slate-400">{isSupabaseConfigured ? 'Last refreshed' : 'Last sync'}</span>
+                <span className="text-slate-900 dark:text-slate-50">{isSupabaseConfigured ? (s ? timeAgo(s.generatedAt) : '—') : '2 minutes ago'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-600 dark:text-slate-400">Pending items</span>
-                <span className="text-slate-900 dark:text-slate-50">0</span>
+                <span className="text-slate-900 dark:text-slate-50">{isSupabaseConfigured ? pendingSyncCount : 0}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-600 dark:text-slate-400">Cached records</span>
-                <span className="text-slate-900 dark:text-slate-50">2,847</span>
+                <span className="text-slate-600 dark:text-slate-400">{isSupabaseConfigured ? 'Patients in registry' : 'Cached records'}</span>
+                <span className="text-slate-900 dark:text-slate-50">{isSupabaseConfigured ? (s ? s.patientsTotal.toLocaleString() : '—') : '2,847'}</span>
               </div>
             </div>
           </div>
@@ -848,9 +1023,20 @@ export function DashboardPage() {
 
       {/* Modals */}
       <NewPatientModal open={showNewPatient} onClose={() => setShowNewPatient(false)} creatorName={userName} canCreatePatient={canCreate('Patients')} />
-      <BookAppointmentModal open={showBookAppointment} onClose={() => setShowBookAppointment(false)} />
-      <OrderLabModal open={showOrderLab} onClose={() => setShowOrderLab(false)} />
-      <DispenseModal open={showDispense} onClose={() => setShowDispense(false)} />
+      {isSupabaseConfigured ? (
+        <>
+          <LiveBookAppointmentDialog open={showBookAppointment} onClose={() => { setShowBookAppointment(false); refreshSummary(); }} />
+          <LiveOrderLabDialog open={showOrderLab} onClose={() => { setShowOrderLab(false); refreshSummary(); }} />
+          <LiveDispenseDialog open={showDispense} onClose={() => { setShowDispense(false); refreshSummary(); }} />
+          <PatientLookupDialog open={lookupMode !== null} mode={lookupMode ?? 'nfc'} onClose={() => setLookupMode(null)} />
+        </>
+      ) : (
+        <>
+          <BookAppointmentModal open={showBookAppointment} onClose={() => setShowBookAppointment(false)} />
+          <OrderLabModal open={showOrderLab} onClose={() => setShowOrderLab(false)} />
+          <DispenseModal open={showDispense} onClose={() => setShowDispense(false)} />
+        </>
+      )}
       <Dialog open={Boolean(selectedAppointment)} onOpenChange={(open) => !open && setSelectedAppointment(null)}>
         <DialogContent className="max-h-[92vh] overflow-y-auto bg-white/95 backdrop-blur-xl sm:max-w-4xl p-0 dark:bg-slate-900">
           {selectedAppointment && (
@@ -980,7 +1166,15 @@ export function DashboardPage() {
                 <div className="rounded-xl border border-gray-100 p-3 space-y-2 dark:border-slate-700">
                   <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Quick contact</p>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => toast.success(`Calling ${selectedAppointment.phone}`)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isSupabaseConfigured && !selectedAppointment.phone}
+                      onClick={() => {
+                        if (!isSupabaseConfigured) { toast.success(`Calling ${selectedAppointment.phone}`); return; }
+                        window.location.href = `tel:${selectedAppointment.phone.replace(/[^+\d]/g, '')}`;
+                      }}
+                    >
                       <Phone className="w-4 h-4 mr-2" />
                       Call
                     </Button>
@@ -988,7 +1182,18 @@ export function DashboardPage() {
                       <Mail className="w-4 h-4 mr-2" />
                       Email
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => toast.info('WhatsApp reminder channel is future-ready.')}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isSupabaseConfigured && !selectedAppointment.phone}
+                      onClick={() => {
+                        if (!isSupabaseConfigured) { toast.info('WhatsApp reminder channel is future-ready.'); return; }
+                        // Nigerian numbers: 0803... becomes 234803...
+                        const digits = selectedAppointment.phone.replace(/\D/g, '').replace(/^0(?=\d{10}$)/, '234');
+                        const text = `Hello ${selectedAppointment.patient.split(' ')[0]}, this is a reminder of your ${selectedAppointment.type.toLowerCase()} at ${organization.name} on ${selectedAppointment.date} at ${selectedAppointment.time}.`;
+                        window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+                      }}
+                    >
                       <MessageSquare className="w-4 h-4 mr-2" />
                       WhatsApp
                     </Button>
@@ -998,7 +1203,7 @@ export function DashboardPage() {
                 <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 text-xs text-slate-600 space-y-1 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
                   <p><span className="font-medium text-slate-900 dark:text-slate-50">Last update:</span> {new Date(selectedAppointment.lastUpdated).toLocaleString()}</p>
                   <p><span className="font-medium text-slate-900 dark:text-slate-50">Updated by:</span> {selectedAppointment.updatedBy}</p>
-                  <p><span className="font-medium text-slate-900 dark:text-slate-50">Sync:</span> {isOnline ? 'Realtime broadcast active' : 'Offline-first queue active'}</p>
+                  <p><span className="font-medium text-slate-900 dark:text-slate-50">Sync:</span> {isOnline ? (isSupabaseConfigured ? 'Live updates on' : 'Realtime broadcast active') : 'Offline-first queue active'}</p>
                 </div>
               </div>
             </div>

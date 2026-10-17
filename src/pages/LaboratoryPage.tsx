@@ -60,12 +60,27 @@ import {
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { SENTINEL_LAB_EVENT, type SentinelLabPayload } from '@/lib/sentinel/events';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { queryPatients } from '@/lib/patientRegistry';
+import {
+  createLabOrder,
+  listLabOrders,
+  listLabTemplates,
+  saveLabResults,
+  saveLabTemplate,
+  setLabOrderStatus,
+  type LabOrderRecord,
+} from '@/lib/supabase/lab';
 
 type LabStatus = 'pending' | 'processing' | 'completed' | 'cancelled';
 type LabPriority = 'routine' | 'urgent' | 'stat';
 type SampleType = 'blood' | 'urine' | 'imaging' | 'other';
 
 export interface LabResultLine {
+  /** lab_results row id (Supabase mode). */
+  id?: string;
+  /** Completed in the database: the value can no longer change. */
+  locked?: boolean;
   testName: string;
   value: string;
   unit: string;
@@ -76,7 +91,12 @@ export interface LabResultLine {
 }
 
 export interface LabOrder {
+  /** Display number, e.g. VLL-2026-0001. */
   id: string;
+  /** lab_orders row id (Supabase mode). */
+  dbId?: string;
+  /** Patient's state of residence (Supabase mode), for Sentinel. */
+  patientState?: string;
   patientId: string;
   patientName: string;
   uhin: string;
@@ -256,6 +276,42 @@ function nextOrderId(existingIds: string[]): string {
   return `VLL-${year}-${String(next).padStart(4, '0')}`;
 }
 
+function orderFromRecord(o: LabOrderRecord): LabOrder {
+  return {
+    id: o.number,
+    dbId: o.id,
+    patientState: o.patientState,
+    patientId: o.patientId,
+    patientName: o.patientName,
+    uhin: o.patientSwitchId,
+    requestedBy: o.requestedBy,
+    doctorId: o.orderedById ?? '',
+    tests: o.lines.map((line) => line.testName),
+    priority: o.priority,
+    sampleType: o.sampleType,
+    status: o.status,
+    notes: o.notes,
+    createdAt: o.createdAt,
+    criticalFlag: o.critical,
+    draftSavedAt: o.draftSavedAt ?? undefined,
+    results: o.lines.map((line) => ({
+      id: line.id,
+      locked: line.completed,
+      testName: line.testName,
+      value: line.value,
+      unit: line.unit,
+      referenceRange: line.referenceRange,
+      interpretation: line.interpretation,
+      flaggedCritical: line.critical,
+      attachmentNames: [],
+    })),
+  };
+}
+
+const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
+
+type PatientOption = { id: string; name: string; uhin: string };
+
 function useLabPermissions(role: UserRole, hasPermission: (m: string, a: string) => boolean) {
   return useMemo(() => {
     const superA = role === 'super-admin';
@@ -298,12 +354,31 @@ const tabs = [
 ];
 
 export function LaboratoryPage() {
-  const { currentRole, userName, hasPermission } = useAuth();
+  const { currentRole, userName, hasPermission, organization } = useAuth();
+  const organizationId = organization.id;
   const { hasAccess } = useSubscription();
   const perms = useLabPermissions(currentRole, hasPermission);
 
-  const [orders, setOrders] = useState<LabOrder[]>(seedOrders);
-  const [templates, setTemplates] = useState<LabTemplate[]>(DEFAULT_TEMPLATES);
+  const [orders, setOrders] = useState<LabOrder[]>(() => (isSupabaseConfigured ? [] : seedOrders()));
+  const [templates, setTemplates] = useState<LabTemplate[]>(isSupabaseConfigured ? [] : DEFAULT_TEMPLATES);
+  const [patientMatches, setPatientMatches] = useState<PatientOption[]>([]);
+  const [pickedPatient, setPickedPatient] = useState<PatientOption | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const reload = useCallback(async () => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const [orderRows, templateRows] = await Promise.all([listLabOrders(organizationId), listLabTemplates(organizationId)]);
+      setOrders(orderRows.map(orderFromRecord));
+      setTemplates(templateRows);
+    } catch (error) {
+      toast.error(errorText(error, 'Could not load the laboratory'));
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]['id']>('orders');
   const [search, setSearch] = useState('');
   const [expandedMobile, setExpandedMobile] = useState<Record<string, boolean>>({});
@@ -348,13 +423,33 @@ export function LaboratoryPage() {
   const tabBarRef = useRef<HTMLDivElement>(null);
   const touchStart = useRef<number | null>(null);
 
+  useEffect(() => {
+    if (!isSupabaseConfigured || !newOrderOpen) return;
+    const needle = patientQuery.trim();
+    if (pickedPatient && needle === `${pickedPatient.name} — ${pickedPatient.uhin}`) return;
+    if (needle.length < 2) {
+      setPatientMatches([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      queryPatients({
+        tenantId: organizationId, page: 1, pageSize: 8, query: needle, sortBy: 'name', sortOrder: 'asc',
+        filters: { gender: [], status: [], ageMin: '', ageMax: '', department: '', doctorAssigned: '', admissionStatus: '', chronicCondition: '', dateRegistered: '', insuranceProvider: '' },
+      })
+        .then((result) => setPatientMatches(result.rows.map((row) => ({ id: row.id, name: `${row.firstName} ${row.lastName}`, uhin: row.switchId }))))
+        .catch(() => setPatientMatches([]));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [patientQuery, newOrderOpen, pickedPatient, organizationId]);
+
   const filteredPatients = useMemo(() => {
+    if (isSupabaseConfigured) return pickedPatient ? [pickedPatient, ...patientMatches.filter((p) => p.id !== pickedPatient.id)] : patientMatches;
     const q = patientQuery.trim().toLowerCase();
     if (!q) return DEMO_PATIENTS;
     return DEMO_PATIENTS.filter(
       (p) => p.name.toLowerCase().includes(q) || p.uhin.toLowerCase().includes(q),
     );
-  }, [patientQuery]);
+  }, [patientQuery, patientMatches, pickedPatient]);
 
   const requestedByDefault = currentRole === 'doctor' ? userName : '';
 
@@ -438,6 +533,8 @@ export function LaboratoryPage() {
   const resetNewOrderForm = () => {
     setPatientQuery('');
     setSelectedPatientId(null);
+    setPickedPatient(null);
+    setPatientMatches([]);
     setSelectedTests([]);
     setCustomTest('');
     setNewPriority('routine');
@@ -450,7 +547,7 @@ export function LaboratoryPage() {
       toast.error('You do not have permission to create lab orders');
       return;
     }
-    const patient = DEMO_PATIENTS.find((p) => p.id === selectedPatientId);
+    const patient = isSupabaseConfigured ? pickedPatient : DEMO_PATIENTS.find((p) => p.id === selectedPatientId);
     if (!patient) {
       toast.error('Select a patient');
       return;
@@ -459,6 +556,25 @@ export function LaboratoryPage() {
     if (customTest.trim()) tests.push(customTest.trim());
     if (!tests.length) {
       toast.error('Select at least one test');
+      return;
+    }
+    if (isSupabaseConfigured) {
+      const lines = defaultResultLines(tests).map((line) => ({
+        name: line.testName,
+        unit: line.unit,
+        referenceRange: line.referenceRange === '—' ? '' : line.referenceRange,
+      }));
+      setBusy(true);
+      createLabOrder(patient.id, lines, { priority: newPriority, sampleType: newSample, notes: newNotes })
+        .then(async () => {
+          await reload();
+          setNewOrderOpen(false);
+          resetNewOrderForm();
+          toast.success('Lab order created', { description: `${patient.name} · Status: Pending` });
+          window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'laboratory:order-created' } }));
+        })
+        .catch((error) => toast.error(errorText(error, 'Could not create the lab order')))
+        .finally(() => setBusy(false));
       return;
     }
     const id = nextOrderId(orders.map((o) => o.id));
@@ -533,8 +649,31 @@ export function LaboratoryPage() {
     window.print();
   };
 
+  const draftLines = () =>
+    resultDraft
+      .filter((r) => r.id)
+      .map((r) => ({
+        id: r.id as string,
+        value: r.value,
+        unit: r.unit,
+        referenceRange: r.referenceRange,
+        interpretation: r.interpretation,
+        critical: r.flaggedCritical,
+      }));
+
   const saveResultDraft = () => {
     if (!sheetOrder || !perms.canSaveDraft) return;
+    if (isSupabaseConfigured && sheetOrder.dbId) {
+      setBusy(true);
+      saveLabResults(sheetOrder.dbId, draftLines(), false)
+        .then(async () => {
+          await reload();
+          toast.success('Draft saved');
+        })
+        .catch((error) => toast.error(errorText(error, 'Could not save the draft')))
+        .finally(() => setBusy(false));
+      return;
+    }
     persistOrderPatch(sheetOrder.id, {
       results: resultDraft.map((r) => ({ ...r })),
       draftSavedAt: new Date().toISOString(),
@@ -550,11 +689,27 @@ export function LaboratoryPage() {
       return;
     }
     const anyCritical = resultDraft.some((r) => r.flaggedCritical);
+    if (isSupabaseConfigured && sheetOrder.dbId) {
+      const order = sheetOrder;
+      setBusy(true);
+      saveLabResults(order.dbId as string, draftLines(), true)
+        .then(async () => {
+          await reload();
+          announceResults(order, anyCritical);
+        })
+        .catch((error) => toast.error(errorText(error, 'Could not submit the results')))
+        .finally(() => setBusy(false));
+      return;
+    }
     persistOrderPatch(sheetOrder.id, {
       results: resultDraft.map((r) => ({ ...r })),
       status: 'completed',
       criticalFlag: anyCritical,
     });
+    announceResults(sheetOrder, anyCritical);
+  };
+
+  const announceResults = (order: LabOrder, anyCritical: boolean) => {
     toast.success('Results submitted', {
       description: anyCritical
         ? 'Critical flag set · Urgent alert sent to ordering physician'
@@ -566,7 +721,7 @@ export function LaboratoryPage() {
           detail: {
             channel: 'lab',
             type: 'critical',
-            orderId: sheetOrder.id,
+            orderId: order.id,
             message: 'Critical lab result — immediate review',
           },
         }),
@@ -574,7 +729,7 @@ export function LaboratoryPage() {
     } else {
       window.dispatchEvent(
         new CustomEvent('vitalink:notify', {
-          detail: { channel: 'lab', type: 'results-ready', orderId: sheetOrder.id },
+          detail: { channel: 'lab', type: 'results-ready', orderId: order.id },
         }),
       );
     }
@@ -584,16 +739,17 @@ export function LaboratoryPage() {
     window.dispatchEvent(
       new CustomEvent<SentinelLabPayload>(SENTINEL_LAB_EVENT, {
         detail: {
-          orderId: sheetOrder.id,
-          patientName: sheetOrder.patientName,
+          orderId: order.id,
+          patientName: order.patientName,
           tests: resultDraft.map((r) => ({
             name: r.testName,
             value: r.value,
             interpretation: r.interpretation,
             flaggedPositive: /positive|detected|reactive|elevated|critical/i.test(`${r.value} ${r.interpretation}`),
           })),
-          state: 'Lagos',
-          lga: 'Ikeja',
+          // Live: the patient's recorded state (no LGA is captured yet); demo keeps sample values.
+          state: isSupabaseConfigured ? order.patientState || undefined : 'Lagos',
+          lga: isSupabaseConfigured ? undefined : 'Ikeja',
         },
       }),
     );
@@ -609,8 +765,18 @@ export function LaboratoryPage() {
       toast.error('Only lab scientists or admins can mark completed without full result entry');
       return;
     }
-    persistOrderPatch(order.id, { status });
-    toast.success(`Status updated → ${status}`);
+    if (isSupabaseConfigured && order.dbId) {
+      if (status === 'completed') return;
+      setLabOrderStatus(order.dbId, status)
+        .then(async () => {
+          await reload();
+          toast.success(`Status updated → ${status}`);
+        })
+        .catch((error) => toast.error(errorText(error, 'Could not update the order')));
+    } else {
+      persistOrderPatch(order.id, { status });
+      toast.success(`Status updated → ${status}`);
+    }
     if (status === 'processing') {
       window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'laboratory:processing' } }));
     }
@@ -619,6 +785,16 @@ export function LaboratoryPage() {
   const cancelOrder = (order: LabOrder) => {
     if (!perms.canDeleteOrder && currentRole !== 'hospital-admin' && currentRole !== 'super-admin') {
       toast.error('You cannot cancel orders');
+      return;
+    }
+    if (isSupabaseConfigured && order.dbId) {
+      setLabOrderStatus(order.dbId, 'cancelled')
+        .then(async () => {
+          await reload();
+          toast.message('Order cancelled');
+          setSheetOrder(null);
+        })
+        .catch((error) => toast.error(errorText(error, 'Could not cancel the order')));
       return;
     }
     persistOrderPatch(order.id, { status: 'cancelled' });
@@ -638,6 +814,21 @@ export function LaboratoryPage() {
       if (!Array.isArray(fields)) throw new Error('invalid');
     } catch {
       toast.error('Fields must be a JSON array of { name, unit, referenceRange }');
+      return;
+    }
+    if (isSupabaseConfigured) {
+      if (!tplName.trim()) {
+        toast.error('Give the template a name');
+        return;
+      }
+      saveLabTemplate(organizationId, { id: editingTemplate?.id, name: tplName, fields })
+        .then(async () => {
+          await reload();
+          toast.success(editingTemplate ? 'Template updated' : 'Template created');
+          setTemplateFormOpen(false);
+          setEditingTemplate(null);
+        })
+        .catch((error) => toast.error(errorText(error, 'Could not save the template')));
       return;
     }
     if (editingTemplate) {
@@ -743,7 +934,7 @@ export function LaboratoryPage() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {perms.canBulkUpload && (
+            {perms.canBulkUpload && !isSupabaseConfigured && (
               <>
                 <input
                   ref={bulkCsvInputRef}
@@ -1267,6 +1458,11 @@ export function LaboratoryPage() {
                 className="mt-1 rounded-xl"
               />
               <div className="mt-2 max-h-36 overflow-y-auto rounded-xl border border-gray-200 bg-white/90 dark:border-slate-700 dark:bg-slate-900/50">
+                {isSupabaseConfigured && filteredPatients.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-gray-500 dark:text-slate-400">
+                    {patientQuery.trim().length < 2 ? 'Type at least 2 letters to search patients.' : 'No matching patients.'}
+                  </p>
+                )}
                 {filteredPatients.map((p) => (
                   <button
                     key={p.id}
@@ -1277,6 +1473,7 @@ export function LaboratoryPage() {
                     )}
                     onClick={() => {
                       setSelectedPatientId(p.id);
+                      setPickedPatient(p);
                       setPatientQuery(`${p.name} — ${p.uhin}`);
                     }}
                   >
@@ -1354,7 +1551,7 @@ export function LaboratoryPage() {
             <Button variant="outline" onClick={() => setNewOrderOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-[#1E4ED8] text-white" onClick={submitNewOrder}>
+            <Button className="bg-[#1E4ED8] text-white" disabled={busy} onClick={submitNewOrder}>
               Create order
             </Button>
           </DialogFooter>
@@ -1388,10 +1585,14 @@ export function LaboratoryPage() {
                   <div className="text-xs text-gray-600 dark:text-slate-400">
                     <p className="font-medium text-gray-900 dark:text-slate-50">Sample tracking</p>
                     <p className="font-mono mt-0.5">{sheetOrder.id}-S01</p>
-                    <p className="text-[10px] text-gray-500 mt-1 dark:text-slate-400">Barcode / QR scan hooks to LIS (demo).</p>
+                    {!isSupabaseConfigured && (
+                      <p className="text-[10px] text-gray-500 mt-1 dark:text-slate-400">Barcode / QR scan hooks to LIS (demo).</p>
+                    )}
                   </div>
                 </div>
 
+                {/* Offline demo only: EMR link, VitaMind and offline sync are not connected in live workspaces. */}
+                {!isSupabaseConfigured && (
                 <div className="flex flex-wrap gap-2">
                   <Button
                     variant="outline"
@@ -1418,6 +1619,7 @@ export function LaboratoryPage() {
                     Offline
                   </Button>
                 </div>
+                )}
 
                 <div className="text-sm space-y-1 text-gray-700 dark:text-slate-200">
                   <p>
@@ -1469,7 +1671,7 @@ export function LaboratoryPage() {
                       {perms.isReadOnlyResults ? 'Results (read-only)' : 'Result entry'}
                     </h4>
                     {resultDraft.map((line, idx) => (
-                      <div key={line.testName} className="space-y-2 pb-4 border-b border-gray-100 last:border-0 dark:border-slate-700">
+                      <div key={line.id ?? line.testName} className="space-y-2 pb-4 border-b border-gray-100 last:border-0 dark:border-slate-700">
                         <p className="text-xs font-semibold text-gray-800 dark:text-slate-200">{line.testName}</p>
                         <div className="grid grid-cols-2 gap-2">
                           <div className="col-span-2">
@@ -1479,7 +1681,8 @@ export function LaboratoryPage() {
                               disabled={
                                 perms.isReadOnlyResults ||
                                 perms.doctorInterpretationOnly ||
-                                (perms.techLimited && sheetOrder.status === 'completed')
+                                line.locked ||
+                                sheetOrder.status === 'completed'
                               }
                               onChange={(e) => {
                                 const v = e.target.value;
@@ -1553,7 +1756,7 @@ export function LaboratoryPage() {
                               Mark line as critical
                             </label>
                           )}
-                          {!perms.isReadOnlyResults && !perms.doctorInterpretationOnly && (
+                          {!isSupabaseConfigured && !perms.isReadOnlyResults && !perms.doctorInterpretationOnly && (
                             <div className="col-span-2">
                               <Label className="text-[10px]">Attachments (demo)</Label>
                               <Input
@@ -1579,7 +1782,7 @@ export function LaboratoryPage() {
 
                     <div className="flex flex-wrap gap-2 pt-2">
                       {perms.canSaveDraft && !perms.doctorInterpretationOnly && !perms.isReadOnlyResults && (
-                        <Button variant="outline" size="sm" className="rounded-xl" onClick={saveResultDraft}>
+                        <Button variant="outline" size="sm" className="rounded-xl" disabled={busy || sheetOrder.status === 'completed'} onClick={saveResultDraft}>
                           Save draft
                         </Button>
                       )}
@@ -1589,6 +1792,15 @@ export function LaboratoryPage() {
                           className="rounded-xl bg-[#1E4ED8] text-white"
                           onClick={() => {
                             if (!sheetOrder) return;
+                            if (isSupabaseConfigured && sheetOrder.dbId) {
+                              saveLabResults(sheetOrder.dbId, draftLines(), false)
+                                .then(async () => {
+                                  await reload();
+                                  toast.success('Interpretation saved', { description: "Visible on the patient's EMR lab results" });
+                                })
+                                .catch((error) => toast.error(errorText(error, 'Could not save the interpretation')));
+                              return;
+                            }
                             persistOrderPatch(sheetOrder.id, { results: resultDraft.map((r) => ({ ...r })) });
                             toast.success('Interpretation saved', {
                               description: 'Linked to EMR patient chart (demo)',
@@ -1599,7 +1811,7 @@ export function LaboratoryPage() {
                         </Button>
                       )}
                       {perms.canSubmitResults && sheetOrder.status !== 'cancelled' && !perms.isReadOnlyResults && (
-                        <Button size="sm" className="rounded-xl bg-emerald-600 text-white" onClick={submitResults}>
+                        <Button size="sm" className="rounded-xl bg-emerald-600 text-white" disabled={busy || sheetOrder.status === 'completed'} onClick={submitResults}>
                           Submit results
                         </Button>
                       )}

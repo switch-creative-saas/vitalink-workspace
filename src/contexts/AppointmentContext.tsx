@@ -2,10 +2,12 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { toast } from 'sonner';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { BILLING_HANDOFF_KEY, TELEMEDICINE_HANDOFF_KEY } from '@/lib/handoffs';
 import {
   createAppointmentRemote,
   listAppointmentsRemote,
   listCliniciansRemote,
+  sendAppointmentReminderRemote,
   subscribeToAppointments,
   updateAppointmentStatusRemote,
 } from '@/lib/supabase/appointments';
@@ -129,6 +131,8 @@ interface AppointmentContextType {
   setFilters: (filters: Partial<AppointmentFilters>) => void;
   visibleAppointments: (role: UserRole, userName: string) => AppointmentRecord[];
   createAppointment: (payload: Omit<AppointmentRecord, 'id' | 'lastUpdated' | 'updatedBy' | 'queueNumber' | 'queuePosition'>) => void;
+  /** Books from the few fields a booking form collects; everything else comes from the patient record. */
+  bookAppointment: (input: BookingInput) => void;
   updateStatus: (id: string, status: AppointmentStatus, reason?: string) => void;
   runAction: (id: string, action: AppointmentAction) => void;
   canOpenAppointmentsHub: (role: UserRole) => boolean;
@@ -136,7 +140,50 @@ interface AppointmentContextType {
   preserveDashboardContext: (context: Partial<AppointmentFilters>) => void;
 }
 
+export interface BookingInput {
+  patientSwitchId: string;
+  patientName: string;
+  doctorId: string;
+  department: string;
+  date: string;
+  time: string;
+  type: AppointmentType;
+  priority: AppointmentRecord['priority'];
+  visitReason: string;
+}
+
 const AppointmentContext = createContext<AppointmentContextType | null>(null);
+
+const escapeHtml = (value: string) =>
+  value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] ?? char);
+
+/** Prints a queue slip for the front desk through a hidden frame (no pop-up needed). */
+function printQueueSlip(appointment: AppointmentRecord, facility: string) {
+  const rows = [
+    ['Patient', appointment.patient],
+    ['VitaLink ID', appointment.patientSwitchId],
+    ['Time', `${appointment.date} ${appointment.time}`],
+    ['Department', appointment.department],
+    ['Clinician', appointment.doctor],
+    ['Visit', appointment.type],
+  ].map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${escapeHtml(value)}</td></tr>`).join('');
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><title>Queue slip ${escapeHtml(appointment.queueNumber)}</title>
+<style>body{font-family:system-ui,sans-serif;padding:16px;color:#0f172a}h1{font-size:14px;margin:0 0 4px}
+.queue{font-size:40px;font-weight:800;color:#1E4ED8;margin:12px 0}table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:#64748b;font-weight:500;padding:4px 8px 4px 0;white-space:nowrap}td{padding:4px 0}
+p{font-size:11px;color:#64748b;margin-top:16px}</style></head><body>
+<h1>${escapeHtml(facility)}</h1><div>Queue number</div><div class="queue">${escapeHtml(appointment.queueNumber)}</div>
+<table>${rows}</table><p>Printed ${escapeHtml(new Date().toLocaleString())}</p></body></html>`;
+  frame.onload = () => {
+    frame.contentWindow?.focus();
+    frame.contentWindow?.print();
+    window.setTimeout(() => frame.remove(), 60_000);
+  };
+  document.body.appendChild(frame);
+}
 
 const appointmentsKey = 'vitalink-appointments-core';
 const filtersKey = 'vitalink-appointments-dashboard-context';
@@ -607,6 +654,42 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
     toast.success('Appointment created', { description: 'Doctor, queue, reminders, and analytics were synchronized.' });
   };
 
+  const bookAppointment: AppointmentContextType['bookAppointment'] = (input) => {
+    const doctor = clinicians.find((item) => item.id === input.doctorId);
+    const initialsOf = (name: string) => name.split(' ').map((part) => part[0]).slice(0, 2).join('').toUpperCase() || '--';
+    createAppointment({
+      patient: input.patientName,
+      patientSwitchId: input.patientSwitchId,
+      nfcId: 'Not linked',
+      patientAvatar: initialsOf(input.patientName),
+      doctor: doctor?.name ?? '',
+      doctorId: input.doctorId,
+      doctorAvatar: doctor?.avatar ?? initialsOf(doctor?.name ?? ''),
+      department: input.department,
+      date: input.date,
+      time: input.time,
+      duration: 30,
+      type: input.type,
+      priority: input.priority,
+      insuranceType: 'self-pay',
+      status: 'pending',
+      visitReason: input.visitReason || 'Scheduled appointment',
+      history: ['Booked from dashboard'],
+      checkInStatus: 'not-arrived',
+      insuranceStatus: 'self-pay',
+      outstandingBalance: 0,
+      lastVitals: 'Vitals not recorded',
+      clinicalAlerts: [],
+      emergencyFlags: input.priority === 'emergency' ? ['Emergency booking'] : [],
+      allergies: [],
+      phone: '',
+      labLinked: false,
+      prescriptionReady: false,
+      waitMinutes: 0,
+      consultationMinutes: 0,
+    });
+  };
+
   const runAction = (id: string, action: AppointmentAction) => {
     const appointment = appointments.find((item) => item.id === id);
     if (!appointment) return;
@@ -635,15 +718,30 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
     }
     if (action === 'cancel') {
       updateStatus(id, 'cancelled', 'Cancelled from appointment quick action');
-      toast.error('Appointment cancelled', { description: 'Patient notification and audit log created.' });
+      toast.error('Appointment cancelled', {
+        description: isSupabaseConfigured ? 'Removed from the queue and recorded in the audit log.' : 'Patient notification and audit log created.',
+      });
       return;
     }
     if (action === 'no-show') {
       updateStatus(id, 'no-show', 'Marked as no-show');
-      toast.warning('Marked as no-show', { description: 'No-show metrics and reminders updated.' });
+      toast.warning('Marked as no-show', { description: isSupabaseConfigured ? 'Counted in today\'s no-show rate.' : 'No-show metrics and reminders updated.' });
       return;
     }
     if (action === 'send-reminder') {
+      if (isSupabaseConfigured) {
+        sendAppointmentReminderRemote(id)
+          .then((result) => {
+            if (result.sent) {
+              notify('appointments', 'reminder-sent', `Reminder emailed to ${appointment.patient}`);
+              toast.success('Reminder emailed', { description: result.to });
+            } else {
+              toast.warning('Reminder not sent', { description: `${result.reason ?? 'Email is unavailable.'} Use Call or WhatsApp instead.` });
+            }
+          })
+          .catch((error) => toast.error(errorMessage(error, 'Could not send the reminder')));
+        return;
+      }
       notify('appointments', 'reminder-sent', `Reminder sent to ${appointment.patient}`);
       toast.success('Reminder sent', { description: 'SMS, email, push, and WhatsApp-ready channels queued.' });
       return;
@@ -653,12 +751,24 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (action === 'generate-invoice') {
+      if (isSupabaseConfigured) {
+        // Billing opens New Invoice for this patient with their unbilled visit, labs and drugs.
+        sessionStorage.setItem(BILLING_HANDOFF_KEY, appointment.patientSwitchId);
+        routeTo('billing');
+        return;
+      }
       routeTo('billing');
       notify('billing', 'invoice-from-appointment', `Invoice started for ${appointment.patient}`);
       toast.success('Billing flow opened', { description: 'Appointment services carried into invoice generation.' });
       return;
     }
     if (action === 'join-telemedicine') {
+      if (isSupabaseConfigured) {
+        // Telemedicine opens a video visit for this appointment's patient.
+        sessionStorage.setItem(TELEMEDICINE_HANDOFF_KEY, appointment.id);
+        routeTo('telemedicine');
+        return;
+      }
       routeTo('telemedicine');
       toast.success('Telemedicine session opened.');
       return;
@@ -670,10 +780,17 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
     }
     if (action === 'triage') {
       updateStatus(id, 'checked-in', 'Queued for nurse triage');
-      toast.success('Queued for triage', { description: 'Vitals workflow and queue board updated.' });
+      toast.success('Queued for triage', {
+        description: isSupabaseConfigured ? 'Record vitals from the patient\'s EMR.' : 'Vitals workflow and queue board updated.',
+      });
       return;
     }
     if (action === 'print-slip') {
+      if (isSupabaseConfigured) {
+        printQueueSlip(appointment, organization.name);
+        notify('appointments', 'queue-slip-printed', `Queue slip printed for ${appointment.patient}`);
+        return;
+      }
       notify('appointments', 'queue-slip-printed', `Queue slip printed for ${appointment.patient}`);
       toast.success(`Queue slip ready: ${appointment.queueNumber}`);
     }
@@ -710,8 +827,8 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
       acc[hour] = (acc[hour] ?? 0) + 1;
       return acc;
     }, {});
-    const peakHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? '09';
-    return { averageWait, noShowRate, averageConsultation, throughput, peakHour: `${peakHour}:00` };
+    const peakHour = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+    return { averageWait, noShowRate, averageConsultation, throughput, peakHour: peakHour ? `${peakHour}:00` : '—' };
   }, [appointments, filters.date]);
 
   const value = useMemo<AppointmentContextType>(
@@ -726,6 +843,7 @@ export function AppointmentProvider({ children }: { children: ReactNode }) {
       setFilters,
       visibleAppointments,
       createAppointment,
+      bookAppointment,
       updateStatus,
       runAction,
       canOpenAppointmentsHub: (role) => ['receptionist', 'doctor', 'nurse', 'hospital-admin', 'super-admin'].includes(role),

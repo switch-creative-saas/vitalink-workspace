@@ -1,9 +1,10 @@
-// Paystack webhook: confirms first payments, extends periods on renewals, and
-// downgrades on failed/cancelled subscriptions. Authenticated by Paystack's
+// Paystack webhook: confirms first payments and VitaCard order payments,
+// extends periods on renewals, and downgrades on failed/cancelled subscriptions. Authenticated by Paystack's
 // HMAC-SHA512 signature, so it is deployed with JWT verification off.
 import {
   activateFromTransaction,
   addPeriod,
+  markNfcOrderPaid,
   paystack,
   secretKey,
   serviceClient,
@@ -35,6 +36,11 @@ Deno.serve(async (req) => {
   try {
     switch (event.event) {
       case 'charge.success': {
+        if (data.metadata?.vitalink === 'nfc_order') {
+          const tx = await paystack(`/transaction/verify/${encodeURIComponent(data.reference)}`);
+          await markNfcOrderPaid(db, tx);
+          break;
+        }
         if (data.metadata?.vitalink === 'initial') {
           // Re-fetch from Paystack rather than trusting the payload.
           const tx = await paystack(`/transaction/verify/${encodeURIComponent(data.reference)}`);

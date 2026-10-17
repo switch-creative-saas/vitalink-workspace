@@ -24,6 +24,11 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { PatientOnboardingWizard } from '@/components/patients/PatientOnboardingWizard';
 import { useAuth } from '@/contexts/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveHealthIdentity } from '@/components/identity/LiveHealthIdentity';
+
+// Offline demo registry tenant; with Supabase the signed-in workspace is used.
+const DEMO_TENANT_ID = 'lagos-central-hospital';
 
 interface PatientCard {
   id: string;
@@ -57,7 +62,12 @@ const mockPatient: PatientCard = {
 };
 
 export function PatientIdentityPage() {
-  const { canCreate, userName } = useAuth();
+  return isSupabaseConfigured ? <LiveHealthIdentity /> : <DemoPatientIdentityPage />;
+}
+
+/** Offline demo (no Supabase): simulated scans against a sample patient. */
+function DemoPatientIdentityPage() {
+  const { canCreate, userName, organization } = useAuth();
   const [scanMode, setScanMode] = useState<'nfc' | 'qr' | 'manual'>('nfc');
   const [isScanning, setIsScanning] = useState(false);
   const [scannedPatient, setScannedPatient] = useState<PatientCard | null>(null);
@@ -100,7 +110,7 @@ export function PatientIdentityPage() {
       <PatientOnboardingWizard
         open={showOnboarding}
         onOpenChange={setShowOnboarding}
-        tenantId="lagos-central-hospital"
+        tenantId={isSupabaseConfigured ? organization.id : DEMO_TENANT_ID}
         creatorName={userName}
         canCreate={canCreate('Patients')}
       />

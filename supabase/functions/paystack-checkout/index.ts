@@ -1,11 +1,13 @@
-// Starts a Paystack checkout for a workspace plan, or verifies one after the
-// redirect back. Platform admins skip payment: their request comps the plan.
+// Starts a Paystack checkout for a workspace plan or a VitaCard order, or
+// verifies one after the redirect back. Platform admins skip plan payment:
+// their request comps the plan.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   HttpError,
   activateFromTransaction,
   corsHeaders,
   json,
+  markNfcOrderPaid,
   paystack,
   priceFor,
   serviceClient,
@@ -32,6 +34,53 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const db = serviceClient();
+
+    // ---- VitaCard orders ----
+    if (body.action === 'nfc-order') {
+      const callbackUrl = String(body.callbackUrl ?? '');
+      if (!ALLOWED_ORIGINS.some((origin) => callbackUrl.startsWith(`${origin}/`))) {
+        throw new HttpError(400, 'Callback URL is not an allowed VitaLink origin.');
+      }
+      const { data: order } = await db.from('nfc_card_orders')
+        .select('id, organization_id, order_number, quantity, total_kobo, status, payment_method')
+        .eq('id', String(body.orderId ?? '')).maybeSingle();
+      if (!order) throw new HttpError(404, 'Order not found.');
+      const { data: member } = await db.from('memberships').select('role')
+        .eq('organization_id', order.organization_id).eq('user_id', user.id).eq('status', 'active').maybeSingle();
+      if (!member || !ADMIN_ROLES.includes(member.role)) throw new HttpError(403, 'Only workspace admins can pay for card orders.');
+      if (order.status !== 'processing') throw new HttpError(400, 'This order is no longer awaiting payment.');
+
+      const reference = `vlnfc_${order.id.slice(0, 8)}_${Date.now()}`;
+      const { error: refError } = await db.from('nfc_card_orders')
+        .update({ paystack_reference: reference, payment_method: 'paystack' }).eq('id', order.id);
+      if (refError) throw new HttpError(500, refError.message);
+      const checkout = await paystack<{ authorization_url: string }>('/transaction/initialize', {
+        method: 'POST',
+        body: {
+          email: user.email,
+          amount: order.total_kobo,
+          currency: 'NGN',
+          reference,
+          callback_url: callbackUrl,
+          metadata: {
+            vitalink: 'nfc_order',
+            order_id: order.id,
+            custom_fields: [{ display_name: 'VitaCard order', variable_name: 'order', value: `${order.order_number} (${order.quantity} cards)` }],
+          },
+        },
+      });
+      return json({ authorizationUrl: checkout.authorization_url, reference });
+    }
+    if (body.action === 'verify-nfc') {
+      const reference = String(body.reference ?? '');
+      const { data: order } = await db.from('nfc_card_orders').select('organization_id').eq('paystack_reference', reference).maybeSingle();
+      if (!order) throw new HttpError(404, 'Order payment not found.');
+      const { data: member } = await db.from('memberships').select('id')
+        .eq('organization_id', order.organization_id).eq('user_id', user.id).eq('status', 'active').maybeSingle();
+      if (!member) throw new HttpError(403, 'Not a member of this workspace.');
+      const tx = await paystack(`/transaction/verify/${encodeURIComponent(reference)}`);
+      return json(await markNfcOrderPaid(db, tx));
+    }
 
     if (body.action === 'verify') {
       const reference = String(body.reference ?? '');

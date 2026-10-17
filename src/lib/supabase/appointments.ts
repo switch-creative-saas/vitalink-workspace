@@ -4,7 +4,7 @@ import type {
   AppointmentStatus,
   AppointmentType,
 } from '@/contexts/AppointmentContext';
-import { requireSupabase } from './client';
+import { requireSupabase, functionErrorMessage } from './client';
 import { formatVitals, listLatestVitalsByPatient } from './clinical';
 
 const initials = (name: string) =>
@@ -78,9 +78,6 @@ interface AppointmentRow {
   queue_number: string | null;
   check_in_status: AppointmentRecord['checkInStatus'];
   insurance_type: AppointmentRecord['insuranceType'];
-  lab_linked: boolean;
-  prescription_ready: boolean;
-  outstanding_balance: number;
   telemedicine_url: string | null;
   checked_in_at: string | null;
   consultation_started_at: string | null;
@@ -108,7 +105,14 @@ const SELECT = `*,
 const splitList = (value: string | null | undefined) =>
   (value ?? '').split(/[,;\n]/).map((item) => item.trim()).filter(Boolean);
 
-function fromRow(row: AppointmentRow, lastVitals = ''): AppointmentRecord {
+/** Live per-patient balance and open lab / prescription counts (patient_care_flags RPC). */
+interface CareFlags {
+  outstandingKobo: number;
+  openLabOrders: number;
+  activePrescriptions: number;
+}
+
+function fromRow(row: AppointmentRow, lastVitals = '', flags?: CareFlags): AppointmentRecord {
   const patientName = row.patient ? `${row.patient.first_name} ${row.patient.last_name}` : 'Unknown patient';
   const doctorName = row.clinician?.full_name || row.clinician?.email || 'Unassigned';
   const waitEnd = row.consultation_started_at ?? (row.status === 'checked-in' || row.status === 'waiting-lab' ? null : row.completed_at ?? row.updated_at);
@@ -136,14 +140,14 @@ function fromRow(row: AppointmentRow, lastVitals = ''): AppointmentRecord {
     history: row.history,
     checkInStatus: row.check_in_status,
     insuranceStatus: row.insurance_type === 'self-pay' ? 'self-pay' : insuranceExpired ? 'expired' : 'active',
-    outstandingBalance: Number(row.outstanding_balance),
+    outstandingBalance: (flags?.outstandingKobo ?? 0) / 100,
     lastVitals: lastVitals || 'Vitals not recorded',
     clinicalAlerts: splitList(row.patient?.chronic_conditions),
     emergencyFlags: row.priority === 'emergency' ? ['Emergency booking'] : [],
     allergies: allergies.length ? allergies : ['None recorded'],
     phone: row.patient?.phone ?? '',
-    labLinked: row.lab_linked,
-    prescriptionReady: row.prescription_ready,
+    labLinked: (flags?.openLabOrders ?? 0) > 0,
+    prescriptionReady: (flags?.activePrescriptions ?? 0) > 0,
     telemedicineUrl: row.telemedicine_url ?? undefined,
     queueNumber: row.queue_number ?? '--',
     queuePosition: 0, // filled in per department/day by the context
@@ -163,10 +167,29 @@ export async function listAppointmentsRemote(organizationId: string, fromDate: s
     .lt('starts_at', new Date(`${toDate}T23:59:59`).toISOString())
     .order('starts_at', { ascending: true });
   if (error) throw error;
-  const rows = data as unknown as AppointmentRow[];
-  // Latest vitals per patient; empty for roles that can't read clinical data.
-  const vitals = await listLatestVitalsByPatient(organizationId, [...new Set(rows.map((row) => row.patient_id))]).catch(() => new Map());
-  return rows.map((row) => fromRow(row, formatVitals(vitals.get(row.patient_id))));
+  return withPatientDetails(organizationId, data as unknown as AppointmentRow[]);
+}
+
+async function loadCareFlags(organizationId: string, patientIds: string[]): Promise<Map<string, CareFlags>> {
+  const { data, error } = await requireSupabase().rpc('patient_care_flags', {
+    p_organization_id: organizationId,
+    p_patient_ids: patientIds,
+  });
+  if (error) throw error;
+  return new Map((data as Array<{ patient_id: string; outstanding_kobo: number; open_lab_orders: number; active_prescriptions: number }>).map((row) => [
+    row.patient_id,
+    { outstandingKobo: Number(row.outstanding_kobo), openLabOrders: row.open_lab_orders, activePrescriptions: row.active_prescriptions },
+  ]));
+}
+
+async function withPatientDetails(organizationId: string, rows: AppointmentRow[]): Promise<AppointmentRecord[]> {
+  const patientIds = [...new Set(rows.map((row) => row.patient_id))];
+  // Latest vitals are empty for roles that can't read clinical data.
+  const [vitals, flags] = await Promise.all([
+    listLatestVitalsByPatient(organizationId, patientIds).catch(() => new Map()),
+    loadCareFlags(organizationId, patientIds).catch(() => new Map<string, CareFlags>()),
+  ]);
+  return rows.map((row) => fromRow(row, formatVitals(vitals.get(row.patient_id)), flags.get(row.patient_id)));
 }
 
 export interface NewAppointmentInput {
@@ -221,7 +244,8 @@ export async function createAppointmentRemote(organizationId: string, input: New
     if (error.code === '42501') throw new Error('Your role cannot book appointments in this workspace.');
     throw error;
   }
-  return fromRow(data as unknown as AppointmentRow);
+  const [record] = await withPatientDetails(organizationId, [data as unknown as AppointmentRow]);
+  return record;
 }
 
 export async function updateAppointmentStatusRemote(id: string, status: AppointmentStatus, note?: string): Promise<AppointmentRecord> {
@@ -236,7 +260,9 @@ export async function updateAppointmentStatusRemote(id: string, status: Appointm
     if (error.code === 'PGRST116' || error.code === '42501') throw new Error('Your role cannot update this appointment.');
     throw error;
   }
-  return fromRow(data as unknown as AppointmentRow);
+  const row = data as unknown as AppointmentRow;
+  const [record] = await withPatientDetails(row.organization_id, [row]);
+  return record;
 }
 
 /** Calls onChange whenever an appointment in the organization is inserted, updated or deleted. */
@@ -247,4 +273,13 @@ export function subscribeToAppointments(organizationId: string, onChange: () => 
     .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments', filter: `organization_id=eq.${organizationId}` }, onChange)
     .subscribe();
   return () => { void db.removeChannel(channel); };
+}
+
+/** Emails the patient a reminder (send-appointment-reminder Edge Function). */
+export async function sendAppointmentReminderRemote(appointmentId: string): Promise<{ sent: boolean; to?: string; reason?: string }> {
+  const { data, error } = await requireSupabase().functions.invoke('send-appointment-reminder', { body: { appointmentId } });
+  if (error) {
+    throw new Error(await functionErrorMessage(error));
+  }
+  return data as { sent: boolean; to?: string; reason?: string };
 }

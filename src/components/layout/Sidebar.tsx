@@ -17,6 +17,7 @@ import {
   UserCog,
   Building2,
   Shield,
+  ShieldCheck,
   Receipt,
   Menu,
   X,
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { useResponsive } from '@/contexts/ResponsiveContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlan } from '@/hooks/usePlan';
+import { usePlatformAdmin } from '@/hooks/usePlatformAdmin';
 import type { PageType } from '@/types';
 import { BRAND } from '@/config/brand';
 import {
@@ -84,6 +86,8 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   const { isMobile, sidebarOpen, setSidebarOpen, sidebarCollapsed, setSidebarCollapsed } = useResponsive();
   const { canAccessPage, organization, organizationType, workspaceType } = useAuth();
   const { hasModule } = usePlan();
+  // Only VitaLink platform admins get a way into the private console.
+  const showConsole = usePlatformAdmin() === true;
   const navItems = hydrateNavigation(getNavigationForWorkspace(workspaceType, organizationType));
   const bottomNavItems = hydrateNavigation(BOTTOM_NAVIGATION);
 
@@ -145,6 +149,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
             bottomNavItems={filteredBottomNav}
             onToggle={() => setSidebarOpen(false)}
             workspaceName={workspaceLabel(workspaceType)}
+            showConsole={showConsole}
           />
         </aside>
       </>
@@ -170,6 +175,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
         bottomNavItems={filteredBottomNav}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         workspaceName={workspaceLabel(organization.workspaceType)}
+        showConsole={showConsole}
       />
     </aside>
   );
@@ -183,9 +189,10 @@ interface SidebarContentProps {
   bottomNavItems: NavItem[];
   onToggle: () => void;
   workspaceName: string;
+  showConsole?: boolean;
 }
 
-function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomNavItems, onToggle, workspaceName }: SidebarContentProps) {
+function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomNavItems, onToggle, workspaceName, showConsole }: SidebarContentProps) {
   return (
     <>
       {/* Logo */}
@@ -286,6 +293,20 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
           );
         })}
         
+        {showConsole && (
+          <button
+            onClick={() => window.open('/console', '_blank', 'noopener')}
+            className={cn(
+              'w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 border border-violet-300/30 bg-violet-500/15 text-violet-50 hover:bg-violet-500/25',
+              !expanded && 'justify-center px-2',
+            )}
+            title={!expanded ? 'VitaLink Console' : undefined}
+          >
+            <ShieldCheck className="w-5 h-5 flex-shrink-0" />
+            {expanded && <span className="truncate min-w-0 flex-1 text-left">VitaLink Console</span>}
+          </button>
+        )}
+
         {/* Help */}
         <button
           onClick={() => onPageChange('help')}

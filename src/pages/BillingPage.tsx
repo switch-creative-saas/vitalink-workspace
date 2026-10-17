@@ -25,6 +25,8 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { BillingWorkspace } from '@/components/billing/BillingWorkspace';
 
 type InvoiceStatus = 'paid' | 'pending' | 'partial' | 'overdue';
 type PaymentMethod = 'cash' | 'card' | 'transfer' | 'insurance';
@@ -108,7 +110,12 @@ const seedInvoices: Invoice[] = [
   },
 ];
 
+// With Supabase the real invoices, payments, HMO claims and price list replace the demo billing data.
 export function BillingPage() {
+  return isSupabaseConfigured ? <BillingWorkspace /> : <DemoBillingPage />;
+}
+
+function DemoBillingPage() {
   const { currentRole, hasPermission, userName } = useAuth();
   const { hasAccess } = useSubscription();
   const [activeTab, setActiveTab] = useState<'invoices' | 'payments' | 'claims'>('invoices');

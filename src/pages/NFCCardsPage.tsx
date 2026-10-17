@@ -3,6 +3,8 @@ import { CheckCircle2, CreditCard, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { NFC_CARD_PRICING } from '@/data/pricingTiers';
 import { usePlan } from '@/hooks/usePlan';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveNfcOrders } from '@/components/nfc/LiveNfcOrders';
 
 type DeliveryOption = 'pickup' | 'delivery';
 type NFCOrder = { id: string; quantity: number; total: number; deliveryOption: DeliveryOption; deliveryAddress: string; status: 'processing'; orderedAt: string; estimatedDelivery: string };
@@ -12,6 +14,11 @@ const cardDetails = ['NFC chip (ISO 14443A)', 'VitaLink ID encoded', 'Emergency 
 function readOrders(): NFCOrder[] { try { return JSON.parse(localStorage.getItem('nfc_card_orders') ?? '[]') as NFCOrder[]; } catch { return []; } }
 
 export function NFCCardsPage() {
+  return isSupabaseConfigured ? <LiveNfcOrders /> : <DemoNFCCardsPage />;
+}
+
+/** Offline demo (no Supabase): orders kept in this browser only. */
+function DemoNFCCardsPage() {
   const { tier } = usePlan();
   const [quantity, setQuantity] = useState(tier.nfcCardMinimumPack);
   const [deliveryOption, setDeliveryOption] = useState<DeliveryOption>('pickup');

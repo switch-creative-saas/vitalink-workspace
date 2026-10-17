@@ -29,6 +29,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useGuidedTour } from '@/contexts/GuidedTourContext';
 import { isFeatureEnabled } from '@/config/featureFlags';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveHelpSupport } from '@/components/support/LiveHelpSupport';
 
 type TicketStatus = 'open' | 'in-progress' | 'resolved' | 'closed';
 type TicketPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -66,6 +68,11 @@ const knowledgeBase: KnowledgeArticle[] = [
 ];
 
 export function HelpSupportPage() {
+  return isSupabaseConfigured ? <LiveHelpSupport /> : <DemoHelpSupportPage />;
+}
+
+// Offline demo (no Supabase): sample tickets and canned replies only.
+function DemoHelpSupportPage() {
   const { currentRole, userName } = useAuth();
   const { subscription, hasAccess, addAudit } = useSubscription();
   const { replayCurrentRoleTour, startTourById, startIntroTour, startWorkflowTraining, startAdvancedTour, progress } = useGuidedTour();

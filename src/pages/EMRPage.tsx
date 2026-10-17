@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   Bot,
@@ -30,7 +30,6 @@ import { findPatientBySwitchId, type RegistryPatient } from '@/lib/patientRegist
 import { SENTINEL_CLINICAL_EVENT, type SentinelClinicalPayload } from '@/lib/sentinel/events';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import {
-  addLabResults,
   completeLab,
   formatVitals,
   listLabs,
@@ -43,6 +42,9 @@ import {
   type NewVitals,
   type VitalsReading,
 } from '@/lib/supabase/clinical';
+import { createPrescriptions, parsePrescriptionLines } from '@/lib/supabase/pharmacy';
+import { createLabOrder } from '@/lib/supabase/lab';
+import { DOCUMENT_CATEGORIES, documentLink, listDocuments, uploadDocument as uploadPatientDocument, type DocumentCategory } from '@/lib/supabase/documents';
 
 type EmrTab = 'overview' | 'clinical-notes' | 'lab-results' | 'documents' | 'timeline';
 type TimelineType = 'clinical-note' | 'lab-uploaded' | 'document-added' | 'diagnosis-updated' | 'prescription-issued';
@@ -83,6 +85,8 @@ interface DocumentItem {
   uploadedBy: string;
   uploadedAt: string;
   tags: string[];
+  /** Storage object path (Supabase mode). */
+  storagePath?: string;
 }
 
 const tabs: { id: EmrTab; label: string; icon: React.ElementType }[] = [
@@ -172,7 +176,9 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   const [vitalsForm, setVitalsForm] = useState(emptyVitalsForm);
   const [labForm, setLabForm] = useState(emptyLabForm);
   const [labCompletion, setLabCompletion] = useState({ value: '', flag: 'Normal' as LabResultItem['flag'], interpretation: '' });
-  const [documents, setDocuments] = useState<DocumentItem[]>(defaultDocs);
+  const [documents, setDocuments] = useState<DocumentItem[]>(isSupabaseConfigured ? [] : defaultDocs);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
   const [selectedLab, setSelectedLab] = useState<LabResultItem | null>(null);
   // Lookup result is keyed by the switch ID it was fetched for, so loading state is derived.
   const [lookup, setLookup] = useState<{ switchId?: string; patient: RegistryPatient | null }>({ patient: null });
@@ -203,6 +209,8 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not load clinical records');
     }
+    // Documents load separately so a storage problem doesn't hide the clinical record.
+    listDocuments(organizationId, patientId).then(setDocuments).catch(() => setDocuments([]));
   }, [organizationId, patientId]);
 
   useEffect(() => {
@@ -352,14 +360,16 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
           addAudit('clinical_note_signed_and_locked');
           const orders = parseLabOrders(soap.labOrders);
           if (orders.length) {
-            const pending = await addLabResults(organizationId, patientId, orders.map((testName) => ({
-              testName, testType: 'General', department: 'Laboratory', status: 'Pending' as const, noteId: saved.id,
-            })));
-            setLabResults((prev) => [...pending, ...prev]);
+            await createLabOrder(patientId, orders.map((name) => ({ name })), { noteId: saved.id });
+            setLabResults(await listLabs(organizationId, patientId));
           }
-          toast.success('Note signed and locked.', {
-            description: orders.length ? `${orders.length} lab order(s) sent to the laboratory.` : undefined,
-          });
+          const medications = parsePrescriptionLines(soap.prescriptions);
+          if (medications.length) await createPrescriptions(organizationId, patientId, medications, saved.id);
+          const sent = [
+            orders.length ? `${orders.length} lab order(s) sent to the laboratory` : '',
+            medications.length ? `${medications.length} prescription(s) sent to the pharmacy` : '',
+          ].filter(Boolean);
+          toast.success('Note signed and locked.', { description: sent.length ? `${sent.join('; ')}.` : undefined });
           notifySentinel();
         })
         .catch((error) => toast.error(error instanceof Error ? error.message : 'Could not sign the note'));
@@ -382,8 +392,9 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
             primaryDiagnosis: soap.primaryDiagnosis,
             secondaryDiagnosis: soap.secondaryDiagnosis,
             facilityName: organization.name,
-            state: patient?.state ?? 'Lagos',
-            lga: 'Ikeja',
+            // Live: the patient's recorded state (no LGA is captured yet); demo keeps sample values.
+            state: patient?.state || (isSupabaseConfigured ? undefined : 'Lagos'),
+            lga: isSupabaseConfigured ? undefined : 'Ikeja',
           },
         }),
       );
@@ -451,17 +462,17 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
       return;
     }
     const completed = labForm.value.trim() !== '';
-    addLabResults(organizationId, patientId, [{
-      testName: labForm.testName,
+    createLabOrder(patientId, [{
+      name: labForm.testName,
       testType: labForm.testType,
       department: labForm.department,
       referenceRange: labForm.referenceRange,
       value: labForm.value,
       flag: labForm.flag,
-      status: completed ? 'Completed' : 'Pending',
     }])
-      .then(([saved]) => {
-        setLabResults((prev) => [saved, ...prev]);
+      .then(() => listLabs(organizationId, patientId))
+      .then((labs) => {
+        setLabResults(labs);
         setLabForm(emptyLabForm);
         addAudit(completed ? 'lab_result_recorded' : 'lab_ordered');
         toast.success(completed ? 'Lab result recorded.' : 'Lab order created.');
@@ -548,9 +559,67 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
     toast.success('External lab uploaded and verified digitally.');
   };
 
+  const uploadDocumentFiles = async (files: FileList | File[] | null) => {
+    if (!files || !patientId || !canUploadDocuments) return;
+    const list = Array.from(files);
+    if (!list.length) return;
+    const category: DocumentCategory = (DOCUMENT_CATEGORIES as readonly string[]).includes(docCategory) ? (docCategory as DocumentCategory) : 'External reports';
+    setUploadingDocument(true);
+    try {
+      for (const file of list) {
+        await uploadPatientDocument(organizationId, patientId, file, category);
+        addAudit('document_uploaded');
+      }
+      setDocuments(await listDocuments(organizationId, patientId));
+      toast.success(list.length === 1 ? 'Document uploaded.' : `${list.length} documents uploaded.`, { description: `Filed under ${category}.` });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not upload the document');
+    } finally {
+      setUploadingDocument(false);
+      if (documentInputRef.current) documentInputRef.current.value = '';
+    }
+  };
+
+  const openDocument = (doc: DocumentItem, mode: 'preview' | 'download' | 'share') => {
+    if (!doc.storagePath) {
+      toast.message(`${mode === 'share' ? 'Sharing' : 'Opening'} ${doc.name} needs a connected workspace.`);
+      return;
+    }
+    // Open the tab synchronously so the popup blocker allows it, then point it at the signed URL.
+    const pending = mode === 'preview' ? window.open('', '_blank') : null;
+    documentLink(doc.storagePath, { download: mode === 'download', expiresInSeconds: mode === 'share' ? 3600 : 600 })
+      .then(async (url) => {
+        if (mode === 'share') {
+          // Clipboard access can be refused or never answer (e.g. embedded browsers), so fall back to showing the link.
+          const copied = await Promise.race([
+            navigator.clipboard?.writeText(url).then(() => true, () => false) ?? Promise.resolve(false),
+            new Promise<boolean>((resolve) => window.setTimeout(() => resolve(false), 1500)),
+          ]);
+          if (copied) {
+            toast.success('Secure link copied.', { description: 'Anyone with the link can open it for the next hour.' });
+          } else {
+            toast.message('Secure link (expires in 1 hour)', { description: url, duration: 20000 });
+          }
+          addAudit('document_link_shared');
+        } else if (pending) {
+          pending.location.href = url;
+        } else {
+          window.location.assign(url);
+        }
+      })
+      .catch((error) => {
+        pending?.close();
+        toast.error(error instanceof Error ? error.message : 'Could not open the document');
+      });
+  };
+
   const uploadDocument = () => {
     if (!canUploadDocuments) {
       toast.error('RBAC: your role cannot upload to document vault.');
+      return;
+    }
+    if (isSupabaseConfigured) {
+      documentInputRef.current?.click();
       return;
     }
     const newDoc: DocumentItem = {
@@ -931,11 +1000,36 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                   <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={docCategory} onChange={(e) => setDocCategory(e.target.value)}>
                     {['All', 'Imaging', 'Consent forms', 'Referral letters', 'Discharge summary', 'Insurance files', 'External reports'].map((c) => <option key={c}>{c}</option>)}
                   </select>
-                  <Button onClick={uploadDocument} disabled={!canUploadDocuments}><Upload className="w-4 h-4 mr-2" />Upload</Button>
+                  <Button onClick={uploadDocument} disabled={!canUploadDocuments || uploadingDocument}><Upload className="w-4 h-4 mr-2" />{uploadingDocument ? 'Uploading...' : 'Upload'}</Button>
+                  <input
+                    ref={documentInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,image/*,.doc,.docx,.txt"
+                    className="hidden"
+                    onChange={(e) => void uploadDocumentFiles(e.target.files)}
+                  />
                 </div>
-                <div className="premium-card p-4 border-dashed border-2 border-gray-200 text-center text-sm text-gray-500 dark:border-slate-700 dark:text-slate-400">
-                  Drag and drop files here for secure upload (token-share, expiry links, watermark with VitaLink ID).
-                </div>
+                {isSupabaseConfigured ? (
+                  <div
+                    className="premium-card p-4 border-dashed border-2 border-gray-200 text-center text-sm text-gray-500 dark:border-slate-700 dark:text-slate-400"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      void uploadDocumentFiles(e.dataTransfer.files);
+                    }}
+                  >
+                    Drag and drop files here to upload (PDF, images, Word or text, up to 20 MB). Files go into the category selected above
+                    {docCategory === 'All' ? ' (External reports while All is selected)' : ''}; shared links expire after an hour.
+                  </div>
+                ) : (
+                  <div className="premium-card p-4 border-dashed border-2 border-gray-200 text-center text-sm text-gray-500 dark:border-slate-700 dark:text-slate-400">
+                    Drag and drop files here for secure upload (token-share, expiry links, watermark with VitaLink ID).
+                  </div>
+                )}
+                {isSupabaseConfigured && filteredDocs.length === 0 && (
+                  <p className="text-sm text-gray-500 dark:text-slate-400">No documents on this patient's chart yet.</p>
+                )}
                 <div className="premium-card overflow-auto">
                   <table className="min-w-full text-sm">
                     <thead className="bg-gray-100 dark:bg-slate-800/80">
@@ -955,9 +1049,9 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                           <td className="px-3 py-2">{doc.uploadedAt}</td>
                           <td className="px-3 py-2">
                             <div className="flex gap-2">
-                              <Button size="sm" variant="outline">Preview</Button>
-                              <Button size="sm" variant="outline">Download</Button>
-                              <Button size="sm" variant="outline"><Send className="w-3 h-3 mr-1" />Share</Button>
+                              <Button size="sm" variant="outline" onClick={() => openDocument(doc, 'preview')}>Preview</Button>
+                              <Button size="sm" variant="outline" onClick={() => openDocument(doc, 'download')}>Download</Button>
+                              <Button size="sm" variant="outline" onClick={() => openDocument(doc, 'share')}><Send className="w-3 h-3 mr-1" />Share</Button>
                             </div>
                           </td>
                         </tr>

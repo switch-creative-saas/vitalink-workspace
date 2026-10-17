@@ -1,4 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePlan } from '@/hooks/usePlan';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 
 export type PlanTier = 'free' | 'pro' | 'enterprise';
 export type BillingCycle = 'monthly' | 'annual';
@@ -145,6 +148,32 @@ const PLAN_ACCESS: Record<PlanTier, FeatureKey[]> = {
 
 const SubscriptionContext = createContext<SubscriptionContextType | null>(null);
 
+// Feature keys mapped to the module ids stored on each plan in Supabase.
+const FEATURE_MODULES: Record<FeatureKey, string> = {
+  patient_basic: 'patients',
+  patient_full: 'patients',
+  appointments_basic: 'appointments',
+  appointments_advanced: 'appointments',
+  emr_basic: 'emr',
+  emr_full: 'emr',
+  telemedicine: 'telemedicine',
+  ai_limited: 'ai-clinical-intelligence',
+  ai_full: 'ai-clinical-intelligence',
+  laboratory: 'laboratory',
+  pharmacy: 'pharmacy',
+  billing: 'billing',
+  analytics_basic: 'dashboard',
+  analytics_advanced: 'analytics',
+  multi_hospital: 'vitalink-network',
+  inter_hospital_referrals: 'vitalink-network',
+  custom_workflows: 'administration',
+  api_access: 'administration',
+  public_health_sentinel: 'sentinel',
+};
+
+const tierForPlan = (tierId: string | undefined): PlanTier =>
+  tierId === 'enterprise' ? 'enterprise' : !tierId || tierId === 'free' ? 'free' : 'pro';
+
 const TENANT_SUBSCRIPTIONS: Record<string, TenantSubscription> = {
   'tenant-lagos': {
     tenantId: 'tenant-lagos',
@@ -210,9 +239,24 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>(INITIAL_PAYMENT_METHODS);
   const [invoices] = useState<BillingInvoice[]>(INITIAL_INVOICES);
   const [billingAuditLogs, setBillingAuditLogs] = useState<string[]>([]);
-  const [DEV_OVERRIDE] = useState<boolean>(true);
+  // Offline demo only: unlocks every feature. Live workspaces are gated by their plan.
+  const [DEV_OVERRIDE] = useState<boolean>(!isSupabaseConfigured);
+  const { organization } = useAuth();
+  const { plan: workspacePlan, hasModule } = usePlan();
 
-  const subscription = tenantSubscriptions[tenantId] ?? tenantSubscriptions['tenant-lagos'];
+  const demoSubscription = tenantSubscriptions[tenantId] ?? tenantSubscriptions['tenant-lagos'];
+  const subscription: TenantSubscription = isSupabaseConfigured
+    ? {
+        tenantId: organization.id,
+        tenantName: organization.name,
+        plan: tierForPlan(workspacePlan?.tierId === 'trial' ? 'growth' : workspacePlan?.tierId),
+        billingCycle: workspacePlan?.billingCycle === 'annual' ? 'annual' : 'monthly',
+        autoRenew: workspacePlan?.status === 'active',
+        trialEndsAt: workspacePlan?.isTrialActive ? workspacePlan.trialEndDate : undefined,
+        nextBillingAt: '',
+        usage: { staff: 0, patients: 0, storageGB: 0 },
+      }
+    : demoSubscription;
   const limits = PLAN_LIMITS[subscription.plan];
 
   const setTenantId = (nextTenantId: string) => {
@@ -227,6 +271,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   const hasAccess = (feature: FeatureKey): boolean => {
     if (DEV_OVERRIDE) return true;
+    if (isSupabaseConfigured) return hasModule(FEATURE_MODULES[feature]);
     const planFeatures = PLAN_ACCESS[subscription.plan] ?? [];
     if (!planFeatures.includes(feature)) return false;
     const now = Date.now();
@@ -241,7 +286,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   };
 
   const isUsageBlocked = (metric: UsageMetric): boolean => {
-    if (DEV_OVERRIDE) return false;
+    if (DEV_OVERRIDE || isSupabaseConfigured) return false;
     const limit = limits[metric];
     if (limit === 'unlimited') return false;
     return subscription.usage[metric] >= limit;
@@ -314,8 +359,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setTenantId,
       subscription,
       limits,
-      paymentMethods,
-      invoices,
+      // Platform invoices and saved cards live with Paystack, not in this demo store.
+      paymentMethods: isSupabaseConfigured ? [] : paymentMethods,
+      invoices: isSupabaseConfigured ? [] : invoices,
       planAccess: PLAN_ACCESS,
       hasAccess,
       isUsageBlocked,
@@ -330,7 +376,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       addAudit,
       billingAuditLogs,
     }),
-    [DEV_OVERRIDE, tenantId, subscription, limits, paymentMethods, invoices, billingAuditLogs],
+    [DEV_OVERRIDE, tenantId, subscription, limits, paymentMethods, invoices, billingAuditLogs, hasModule],
   );
 
   return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;

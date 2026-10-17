@@ -13,6 +13,9 @@ export default defineConfig({
     },
   },
   server: {
+    // Allow Cloudflare quick tunnels (https://*.trycloudflare.com) so phones can open the dev app,
+    // e.g. to test telemedicine visit links (cameras need HTTPS off localhost).
+    allowedHosts: ['.trycloudflare.com'],
     watch: {
       // Prevent Vite from watching large media files in public/ — avoids EBUSY crash
       ignored: ['**/public/**/*.mp4', '**/public/**/*.webm', '**/public/**/*.mov'],

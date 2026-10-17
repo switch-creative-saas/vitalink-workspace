@@ -6,10 +6,30 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveTelemedicine } from '@/components/telemedicine/LiveTelemedicine';
 
 type TeleTab = 'patient-consultation' | 'specialist-conference';
 
 export function TelemedicinePage() {
+  return isSupabaseConfigured ? <LiveTelemedicinePage /> : <DemoTelemedicinePage />;
+}
+
+/** Live workspaces: real video visits, gated like the demo page. */
+function LiveTelemedicinePage() {
+  const { canView } = useAuth();
+  const { hasAccess } = useSubscription();
+  if (!canView('Appointments')) {
+    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Your role does not have access to telemedicine.</div>;
+  }
+  if (!hasAccess('telemedicine')) {
+    return <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-800">Telemedicine is not included in your current plan.</div>;
+  }
+  return <LiveTelemedicine />;
+}
+
+/** Offline demo (no Supabase). */
+function DemoTelemedicinePage() {
   const { currentRole, canCreate, canView } = useAuth();
   const { hasAccess } = useSubscription();
   const [activeTab, setActiveTab] = useState<TeleTab>('patient-consultation');
