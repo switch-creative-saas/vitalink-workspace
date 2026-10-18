@@ -45,7 +45,7 @@ export function StatisticsPage() {
   const [ageFilter, setAgeFilter] = useState('all');
 
   return (
-    <div className="space-y-6 contain-layout min-w-0">
+    <div className="space-y-6 page-contain min-w-0">
       {/* Header */}
       <div className="flex items-center gap-4">
         <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">

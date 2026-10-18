@@ -23,6 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveAnalytics } from '@/components/analytics/LiveAnalytics';
 
 type TimeRange = '24h' | '7d' | '30d' | '90d';
 type AnalyticsModule = 'all' | 'appointments' | 'laboratory' | 'pharmacy' | 'billing' | 'patients';
@@ -100,6 +102,25 @@ function safeExportFile(name: string, content: string, type: string) {
 }
 
 export function AnalyticsPage() {
+  return isSupabaseConfigured ? <LiveAnalyticsPage /> : <DemoAnalyticsPage />;
+}
+
+const ANALYTICS_ROLES = ['super-admin', 'hospital-admin', 'doctor', 'nurse', 'receptionist', 'pharmacist', 'lab-scientist', 'lab-technician', 'billing-officer', 'insurance-officer'];
+
+function LiveAnalyticsPage() {
+  const { currentRole } = useAuth();
+  const { hasAccess } = useSubscription();
+  if (!ANALYTICS_ROLES.includes(currentRole)) {
+    return <div className="premium-card p-8 text-center"><h1 className="text-xl font-semibold">Analytics</h1><p className="mt-2 text-sm text-gray-500">Your role doesn't have access to analytics.</p></div>;
+  }
+  if (!hasAccess('analytics_advanced')) {
+    return <div className="premium-card p-8 text-center"><h1 className="text-xl font-semibold">Analytics</h1><p className="mt-2 text-sm text-gray-500">Analytics is included in the Growth and Enterprise plans. Upgrade from Subscription to unlock it.</p></div>;
+  }
+  return <LiveAnalytics />;
+}
+
+// Offline demo only (no Supabase): illustrative sample figures.
+function DemoAnalyticsPage() {
   const { currentRole, hasPermission, userName } = useAuth();
   const { hasAccess } = useSubscription();
   const storageKey = `vitalink-analytics-range:${currentRole}`;

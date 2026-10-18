@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { roleOptionsForOrganizationType } from '@/lib/workspace/roles';
+import { listDepartmentNames } from '@/lib/supabase/administration';
 import {
   createInvitation,
   inviteLink,
@@ -25,7 +26,8 @@ import {
 } from '@/lib/supabase/staff';
 
 const ADMIN_ROLES: UserRole[] = ['super-admin', 'hospital-admin', 'ngo-admin', 'government-admin'];
-const DEPARTMENTS = ['General Medicine', 'Surgery', 'Pediatrics', 'Cardiology', 'Obstetrics & Gynaecology', 'Emergency', 'Laboratory', 'Pharmacy', 'Billing', 'Front Desk', 'Administration'];
+// Suggestions only until the workspace creates its own departments in Administration.
+const SUGGESTED_DEPARTMENTS = ['General Medicine', 'Surgery', 'Pediatrics', 'Cardiology', 'Obstetrics & Gynaecology', 'Emergency', 'Laboratory', 'Pharmacy', 'Billing', 'Front Desk', 'Administration'];
 
 const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
@@ -53,10 +55,11 @@ export function StaffManagement() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [invitations, setInvitations] = useState<StaffInvitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [departments, setDepartments] = useState<string[]>([]);
   const [search, setSearch] = useState('');
 
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: '', role: 'doctor' as UserRole, department: 'General Medicine' });
+  const [inviteForm, setInviteForm] = useState({ email: '', role: 'doctor' as UserRole, department: '' });
   const [sending, setSending] = useState(false);
   const [lastInvite, setLastInvite] = useState<{ link: string; sent: boolean; reason?: string; email: string } | null>(null);
 
@@ -65,12 +68,14 @@ export function StaffManagement() {
 
   const reload = useCallback(async () => {
     try {
-      const [members, invites] = await Promise.all([
+      const [members, invites, departmentNames] = await Promise.all([
         listStaff(organizationId),
         isAdmin ? listInvitations(organizationId) : Promise.resolve([]),
+        listDepartmentNames(organizationId).catch(() => [] as string[]),
       ]);
       setStaff(members);
       setInvitations(invites);
+      setDepartments(departmentNames);
     } catch (error) {
       toast.error(errorText(error, 'Could not load staff'));
     } finally {
@@ -387,8 +392,7 @@ export function StaffManagement() {
               </div>
               <div>
                 <Label>Department</Label>
-                <Input list="staff-departments" value={inviteForm.department} onChange={(e) => setInviteForm((f) => ({ ...f, department: e.target.value }))} />
-                <datalist id="staff-departments">{DEPARTMENTS.map((d) => <option key={d} value={d} />)}</datalist>
+                <DepartmentPicker departments={departments} value={inviteForm.department} onChange={(department) => setInviteForm((f) => ({ ...f, department }))} />
               </div>
             </div>
             {lastInvite && (
@@ -420,7 +424,7 @@ export function StaffManagement() {
           <div className="space-y-3">
             <div>
               <Label>Department</Label>
-              <Input list="staff-departments" value={scheduleForm.department} onChange={(e) => setScheduleForm((f) => ({ ...f, department: e.target.value }))} />
+              <DepartmentPicker departments={departments} value={scheduleForm.department} onChange={(department) => setScheduleForm((f) => ({ ...f, department }))} />
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={scheduleForm.acceptsAppointments} onChange={(e) => setScheduleForm((f) => ({ ...f, acceptsAppointments: e.target.checked }))} />
@@ -452,5 +456,24 @@ export function StaffManagement() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// The workspace's own departments once it has any; free text with suggestions before that.
+function DepartmentPicker({ departments, value, onChange }: { departments: string[]; value: string; onChange: (value: string) => void }) {
+  if (departments.length === 0) {
+    return (
+      <>
+        <Input list="staff-departments" value={value} onChange={(e) => onChange(e.target.value)} />
+        <datalist id="staff-departments">{SUGGESTED_DEPARTMENTS.map((d) => <option key={d} value={d} />)}</datalist>
+      </>
+    );
+  }
+  const options = value && !departments.includes(value) ? [value, ...departments] : departments;
+  return (
+    <select className="mt-1 w-full rounded-md border border-input bg-white px-3 py-2 text-sm" value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">No department</option>
+      {options.map((d) => <option key={d} value={d}>{d}</option>)}
+    </select>
   );
 }

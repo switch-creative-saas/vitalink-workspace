@@ -1,2 +1,6 @@
 allowBuilds:
   esbuild: true
+
+# apps/vitamind-ai is the VitaMind AI Python (FastAPI) service. It is deliberately not
+# listed under `packages`: it has no package.json and is managed with pip/Docker on its
+# own (see apps/vitamind-ai/README.md).

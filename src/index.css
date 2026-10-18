@@ -130,7 +130,6 @@
     font-variation-settings: 'opsz' 32;
     background: var(--bg-main);
     color: var(--text-primary);
-    transition: background-color 300ms ease, color 300ms ease;
     overflow-x: hidden;
   }
 
@@ -147,21 +146,19 @@
     max-width: 100%;
   }
 
+  /* Columns size to their content; a table wider than its card scrolls inside
+     its wrapper (.responsive-table-wrap) instead of truncating every cell. */
   table {
     width: 100%;
-    table-layout: fixed;
   }
 
   th,
   td {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   @media (min-width: 768px) {
-    th,
-    td {
+    th {
       white-space: nowrap;
     }
   }
@@ -247,7 +244,7 @@
     box-shadow: 
       0 2px 8px rgba(30, 58, 138, 0.06),
       0 8px 24px rgba(30, 58, 138, 0.08);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: box-shadow 150ms ease, border-color 150ms ease;
   }
 
   .card-equal-height {
@@ -261,7 +258,6 @@
   }
   
   .premium-card:hover {
-    transform: translateY(-4px);
     box-shadow: 
       0 8px 24px rgba(30, 58, 138, 0.12),
       0 16px 48px rgba(30, 58, 138, 0.14);
@@ -271,22 +267,20 @@
   .btn-primary {
     @apply px-6 py-3 rounded-xl font-medium text-white;
     background: linear-gradient(135deg, #1E4ED8 0%, #1E3A8A 100%);
-    transition: all 0.2s ease-out;
+    transition: box-shadow 150ms ease;
   }
   
   .btn-primary:hover {
-    transform: scale(1.02);
     box-shadow: 0 8px 24px rgba(30, 78, 216, 0.35);
   }
 
   .btn-vitamind {
     @apply px-6 py-3 rounded-xl font-medium text-white;
     background: linear-gradient(135deg, #6D28D9 0%, #4C1D95 100%);
-    transition: all 0.2s ease-out;
+    transition: box-shadow 150ms ease;
   }
 
   .btn-vitamind:hover {
-    transform: scale(1.02);
     box-shadow: 0 8px 24px rgba(109, 40, 217, 0.35);
   }
   
@@ -368,7 +362,7 @@
   
   /* Page Transition */
   .page-transition {
-    animation: pageFadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: none;
   }
   
   /* Count Up Animation */
@@ -378,7 +372,7 @@
   
   /* Pulse Animation */
   .pulse-subtle {
-    animation: pulseSubtle 2s ease-in-out infinite;
+    animation: none;
   }
   
   /* Sidebar Item */
@@ -422,6 +416,13 @@
   .dark-theme .glass-subtle {
     background: color-mix(in srgb, #102A4C 78%, transparent);
     border-color: color-mix(in srgb, var(--border-color) 85%, transparent);
+  }
+
+  /* Light theme: gray-400 / slate-400 text is too faint on white (about 2.5:1);
+     slate-500 keeps it secondary but readable (4.7:1). */
+  .light-theme .text-gray-400,
+  .light-theme .text-slate-400 {
+    color: #64748B !important;
   }
 
   /* Global dark-theme readability overrides for existing utility usage */
@@ -468,6 +469,8 @@
     color: var(--text-secondary) !important;
   }
 
+  .dark-theme .text-\[\#1E4ED8\],
+  .dark-theme .hover\:text-\[\#1E4ED8\]\/80:hover,
   .dark-theme .text-royal-600,
   .dark-theme .text-royal-700,
   .dark-theme .text-vitalink-600,
@@ -485,6 +488,47 @@
     background-color: color-mix(in srgb, #102A4C 78%, transparent) !important;
     border-color: var(--border-color) !important;
   }
+
+  /* Opacity variants of light neutral surfaces (bg-white/50, bg-gray-50/95, ...). */
+  .dark-theme .bg-white\/40, .dark-theme .bg-white\/50, .dark-theme .bg-white\/60, .dark-theme .bg-white\/65,
+  .dark-theme [class*=" bg-gray-50/"], .dark-theme [class^="bg-gray-50/"],
+  .dark-theme [class*=" bg-slate-50/"], .dark-theme [class^="bg-slate-50/"],
+  .dark-theme [class*=" bg-royal-50/"], .dark-theme [class^="bg-royal-50/"],
+  .dark-theme [class*=" bg-vitalink-50/"],
+  .dark-theme .bg-slate-100,
+  .dark-theme .bg-slate-200 {
+    background-color: var(--bg-card) !important;
+  }
+
+  /* Pastel status surfaces become a dark tint of the same hue, so badges and
+     notices keep their meaning instead of turning into white boxes. */
+  .dark-theme .bg-green-50, .dark-theme .bg-emerald-50, .dark-theme .bg-emerald-100, .dark-theme .bg-teal-50, .dark-theme .bg-teal-100,
+  .dark-theme [class*=" bg-green-50/"], .dark-theme [class*=" bg-emerald-50/"] {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+  }
+  .dark-theme .bg-amber-100, .dark-theme .bg-yellow-50, .dark-theme .bg-yellow-100, .dark-theme .bg-orange-50, .dark-theme .bg-orange-100,
+  .dark-theme [class*=" bg-amber-50/"] {
+    background-color: rgba(245, 158, 11, 0.15) !important;
+  }
+  .dark-theme .bg-red-100, .dark-theme .bg-rose-50, .dark-theme .bg-rose-100, .dark-theme .bg-pink-50, .dark-theme .bg-pink-100,
+  .dark-theme [class*=" bg-red-50/"] {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+  }
+  .dark-theme .bg-purple-50, .dark-theme .bg-violet-50, .dark-theme .bg-violet-100, .dark-theme .bg-indigo-50, .dark-theme .bg-indigo-100,
+  .dark-theme .bg-fuchsia-50, .dark-theme .bg-fuchsia-100, .dark-theme [class*=" bg-purple-50/"], .dark-theme [class*=" bg-indigo-50/"] {
+    background-color: rgba(139, 92, 246, 0.16) !important;
+  }
+  .dark-theme .bg-blue-100, .dark-theme .bg-sky-50, .dark-theme .bg-sky-100, .dark-theme .bg-cyan-50, .dark-theme .bg-cyan-100,
+  .dark-theme [class*=" bg-blue-50/"] {
+    background-color: rgba(59, 130, 246, 0.15) !important;
+  }
+
+  /* Dark text meant for those pastel surfaces: lighten it, keeping the hue. */
+  .dark-theme .text-green-800, .dark-theme .text-green-900, .dark-theme .text-emerald-600, .dark-theme .text-emerald-700, .dark-theme .text-emerald-800, .dark-theme .text-teal-700 { color: #6EE7B7 !important; }
+  .dark-theme .text-amber-800, .dark-theme .text-amber-900, .dark-theme .text-yellow-700, .dark-theme .text-yellow-800, .dark-theme .text-orange-600, .dark-theme .text-orange-700 { color: #FCD34D !important; }
+  .dark-theme .text-red-800, .dark-theme .text-red-900, .dark-theme .text-rose-600, .dark-theme .text-rose-700 { color: #FCA5A5 !important; }
+  .dark-theme .text-purple-800, .dark-theme .text-violet-600, .dark-theme .text-violet-700, .dark-theme .text-violet-800, .dark-theme .text-indigo-600, .dark-theme .text-indigo-700, .dark-theme .text-indigo-800, .dark-theme .text-fuchsia-700 { color: #C4B5FD !important; }
+  .dark-theme .text-blue-800, .dark-theme .text-sky-700, .dark-theme .text-sky-800, .dark-theme .text-cyan-700 { color: #93C5FD !important; }
 
   .dark-theme .border-red-100,
   .dark-theme .border-amber-100,
@@ -586,7 +630,7 @@
       radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.12) 0, rgba(255, 255, 255, 0) 35%),
       radial-gradient(circle at 70% 65%, rgba(255, 255, 255, 0.1) 0, rgba(255, 255, 255, 0) 40%),
       radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.08) 0, rgba(255, 255, 255, 0) 35%);
-    animation: auth-particles-drift 24s linear infinite;
+    animation: none;
   }
 
   .auth-particles::after {
@@ -634,11 +678,11 @@
 }
 
 .animate-auth-gradient {
-  animation: auth-gradient-shift 16s ease-in-out infinite;
+  animation: none;
 }
 
 .animate-auth-float {
-  animation: auth-icon-float 6s ease-in-out infinite;
+  animation: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -936,8 +980,10 @@
     @apply dashboard-stat-grid;
   }
 
-  .contain-layout {
-    @apply w-full max-w-full min-w-0 overflow-hidden;
+  /* Keeps wide content from pushing the page sideways. Not `contain: layout`
+     or overflow-hidden: those would trap fixed pop-ups and clip dropdowns. */
+  .page-contain {
+    @apply w-full max-w-full min-w-0 overflow-x-clip;
   }
 
   .text-ellipsis-truncate {
@@ -954,16 +1000,15 @@
   }
 
   .responsive-table {
-    @apply w-full min-w-0 overflow-hidden;
+    @apply w-full min-w-0 overflow-x-auto;
   }
 
   .responsive-table table {
     width: 100%;
-    table-layout: fixed;
   }
 
   .responsive-table-wrap {
-    @apply w-full min-w-0 overflow-hidden;
+    @apply w-full min-w-0 overflow-x-auto;
   }
 
   .no-page-scroll-x {
@@ -1095,5 +1140,17 @@
   
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* People who turn on "reduce motion" on their device get no animation at all. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

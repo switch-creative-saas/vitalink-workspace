@@ -182,7 +182,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900 truncate">Patient Registry</h1>
-          <p className="text-sm text-gray-500 truncate">Multi-tenant, secure, and scalable patient management.</p>
+          <p className="text-sm text-gray-500">Register, find and manage your patients.</p>
         </div>
         <div className="flex flex-wrap gap-2 min-w-0">
           <select className="h-10 rounded-md border border-input px-3 text-sm bg-white min-w-0" value={tenantId} onChange={(e) => setTenantId(e.target.value)}>
@@ -308,7 +308,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
                 : pageRows.map((patient) => (
                     <tr
                       key={patient.id}
-                      className={cn('border-t border-gray-100 hover:bg-gray-50/60 transition-all cursor-pointer active:scale-[0.998]', selectedRow === patient.id ? 'bg-royal-50/50 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.18)]' : '')}
+                      className={cn('border-t border-gray-100 hover:bg-gray-50/60 transition-all cursor-pointer', selectedRow === patient.id ? 'bg-royal-50/50 shadow-[inset_0_0_0_1px_rgba(79,70,229,0.18)]' : '')}
                       onClick={() => { setSelectedRow(patient.id); onOpenPatientEmr?.(patient.switchId); }}
                     >
                       <td className="px-4 py-3 font-medium text-gray-900 truncate min-w-0">{patient.firstName} {patient.lastName}</td>
@@ -330,7 +330,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
           {loading && Array.from({ length: 3 }).map((_, idx) => <Skeleton key={idx} className="h-32 w-full rounded-xl" />)}
           {!loading &&
             pageRows.map((patient) => (
-              <button key={patient.id} className="w-full rounded-xl border border-gray-100 p-3 bg-white shadow-sm transition-all duration-300 text-left active:scale-[0.99] min-w-0" onClick={() => onOpenPatientEmr?.(patient.switchId)}>
+              <button key={patient.id} className="w-full rounded-xl border border-gray-100 p-3 bg-white shadow-sm transition-all duration-300 text-left min-w-0" onClick={() => onOpenPatientEmr?.(patient.switchId)}>
                 <div className="w-full flex items-start justify-between text-left min-w-0">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-gray-900 truncate">{patient.firstName} {patient.lastName}</p>

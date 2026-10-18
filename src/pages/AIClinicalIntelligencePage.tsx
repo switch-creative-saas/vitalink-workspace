@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveDiagnosis } from '@/components/diagnosis/LiveDiagnosis';
 
 type AITab = 'symptom-engine' | 'imaging-analysis' | 'history-aware';
 
@@ -31,6 +33,8 @@ export function AIClinicalIntelligencePage() {
   if (!hasAccess('ai_limited')) {
     return <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-800">AI Clinical Intelligence is locked on Free. Upgrade to Pro.</div>;
   }
+  // Live workspaces use VitaMind Dx; the sample screens below only back the offline demo.
+  if (isSupabaseConfigured) return <LiveDiagnosis />;
 
   return (
     <div className="space-y-4 page-transition">
@@ -82,8 +86,8 @@ export function AIClinicalIntelligencePage() {
             <div className={cn('rounded-xl p-3 border text-sm min-w-0', risk === 'Low' ? 'bg-green-50 border-green-100 text-green-700' : risk === 'Moderate' ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-red-50 border-red-100 text-red-700')}>
               <span className="truncate">Risk Score: {risk}</span>
             </div>
-            <div className="rounded-xl p-3 border bg-blue-50 border-blue-100 text-blue-700 text-sm min-w-0"><span className="truncate">Recommended labs: HbA1c, FBS, Lipid Panel</span></div>
-            <div className="rounded-xl p-3 border bg-purple-50 border-purple-100 text-purple-700 text-sm min-w-0"><span className="truncate">Urgent escalation: Monitor if persistent dizziness with BP spikes</span></div>
+            <div className="rounded-xl p-3 border bg-blue-50 border-blue-100 text-blue-700 text-sm min-w-0 break-words"><span>Recommended labs: HbA1c, FBS, Lipid Panel</span></div>
+            <div className="rounded-xl p-3 border bg-purple-50 border-purple-100 text-purple-700 text-sm min-w-0 break-words"><span>Urgent escalation: Monitor if persistent dizziness with BP spikes</span></div>
           </div>
           <div className="rounded-xl border border-gray-200 p-3 min-w-0">
             <p className="font-medium text-sm text-gray-900 mb-2 truncate">Ranked Possible Conditions</p>

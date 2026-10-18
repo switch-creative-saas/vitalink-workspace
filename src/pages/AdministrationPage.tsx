@@ -34,6 +34,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import type { PermissionModule, Department as RbacDepartment } from '@/types/rbac';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveAdministration } from '@/components/administration/LiveAdministration';
 
 type DeptSize = 'small' | 'medium' | 'large';
 type AdminTab = 'departments' | 'facility';
@@ -242,7 +244,13 @@ const initialDepartments: DepartmentView[] = [
 
 const workflowSteps = ['Reception', 'Doctor', 'Laboratory', 'Pharmacy'];
 
+// Live workspaces manage real departments and facility settings; the sample
+// data below only backs the offline demo.
 export function AdministrationPage() {
+  return isSupabaseConfigured ? <LiveAdministration /> : <DemoAdministrationPage />;
+}
+
+function DemoAdministrationPage() {
   const { currentRole, hasPermission, userName } = useAuth();
   const [activeTab, setActiveTab] = useState<AdminTab>('departments');
   const [departments, setDepartments] = useState<DepartmentView[]>(initialDepartments);
@@ -591,7 +599,7 @@ export function AdministrationPage() {
                   key={dept.id}
                   onClick={() => setSelectedDepartmentId(dept.id)}
                   className={cn(
-                    'w-full text-left premium-card p-4 transition-all duration-200 hover:-translate-y-0.5',
+                    'w-full text-left premium-card p-4 transition-all duration-200',
                     selectedDepartmentId === dept.id ? 'ring-2 ring-royal-200 bg-royal-50/60' : '',
                   )}
                 >

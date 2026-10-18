@@ -4,7 +4,7 @@ export const layout = {
   pageInner: 'page-container-inner',
   statGrid: 'dashboard-stat-grid',
   cardGrid: 'dashboard-card-grid',
-  contain: 'contain-layout',
+  contain: 'page-contain',
   truncate: 'text-ellipsis-truncate',
   truncateBlock: 'text-ellipsis-truncate block',
   wrapSecondary: 'text-wrap-balance break-words',

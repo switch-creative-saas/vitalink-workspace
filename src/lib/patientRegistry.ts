@@ -299,7 +299,7 @@ export async function queryPatients(input: PatientQueryInput): Promise<ServerPag
 }
 
 export async function findPatientBySwitchId(switchId: string, tenantId?: string): Promise<RegistryPatient | null> {
-  if (isSupabaseConfigured) return getPatientBySwitchIdRemote(switchId);
+  if (isSupabaseConfigured) return getPatientBySwitchIdRemote(switchId, tenantId);
   return getPatientBySwitchId(switchId, tenantId);
 }
 

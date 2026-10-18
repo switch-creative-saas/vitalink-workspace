@@ -1002,7 +1002,7 @@ export function LaboratoryPage() {
           ].map((s) => (
             <div
               key={s.label}
-              className="glass-panel rounded-2xl p-3 md:p-4 border border-white/50 shadow-sm transition-transform hover:scale-[1.01]"
+              className="glass-panel rounded-2xl p-3 md:p-4 border border-white/50 shadow-sm transition-transform"
             >
               <div className="flex items-center gap-2 md:gap-3">
                 <div
@@ -1218,7 +1218,7 @@ export function LaboratoryPage() {
             {filteredOrders.map((order) => (
               <div
                 key={order.id}
-                className="glass-panel rounded-2xl border border-white/60 overflow-hidden shadow-sm active:scale-[0.99] transition-transform"
+                className="glass-panel rounded-2xl border border-white/60 overflow-hidden shadow-sm transition-transform"
               >
                 <button
                   type="button"

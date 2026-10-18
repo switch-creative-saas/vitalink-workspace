@@ -143,7 +143,7 @@ function MetricCard({
           : classes.metric;
 
   return (
-    <div className={cn(toneClass, 'transition-all duration-300 hover:scale-[1.01]')}>
+    <div className={cn(toneClass, 'transition-all duration-300')}>
       <p className={classes.metricLabel}>{label}</p>
       <p className={classes.metricValue}>{value}</p>
       {sub ? <p className={classes.metricSub}>{sub}</p> : null}
@@ -760,7 +760,7 @@ export function SentinelOutbreakPanel() {
                 <span className={cn(
                   'text-xs px-2 py-1 rounded-full border',
                   o.status === 'active'
-                    ? (isDark ? 'border-red-400 text-red-300 animate-pulse' : 'border-red-500 text-red-600')
+                    ? (isDark ? 'border-red-400 text-red-300' : 'border-red-500 text-red-600')
                     : (isDark ? 'border-amber-400 text-amber-200' : 'border-amber-500 text-amber-600')
                 )}>
                   {o.status}
@@ -1019,7 +1019,7 @@ export function SentinelAlertsPanel() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <h2 className={cn('text-xl font-semibold flex items-center gap-2', classes.textPrimary)}>
-          <Bell className={cn('w-6 h-6 animate-pulse', isDark ? 'text-amber-300' : 'text-amber-600')} />
+          <Bell className={cn('w-6 h-6', isDark ? 'text-amber-300' : 'text-amber-600')} />
           Public health alerts
         </h2>
         <div className="flex flex-wrap gap-2">

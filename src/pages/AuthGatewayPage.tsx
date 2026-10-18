@@ -36,6 +36,7 @@ import { PUBLIC_HEALTH_ROLES, defaultRoleForOrganizationType } from '@/lib/works
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { saveSettings as saveNetworkSettings } from '@/lib/supabase/network';
 import * as backend from '@/lib/supabase/auth';
 import { acceptInvitation, getInvitation, roleLabel, type InvitationPreview } from '@/lib/supabase/staff';
 import { saveWorkspacePlan } from '@/hooks/usePlan';
@@ -255,7 +256,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   const [inviteSessionEmail, setInviteSessionEmail] = useState<string | null>(null);
   const [inviteMode, setInviteMode] = useState<'signin' | 'signup'>('signin');
   const [inviteForm, setInviteForm] = useState({ fullName: '', password: '' });
-  const [inviteNotice, setInviteNotice] = useState('');
+  // After "Create account & join": Supabase emails a 6-digit code to confirm the address.
+  const [inviteAwaitingCode, setInviteAwaitingCode] = useState(false);
 
   async function loadInvite() {
     try {
@@ -290,6 +292,12 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       await backend.signIn(invite.email, inviteForm.password);
     } catch (error) {
       setLoading(false);
+      // Created the account earlier but never entered the code: send a fresh one.
+      if (/email not confirmed/i.test(error instanceof Error ? error.message : '')) {
+        await backend.resendSignupCode(invite.email).catch(() => undefined);
+        setInviteAwaitingCode(true);
+        return;
+      }
       return setAuthError(backendErrorMessage(error, 'Sign in failed.'));
     }
     await joinInvitedWorkspace();
@@ -303,11 +311,36 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     setLoading(true);
     try {
       await backend.signUp(invite.email, inviteForm.password, inviteForm.fullName.trim(), `/invite?token=${encodeURIComponent(inviteToken)}`);
-      setInviteNotice(`We sent a confirmation email to ${invite.email}. Open the link in it to finish joining ${invite.organizationName}.`);
+      setInviteAwaitingCode(true);
     } catch (error) {
       setAuthError(backendErrorMessage(error, 'Could not create your account.'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Confirms the emailed code (which signs the new account in), then joins the workspace.
+  const verifyInviteCode = async (code: string) => {
+    if (!invite || invite === 'missing' || code.length !== 6) return;
+    setAuthError('');
+    setLoading(true);
+    try {
+      await backend.verifySignupCode(invite.email, code);
+    } catch (error) {
+      setLoading(false);
+      return setAuthError(backendErrorMessage(error, 'That code is wrong or has expired. Check the latest email or send a new code.'));
+    }
+    await joinInvitedWorkspace();
+  };
+
+  const resendInviteCode = async () => {
+    if (!invite || invite === 'missing') return;
+    setAuthError('');
+    try {
+      await backend.resendSignupCode(invite.email);
+      toast.success(`A new code is on its way to ${invite.email}.`);
+    } catch (error) {
+      setAuthError(backendErrorMessage(error, 'Could not resend the code.'));
     }
   };
 
@@ -457,7 +490,23 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     plan: 'starter'
   });
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
-  const [networkForm, setNetworkForm] = useState({
+  // Live workspaces start blank so nothing invented ends up in the network directory.
+  const [networkForm, setNetworkForm] = useState(() => isSupabaseConfigured ? {
+    joinedNetwork: true,
+    visibleInDirectory: true,
+    specialties: '',
+    services: '',
+    location: '',
+    facilityType: '',
+    emergencyAvailable: false,
+    laboratory: false,
+    imaging: false,
+    pharmacy: false,
+    telemedicine: false,
+    acceptingReferrals: true,
+    acceptingTransfers: true,
+    capacity: 'Not Reported' as CapacityStatus,
+  } : {
     joinedNetwork: true,
     visibleInDirectory: true,
     specialties: 'General Medicine, Emergency Medicine',
@@ -720,6 +769,31 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
           planId: ['starter', 'growth', 'trial'].includes(orgForm.plan) ? orgForm.plan : 'free',
           billingCycle,
         });
+        if (workspaceType === 'healthcare' && networkForm.joinedNetwork) {
+          // The directory profile from the sign-up form; editable later in VitaLink Network settings.
+          const [city, state] = networkForm.location.split(',').map((part) => part.trim());
+          await saveNetworkSettings(org.id, {
+            joined: true,
+            visibleInDirectory: networkForm.visibleInDirectory,
+            facilityType: networkForm.facilityType.trim(),
+            city: city ?? '',
+            state: state || orgForm.state || '',
+            description: '',
+            specialties: networkForm.specialties.split(',').map((item) => item.trim()).filter(Boolean),
+            services: networkForm.services.split(',').map((item) => item.trim()).filter(Boolean),
+            emergency: networkForm.emergencyAvailable,
+            laboratory: networkForm.laboratory,
+            imaging: networkForm.imaging,
+            pharmacy: networkForm.pharmacy,
+            telemedicine: networkForm.telemedicine,
+            acceptingReferrals: networkForm.acceptingReferrals,
+            acceptingTransfers: networkForm.acceptingTransfers,
+            capacity: ({ Available: 'available', Limited: 'limited', Unavailable: 'unavailable' } as const)[networkForm.capacity as 'Available'] ?? 'not_reported',
+            referralEmail: '',
+            referralPhone: orgForm.phone,
+            verified: false,
+          }).catch(() => undefined); // not fatal: they can finish it in Network settings
+        }
         const createdUser = membershipToAuthUser(sessionUser, { role: defaultRoleForOrganizationType(organizationType), organization: org });
         localStorage.setItem('vitalink-active-organization', JSON.stringify(organizationForUser(createdUser)));
         localStorage.setItem('vitalink-last-workspace', org.slug);
@@ -868,7 +942,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         {stage === 'login' && (
           <div className="animate-[auth-form-slide-up_0.5s_ease-out_both] flex flex-col gap-3">
             {detectedOrgName && (
-              <div className="text-xs text-[var(--auth-accent)] bg-[var(--auth-accent)]/10 px-3 py-1.5 rounded-lg border border-[var(--auth-accent)]/20 mb-1 text-center animate-pulse">
+              <div className="text-xs text-[var(--auth-accent)] bg-[var(--auth-accent)]/10 px-3 py-1.5 rounded-lg border border-[var(--auth-accent)]/20 mb-1 text-center">
                 Signing into workspace: <span className="font-semibold">{detectedOrgName}</span>
               </div>
             )}
@@ -1097,11 +1171,6 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             <p className="text-[var(--auth-text-primary)] font-medium text-base mb-3">{signupForm.email}</p>
             
             <OTPInput onComplete={handleVerifyOTP} />
-            {isSupabaseConfigured && (
-              <p className="text-xs text-[var(--auth-text-secondary)] mt-3">
-                Got a confirmation link instead? Click it and this page will continue automatically.
-              </p>
-            )}
             
             {loading && <Loader2 className="w-5 h-5 animate-spin text-[var(--auth-accent)] mt-3" />}
             
@@ -1164,8 +1233,17 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                   <p className="mt-1 text-[12px] text-[var(--auth-text-secondary)]">For {invite.email} · expires {new Date(invite.expiresAt).toLocaleDateString()}</p>
                 </div>
 
-                {inviteNotice ? (
-                  <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-[13px] text-[var(--auth-text-primary)]">{inviteNotice}</p>
+                {inviteAwaitingCode ? (
+                  <div className="flex flex-col items-center text-center">
+                    <p className="text-[14px] text-[var(--auth-text-secondary)] mb-1">Enter the 6-digit code we emailed to</p>
+                    <p className="text-[var(--auth-text-primary)] font-medium text-base mb-3">{invite.email}</p>
+                    <OTPInput onComplete={verifyInviteCode} />
+                    {loading && <Loader2 className="w-5 h-5 animate-spin text-[var(--auth-accent)] mt-3" />}
+                    <p className="text-xs text-[var(--auth-text-secondary)] mt-4">
+                      Didn't get it? Check spam, or{' '}
+                      <button type="button" className="text-[var(--auth-text-primary)] hover:underline" onClick={resendInviteCode}>send a new code</button>
+                    </p>
+                  </div>
                 ) : inviteSessionEmail && inviteSessionEmail.toLowerCase() === invite.email.toLowerCase() ? (
                   <AuthPrimaryButton label={`Join ${invite.organizationName}`} onClick={joinInvitedWorkspace} loading={loading} />
                 ) : inviteSessionEmail ? (

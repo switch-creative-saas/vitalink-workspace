@@ -1,6 +1,7 @@
 // Renders the console section for the current /console/<section>/<id> route.
 import { FulfilmentPanel } from '@/components/nfc/LiveNfcOrders';
 import { ConsoleInbox } from './ConsoleInbox';
+import { OutbreaksTab } from './ConsoleOutbreaks';
 import { ConsoleSettings, NotificationsFeed } from './ConsoleNotifications';
 import {
   AdminsTab, LogTab, OverviewTab, PaymentsTab, WorkspacePanel, WorkspacesTab, type ConsoleSection,
@@ -31,6 +32,8 @@ export function ConsoleBody({ route, go, email, admins, onFeedRead }: {
       return <PaymentsTab onOpen={openWorkspace} />;
     case 'orders':
       return <FulfilmentPanel onChanged={() => undefined} />;
+    case 'outbreaks':
+      return <OutbreaksTab />;
     case 'admins':
       return <AdminsTab />;
     case 'log':

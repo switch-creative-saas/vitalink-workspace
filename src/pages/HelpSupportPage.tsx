@@ -460,7 +460,7 @@ function DemoHelpSupportPage() {
       </div>
 
       <button
-        className="fixed bottom-6 right-6 z-40 rounded-full w-14 h-14 shadow-lg bg-gradient-to-br from-royal-500 to-royal-700 text-white flex items-center justify-center hover:scale-105 transition-transform"
+        className="fixed bottom-6 right-6 z-40 rounded-full w-14 h-14 shadow-lg bg-gradient-to-br from-royal-500 to-royal-700 text-white flex items-center justify-center transition-transform"
         onClick={() => setChatOpen((prev) => !prev)}
         title="VitaMind AI Support Assistant"
       >

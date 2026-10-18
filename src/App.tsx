@@ -411,7 +411,7 @@ function AppShell() {
         
         <button
           onClick={() => navigateToPage('help')}
-          className="fixed bottom-24 right-6 z-30 w-12 h-12 rounded-full bg-white/85 backdrop-blur-md border border-white/60 shadow-lg flex items-center justify-center text-vitalink-700 hover:scale-105 transition-transform"
+          className="fixed bottom-24 right-6 z-30 w-12 h-12 rounded-full bg-white/85 backdrop-blur-md border border-white/60 shadow-lg flex items-center justify-center text-vitalink-700 transition-transform"
           title="Help & Support"
         >
           <LifeBuoy className="w-5 h-5" />

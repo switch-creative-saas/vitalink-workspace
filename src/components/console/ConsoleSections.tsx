@@ -3,7 +3,7 @@
 // platform-admin list. The shell around them is ConsoleApp.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Activity, AlertTriangle, ArrowLeft, Download, LifeBuoy, RefreshCw, Search, StickyNote, Trash2, UserPlus, Users,
+  Activity, AlertTriangle, ArrowLeft, BadgeCheck, Download, LifeBuoy, RefreshCw, Search, StickyNote, Trash2, UserPlus, Users,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  addAdmin, addNote, deleteNote, getOverview, getWorkspace, getWorkspaceCrm, listAdmins, listLog, listPayments, listWorkspaces,
+  addAdmin, addNote, deleteNote, getNetworkStatus, setNetworkVerified, getOverview, getWorkspace, getWorkspaceCrm, listAdmins, listLog, listPayments, listWorkspaces,
   removeAdmin, setSubscription,
   type ConsoleLogEntry, type ConsoleOverview, type ConsolePayment, type ConsoleWorkspace, type PlatformAdmin,
   type SubscriptionAction, type WorkspaceCrm, type WorkspaceDetail,
@@ -19,7 +19,7 @@ import {
 import { timeAgo } from '@/lib/timeAgo';
 import { date, errorText, naira } from './consoleFormat';
 
-export type ConsoleSection = 'inbox' | 'notifications' | 'overview' | 'workspaces' | 'payments' | 'orders' | 'admins' | 'log' | 'settings';
+export type ConsoleSection = 'inbox' | 'notifications' | 'overview' | 'workspaces' | 'payments' | 'orders' | 'outbreaks' | 'admins' | 'log' | 'settings';
 const PLANS = ['free', 'starter', 'growth', 'enterprise'];
 
 const STATUS_TONE: Record<string, string> = {
@@ -241,6 +241,8 @@ export function WorkspacePanel({ id, onBack, onOpenTicket }: { id: string; onBac
         </section>
       </div>
 
+      <NetworkVerifyRow organizationId={id} joined={Boolean(w.joined_network)} />
+
       <CrmPanel organizationId={id} onOpenTicket={onOpenTicket} />
 
       <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
@@ -288,6 +290,38 @@ export function WorkspacePanel({ id, onBack, onOpenTicket }: { id: string; onBac
         ))}
       </section>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/** VitaLink Network: whether this workspace is on the network, and its verified badge. */
+function NetworkVerifyRow({ organizationId, joined }: { organizationId: string; joined: boolean }) {
+  const [status, setStatus] = useState<{ listed: boolean; verifiedAt: string | null; verifiedBy: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => { getNetworkStatus(organizationId).then(setStatus).catch(() => undefined); }, [organizationId]);
+  useEffect(() => { load(); }, [load]);
+  const toggle = async () => {
+    if (!status) return;
+    setBusy(true);
+    try { await setNetworkVerified(organizationId, !status.verifiedAt); toast.success(status.verifiedAt ? 'Verification removed' : 'Marked as verified'); load(); }
+    catch (error) { toast.error(errorText(error, 'Could not update verification')); }
+    finally { setBusy(false); }
+  };
+  return (
+    <section className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-700 dark:bg-slate-900">
+      <BadgeCheck className={cn('h-5 w-5', status?.verifiedAt ? 'text-violet-600' : 'text-slate-300')} />
+      <div className="min-w-0 flex-1">
+        <p className="font-semibold">VitaLink Network</p>
+        <p className="text-xs text-slate-500">
+          {joined ? (status?.listed ? 'On the network and listed in the directory' : 'On the network, not listed') : 'Not on the network'}
+          {status?.verifiedAt ? ` · verified ${date(status.verifiedAt)}${status.verifiedBy ? ` by ${status.verifiedBy}` : ''}` : ' · not verified'}
+        </p>
+      </div>
+      <Button size="sm" variant={status?.verifiedAt ? 'outline' : 'default'} disabled={busy || !status} onClick={() => void toggle()}>
+        {status?.verifiedAt ? 'Remove verification' : 'Mark as verified'}
+      </Button>
+    </section>
   );
 }
 

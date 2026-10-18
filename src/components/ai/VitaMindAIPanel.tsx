@@ -209,7 +209,7 @@ export function VitaMindAIPanel({ isOpen, onClose }: VitaMindAIPanelProps) {
                   !insight.isRead && "ring-2 ring-vitamind-200 ring-offset-1",
                   selectedInsight?.id === insight.id 
                     ? "shadow-lg scale-[1.02]" 
-                    : "hover:shadow-md hover:scale-[1.01]"
+                    : "hover:shadow-md"
                 )}
               >
                 <div className="flex items-start gap-3">

@@ -158,7 +158,7 @@ const FEATURE_MODULES: Record<FeatureKey, string> = {
   emr_full: 'emr',
   telemedicine: 'telemedicine',
   ai_limited: 'ai-clinical-intelligence',
-  ai_full: 'ai-clinical-intelligence',
+  ai_full: 'vitamind-ai', // VitaMind AI (LLM tier) is its own plan module
   laboratory: 'laboratory',
   pharmacy: 'pharmacy',
   billing: 'billing',

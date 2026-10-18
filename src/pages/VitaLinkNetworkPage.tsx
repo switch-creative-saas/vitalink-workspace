@@ -23,6 +23,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { networkRoles } from '@/features/network/mock/networkMockData';
 import { useNetworkWorkflow } from '@/features/network/hooks/useNetworkWorkflow';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveNetwork } from '@/components/network/LiveNetwork';
 import type {
   CapacityStatus,
   ConsentStatus,
@@ -80,6 +82,19 @@ const initialTransferForm = {
 };
 
 export function VitaLinkNetworkPage() {
+  return isSupabaseConfigured ? <LiveNetworkPage /> : <DemoVitaLinkNetworkPage />;
+}
+
+function LiveNetworkPage() {
+  const { hasAccess } = useSubscription();
+  if (!hasAccess('multi_hospital')) {
+    return <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-800">The VitaLink Network is included in the Growth and Enterprise plans. Upgrade from Subscription to join.</div>;
+  }
+  return <LiveNetwork />;
+}
+
+// Offline demo only (no Supabase): simulated hospitals and transfers kept in this browser.
+function DemoVitaLinkNetworkPage() {
   const { canView } = useAuth();
   const { hasAccess } = useSubscription();
   const workflow = useNetworkWorkflow();
@@ -430,7 +445,7 @@ function DirectoryFilters({ filters, setFilters }: { filters: typeof emptyFilter
 
 function OrganizationCard({ organization, selected, onSelect, onTransfer, canCreate, statusTone }: { organization: NetworkOrganization; selected: boolean; onSelect: () => void; onTransfer: () => void; canCreate: boolean; statusTone: (status: string) => string }) {
   return (
-    <button type="button" onClick={onSelect} className={cn('rounded-2xl border bg-white/75 p-4 text-left shadow-soft transition-all hover:-translate-y-0.5 hover:shadow-lg dark:bg-slate-800/80', selected ? 'border-royal-300 ring-2 ring-royal-100 dark:border-blue-500 dark:ring-blue-900/50' : 'border-white/70 dark:border-slate-700')}>
+    <button type="button" onClick={onSelect} className={cn('rounded-2xl border bg-white/75 p-4 text-left shadow-soft transition-all hover:shadow-lg dark:bg-slate-800/80', selected ? 'border-royal-300 ring-2 ring-royal-100 dark:border-blue-500 dark:ring-blue-900/50' : 'border-white/70 dark:border-slate-700')}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-semibold text-slate-900 dark:text-slate-50 truncate">{organization.name}</h3>

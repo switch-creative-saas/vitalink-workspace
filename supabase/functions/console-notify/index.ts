@@ -90,6 +90,21 @@ function supportReplyContent(payload: Record<string, string>, support: string | 
   };
 }
 
+function networkContent(payload: Record<string, string>, support: string | undefined): EmailContent {
+  const lines = (payload.body ?? '').split('\n').filter(Boolean);
+  const urgent = payload.urgency === 'emergency' ? 'Emergency' : payload.urgency === 'urgent' ? 'Urgent' : '';
+  return {
+    preheader: lines[0] ?? payload.title,
+    eyebrow: `VitaLink Network · ${payload.number}${urgent ? ` · ${urgent}` : ''}`,
+    title: payload.title,
+    paragraphs: lines,
+    button: APP_URL ? { label: 'Open VitaLink Network', url: `${APP_URL}/switch-network` } : undefined,
+    note: 'Patient details stay inside VitaLink. Open the network page to review, reply or share records.',
+    reason: 'You get this as an admin or referral contact of your workspace on the VitaLink Network.',
+    supportEmail: support,
+  };
+}
+
 function fallbackContent(row: OutboxRow, support: string | undefined): EmailContent {
   const [first, ...rest] = row.body_text.split('\n').filter(Boolean);
   return {
@@ -142,6 +157,7 @@ Deno.serve(async (req) => {
     const event = row.event_id !== null ? events.get(row.event_id) : undefined;
     const content = event ? alertContent(event, support)
       : row.payload?.kind === 'support_reply' ? supportReplyContent(row.payload, support)
+      : row.payload?.kind === 'network' ? networkContent(row.payload, support)
       : fallbackContent(row, support);
     const result = await sendEmail({ to: row.recipient, subject: row.subject, content });
 

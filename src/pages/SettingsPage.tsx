@@ -73,6 +73,13 @@ interface SettingsPageProps {
   onDeleteAccount: () => void;
 }
 
+function describeThisDevice() {
+  const ua = navigator.userAgent;
+  const os = /Windows/.test(ua) ? 'Windows' : /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac OS X/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : 'This device';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  return `${os} - ${browser} (this device)`;
+}
+
 export function SettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
   const { currentRole, setCurrentRole, userName, userEmail, hasPermission } = useAuth();
   const { subscription, hasAccess, DEV_OVERRIDE, addAudit } = useSubscription();
@@ -95,9 +102,9 @@ export function SettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
   const [profileForm, setProfileForm] = useState({
     name: userName,
     email: userEmail,
-    phone: '+234 801 234 5678',
-    specialty: 'General Medicine',
-    photoInitials: 'SJ',
+    phone: '',
+    specialty: '',
+    photoInitials: userName.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join('').toUpperCase() || 'VL',
     twoFactor: false,
   });
   const [facilityForm, setFacilityForm] = useState({
@@ -129,10 +136,9 @@ export function SettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
     next: '',
     confirm: '',
   });
-  const [sessions, setSessions] = useState([
-    { id: 's1', device: 'Windows PC - Chrome', lastSeen: '2 min ago', current: true },
-    { id: 's2', device: 'iPhone - Safari', lastSeen: '1h ago', current: false },
-    { id: 's3', device: 'iPad - Safari', lastSeen: '5h ago', current: false },
+  // Only this browser is known here; other signed-in devices aren't tracked yet.
+  const [sessions, setSessions] = useState(() => [
+    { id: 'current', device: describeThisDevice(), lastSeen: 'now', current: true },
   ]);
   const [securityLogs] = useState([
     'Successful login from Lagos workstation',

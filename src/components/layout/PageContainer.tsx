@@ -17,7 +17,7 @@ export function PageContainer({ children, className, fullWidth }: PageContainerP
         className,
       )}
     >
-      <div className="page-container-inner contain-layout">{children}</div>
+      <div className="page-container-inner page-contain">{children}</div>
     </div>
   );
 }

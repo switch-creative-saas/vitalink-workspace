@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
-  Bell, Building2, CreditCard, ExternalLink, FileClock, Inbox, LayoutDashboard, LogOut, Menu, Package, Settings, ShieldCheck, X,
+  Bell, Building2, CreditCard, ExternalLink, FileClock, Inbox, LayoutDashboard, LogOut, Menu, Package, Radio, Settings, ShieldCheck, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,7 @@ import { ConsoleBody, type ConsoleRoute } from './ConsoleBody';
 
 type Route = ConsoleRoute;
 
-const SECTIONS: ConsoleSection[] = ['inbox', 'notifications', 'overview', 'workspaces', 'payments', 'orders', 'admins', 'log', 'settings'];
+const SECTIONS: ConsoleSection[] = ['inbox', 'notifications', 'overview', 'workspaces', 'payments', 'orders', 'outbreaks', 'admins', 'log', 'settings'];
 
 function parseRoute(): Route {
   const [, , section, id] = window.location.pathname.split('/');
@@ -44,6 +44,7 @@ const NAV: Array<{ id: ConsoleSection; label: string; icon: React.ElementType; g
   { id: 'workspaces', label: 'Customers', icon: Building2, group: 'Business' },
   { id: 'payments', label: 'Payments', icon: CreditCard, group: 'Business' },
   { id: 'orders', label: 'VitaCard orders', icon: Package, group: 'Business' },
+  { id: 'outbreaks', label: 'Outbreak signals', icon: Radio, group: 'Clinical' },
   { id: 'admins', label: 'Admins', icon: ShieldCheck, group: 'Team' },
   { id: 'log', label: 'Audit log', icon: FileClock, group: 'Team' },
   { id: 'settings', label: 'Settings', icon: Settings, group: 'Team' },
@@ -211,7 +212,7 @@ function ConsoleShell({ email }: { email: string }) {
           <p className="text-[11px] text-slate-400">Team only</p>
         </div>
       </div>
-      {['Business', 'Team'].map((group) => (
+      {['Business', 'Clinical', 'Team'].map((group) => (
         <div key={group} className="mb-2">
           <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{group}</p>
           {NAV.filter((item) => item.group === group).map((item) => (

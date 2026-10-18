@@ -319,3 +319,16 @@ export async function saveSupportContact(contact: { email: string; phone: string
     .not('id', 'is', null);
   if (error) fail(error);
 }
+
+// ---------- VitaLink Network verification ----------
+
+export async function getNetworkStatus(organizationId: string): Promise<{ listed: boolean; verifiedAt: string | null; verifiedBy: string | null }> {
+  const { data, error } = await requireSupabase().from('network_profiles').select('visible_in_directory, verified_at, verified_by').eq('organization_id', organizationId).maybeSingle();
+  if (error) fail(error);
+  return { listed: Boolean(data?.visible_in_directory), verifiedAt: data?.verified_at ?? null, verifiedBy: data?.verified_by ?? null };
+}
+
+export async function setNetworkVerified(organizationId: string, verified: boolean) {
+  const { error } = await requireSupabase().rpc('console_verify_network_org', { p_organization_id: organizationId, p_verified: verified });
+  if (error) fail(error);
+}

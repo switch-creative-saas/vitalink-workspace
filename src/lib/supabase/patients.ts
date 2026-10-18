@@ -241,8 +241,22 @@ export async function createPatientRemote(patient: NewPatient): Promise<Registry
   return fromRow(data as PatientRow);
 }
 
-export async function getPatientBySwitchIdRemote(switchId: string): Promise<RegistryPatient | null> {
-  const { data, error } = await requireSupabase().from('patients').select('*').eq('switch_id', switchId).maybeSingle();
+/** The active workspace's id, as the app stores it after sign-in. */
+function activeOrganizationId(): string | undefined {
+  try {
+    return (JSON.parse(localStorage.getItem('vitalink-active-organization') ?? 'null') as { id?: string } | null)?.id;
+  } catch {
+    return undefined;
+  }
+}
+
+// A VitaLink ID is unique per workspace (it follows a patient transferred over the
+// VitaLink Network), so always look it up within one workspace.
+export async function getPatientBySwitchIdRemote(switchId: string, organizationId?: string): Promise<RegistryPatient | null> {
+  const orgId = organizationId ?? activeOrganizationId();
+  let query = requireSupabase().from('patients').select('*').eq('switch_id', switchId);
+  if (orgId) query = query.eq('organization_id', orgId);
+  const { data, error } = await query.maybeSingle();
   if (error) throw error;
   return data ? fromRow(data as PatientRow) : null;
 }

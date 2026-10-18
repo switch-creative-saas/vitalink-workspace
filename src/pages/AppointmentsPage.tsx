@@ -6,7 +6,6 @@ import {
   ChevronRight,
   List,
   Loader2,
-  MoreHorizontal,
   Plus,
   Search,
   UserCircle2,
@@ -19,6 +18,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useResponsive } from '@/contexts/ResponsiveContext';
 import { toast } from 'sonner';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveBookAppointmentDialog } from '@/components/dashboard/LiveQuickActions';
 import {
   appointmentStatuses,
   useAppointments,
@@ -113,14 +113,21 @@ export function AppointmentsPage() {
     ];
   }, [visibleAppointments]);
 
-  const notifications = useMemo(
-    () => [
-      `New appointment pending doctor approval (${visibleAppointments.filter((a) => a.status === 'pending').length})`,
-      'Upcoming appointment reminder sent to patients',
-      'Status updates synchronized with receptionist queue',
-    ],
-    [visibleAppointments],
-  );
+  const notifications = useMemo(() => {
+    const count = (status: AppointmentStatus) => visibleAppointments.filter((a) => a.status === status).length;
+    const plural = (n: number) => (n === 1 ? '' : 's');
+    const pending = count('pending');
+    const checkedIn = count('checked-in');
+    const emergency = count('emergency');
+    const noShow = count('no-show');
+    const items = [
+      pending ? `${pending} appointment${plural(pending)} waiting for confirmation` : '',
+      checkedIn ? `${checkedIn} patient${plural(checkedIn)} checked in and waiting` : '',
+      emergency ? `${emergency} emergency booking${plural(emergency)}` : '',
+      noShow ? `${noShow} no-show${plural(noShow)}` : '',
+    ].filter(Boolean);
+    return items.length ? items : ['Nothing needs attention for this day.'];
+  }, [visibleAppointments]);
 
   const canCreateAppointment = currentRole === 'receptionist' || currentRole === 'hospital-admin' || currentRole === 'super-admin';
   const canDoctorAction = currentRole === 'doctor' || currentRole === 'hospital-admin' || currentRole === 'super-admin';
@@ -215,7 +222,7 @@ export function AppointmentsPage() {
         <button
           key={appointment.id}
           onClick={() => setSelectedId(appointment.id)}
-          className="absolute left-2 right-2 rounded-xl p-3 text-left shadow-sm hover:shadow-md transition-all active:scale-[0.99]"
+          className="absolute left-2 right-2 rounded-xl p-3 text-left shadow-sm hover:shadow-md transition-all"
           style={{ top: `${index * (isTablet ? 56 : 72) + 6}px`, height: `${(appointment.duration / 30) * (isTablet ? 56 : 72) - 12}px` }}
         >
           <div className={cn('rounded-xl p-2.5 border-l-4 h-full', appointment.status === 'confirmed' ? 'bg-green-50 border-green-500 dark:bg-green-950/35' : appointment.status === 'pending' ? 'bg-amber-50 border-amber-500 dark:bg-amber-950/35' : appointment.status === 'completed' ? 'bg-blue-50 border-blue-500 dark:bg-blue-950/35' : 'bg-red-50 border-red-500 dark:bg-red-950/35')}>
@@ -388,29 +395,50 @@ export function AppointmentsPage() {
         </div>
       )}
 
-      {showNewModal && (
-        <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3">
-          <div className="w-full max-w-2xl rounded-3xl border border-white/70 bg-white/80 backdrop-blur-xl p-4 sm:p-6 shadow-2xl space-y-3 dark:border-slate-700 dark:bg-slate-800">
+      {isSupabaseConfigured && (
+        <LiveBookAppointmentDialog key={showNewModal ? 'open' : 'closed'} open={showNewModal} onClose={() => setShowNewModal(false)} />
+      )}
+
+      {/* Offline demo only (no Supabase): the original local booking form. */}
+      {!isSupabaseConfigured && showNewModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-2xl space-y-3 dark:border-slate-700 dark:bg-slate-800">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-slate-900 dark:text-slate-50">New Appointment</h3>
               <button className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50" onClick={() => setShowNewModal(false)}><XCircle className="w-5 h-5" /></button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Input placeholder={isSupabaseConfigured ? 'Patient name (filled from VitaLink ID)' : 'Patient name'} disabled={isSupabaseConfigured} value={newForm.patient} onChange={(e) => setNewForm((p) => ({ ...p, patient: e.target.value }))} />
-              <Input placeholder="Patient VitaLink ID" value={newForm.patientSwitchId} onChange={(e) => setNewForm((p) => ({ ...p, patientSwitchId: e.target.value }))} />
-              <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.doctorId} onChange={(e) => setNewForm((p) => ({ ...p, doctorId: e.target.value, department: doctors.find((d) => d.id === e.target.value)?.department ?? '' }))}>
-                <option value="">Select doctor by availability</option>
-                {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.name} ({doctor.department})</option>)}
-              </select>
-              <Input placeholder="Department" value={newForm.department} onChange={(e) => setNewForm((p) => ({ ...p, department: e.target.value }))} />
-              <Input type="date" value={newForm.date} onChange={(e) => setNewForm((p) => ({ ...p, date: e.target.value }))} />
-              <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.time} onChange={(e) => setNewForm((p) => ({ ...p, time: e.target.value }))}>
-                {timeSlots.map((slot) => <option key={slot}>{slot}</option>)}
-              </select>
-              <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.type} onChange={(e) => setNewForm((p) => ({ ...p, type: e.target.value as AppointmentType }))}>
-                {appointmentTypes.map((type) => <option key={type}>{type}</option>)}
-              </select>
-              <Input placeholder="Notes" value={newForm.notes} onChange={(e) => setNewForm((p) => ({ ...p, notes: e.target.value }))} />
+              <label className="space-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">Patient name
+                <Input placeholder="Full name" value={newForm.patient} onChange={(e) => setNewForm((p) => ({ ...p, patient: e.target.value }))} />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">VitaLink ID
+                <Input placeholder="e.g. VL-2026-0001" value={newForm.patientSwitchId} onChange={(e) => setNewForm((p) => ({ ...p, patientSwitchId: e.target.value }))} />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">Doctor
+                <select className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.doctorId} onChange={(e) => setNewForm((p) => ({ ...p, doctorId: e.target.value, department: doctors.find((d) => d.id === e.target.value)?.department ?? '' }))}>
+                  <option value="">Select a doctor</option>
+                  {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.name} ({doctor.department})</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">Department
+                <Input placeholder="Department" value={newForm.department} onChange={(e) => setNewForm((p) => ({ ...p, department: e.target.value }))} />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">Date
+                <Input type="date" value={newForm.date} onChange={(e) => setNewForm((p) => ({ ...p, date: e.target.value }))} />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">Time
+                <select className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.time} onChange={(e) => setNewForm((p) => ({ ...p, time: e.target.value }))}>
+                  {timeSlots.map((slot) => <option key={slot}>{slot}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">Visit type
+                <select className="h-10 w-full rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={newForm.type} onChange={(e) => setNewForm((p) => ({ ...p, type: e.target.value as AppointmentType }))}>
+                  {appointmentTypes.map((type) => <option key={type}>{type}</option>)}
+                </select>
+              </label>
+              <label className="space-y-1 text-xs font-medium text-slate-600 dark:text-slate-300">Notes
+                <Input placeholder="Reason for visit" value={newForm.notes} onChange={(e) => setNewForm((p) => ({ ...p, notes: e.target.value }))} />
+              </label>
             </div>
             <div className="text-xs text-slate-600 dark:text-slate-400">
               Availability check: {newForm.doctorId ? doctorAvailability(newForm.doctorId, newForm.date, newForm.time).reason || 'Available slot.' : 'Select doctor/time to validate.'}
@@ -424,8 +452,8 @@ export function AppointmentsPage() {
       )}
 
       {selected && (
-        <div className="fixed inset-0 z-30 bg-black/30 backdrop-blur-sm flex justify-end" onClick={() => setSelectedId(null)}>
-          <aside className="w-full max-w-md h-full bg-white/90 backdrop-blur-xl border-l border-white/70 p-4 space-y-3 dark:border-slate-700 dark:bg-slate-900/95" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 bg-black/30 backdrop-blur-sm flex justify-end" onClick={() => setSelectedId(null)}>
+          <aside className="w-full max-w-md h-full overflow-y-auto bg-white border-l border-slate-200 p-4 space-y-3 dark:border-slate-700 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-slate-900 dark:text-slate-50">Appointment Detail</h3>
               <button onClick={() => setSelectedId(null)}><XCircle className="w-5 h-5 text-slate-600 dark:text-slate-400" /></button>
@@ -461,18 +489,6 @@ export function AppointmentsPage() {
                 {appointmentStatuses.map((status) => <option key={status} value={status}>{status}</option>)}
               </select>
             </div>
-            <div className="rounded-xl bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-              Notifications:
-              <ul className="list-disc ml-4 mt-1">
-                <li>New appointment notifies doctor.</li>
-                <li>Status changes notify receptionist.</li>
-                <li>Upcoming appointment reminders notify patient.</li>
-              </ul>
-                    </div>
-            <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-              <span>Role: {currentRole}</span>
-              <button className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"><MoreHorizontal className="w-4 h-4" /></button>
-                    </div>
           </aside>
         </div>
       )}

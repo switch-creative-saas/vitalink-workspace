@@ -247,7 +247,7 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
               {item.locked && <Lock className="h-3.5 w-3.5 shrink-0 text-white/50" />}
               {expanded && item.locked && item.requiredPlan && <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-100 opacity-0 transition-opacity group-hover:opacity-100">{item.requiredPlan}</span>}
 
-              {isActive && expanded && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sky-300 animate-pulse" />}
+              {isActive && expanded && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sky-300" />}
             </button>
           );
         })}

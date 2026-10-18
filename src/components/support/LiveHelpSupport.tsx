@@ -118,7 +118,7 @@ export function LiveHelpSupport() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {actions.map((a) => (
           <button key={a.kind} type="button" onClick={() => setNewKind(a.kind)}
-            className="premium-card flex items-start gap-3 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md">
+            className="premium-card flex items-start gap-3 p-4 text-left transition hover:shadow-md">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-700"><a.icon className="h-4 w-4" /></span>
             <span><span className="block text-sm font-semibold text-gray-900">{a.label}</span><span className="text-xs text-gray-500">{a.hint}</span></span>
           </button>

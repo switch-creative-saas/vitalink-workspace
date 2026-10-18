@@ -122,7 +122,7 @@ function StatCard({ title, value, change, changeType, icon: Icon, color, subtitl
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={(event) => { if (onClick && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onClick(); } }}
-      className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl p-5 shadow-soft hover:shadow-card transition-all duration-300 hover:-translate-y-1 cursor-pointer group card-equal-height h-full min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80"
+      className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl p-5 shadow-soft hover:shadow-card transition-all duration-300 cursor-pointer group card-equal-height h-full min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80"
     >
       <div className="flex items-start justify-between mb-4 gap-2 min-w-0">
         <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0", color)}>
@@ -704,7 +704,7 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="space-y-4 page-transition contain-layout min-w-0">
+    <div className="space-y-4 page-transition page-contain min-w-0">
       <DashboardHero userName={userName} dailySummary={dailySummary} kpis={heroKpis} />
 
       <VitaCardWidget
@@ -743,7 +743,7 @@ export function DashboardPage() {
                   onClick={action.onClick}
                   className="flex flex-col items-center gap-1.5 p-2.5 sm:p-3 rounded-xl bg-gray-50 hover:bg-vitalink-50 border border-gray-100 hover:border-vitalink-200 transition-all duration-200 group min-w-0 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:bg-slate-800"
                 >
-                  <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110 bg-gradient-to-br shrink-0", action.color)}>
+                  <div className={cn("w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center transition-transform duration-200 bg-gradient-to-br shrink-0", action.color)}>
                     <action.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
                   <span className="text-xs sm:text-sm font-medium text-slate-900 text-center truncate w-full dark:text-slate-50">{action.label}</span>
@@ -843,7 +843,7 @@ export function DashboardPage() {
                   key={apt.id} 
                   onClick={() => handleAppointmentClick(apt)}
                   className={cn(
-                    'w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer group active:scale-[0.99]',
+                    'w-full flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border text-left transition-all duration-200 cursor-pointer group',
                     apt.priority === 'emergency' || apt.status === 'emergency'
                       ? 'bg-red-50 border-red-200 hover:bg-red-100'
                       : apt.waitMinutes >= 30
