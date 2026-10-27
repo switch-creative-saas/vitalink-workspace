@@ -7,12 +7,12 @@
 :root {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #0f172a;
-  background: #f7f8fa;
+  background: #e8ebf1;
 }
 
 .dark {
   color: #f1f5f9;
-  background: #0f172a;
+  background: #0d0e14;
 }
 
 body {
@@ -28,26 +28,113 @@ textarea {
   font: inherit;
 }
 
+/* Soft "glass" workspace: a cool grey backdrop, frosted cards, black accents. */
+.sentinel-app {
+  background:
+    radial-gradient(1100px 600px at 12% -10%, rgba(199, 210, 254, 0.55), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, rgba(254, 205, 211, 0.35), transparent 60%),
+    radial-gradient(1000px 700px at 60% 110%, rgba(191, 219, 254, 0.5), transparent 60%),
+    #e8ebf1;
+  background-attachment: fixed;
+}
+
+.dark .sentinel-app {
+  background:
+    radial-gradient(1100px 600px at 12% -10%, rgba(79, 70, 229, 0.16), transparent 60%),
+    radial-gradient(900px 520px at 100% 0%, rgba(244, 63, 94, 0.08), transparent 60%),
+    #0d0e14;
+  background-attachment: fixed;
+}
+
 .sentinel-card {
-  border: 1px solid #e8eaf0;
-  background: #ffffff;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 18px 40px -28px rgba(30, 41, 59, 0.35);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
 }
 
 .dark .sentinel-card {
-  border-color: rgba(71, 85, 105, 0.7);
-  background: rgba(15, 23, 42, 0.92);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.24);
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 40px -28px rgba(0, 0, 0, 0.8);
+}
+
+/* Popovers, dialogs and drawers: same glass, but opaque enough to read over content. */
+.sentinel-panel {
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: rgba(246, 247, 250, 0.92);
+  box-shadow: 0 30px 70px -30px rgba(15, 23, 42, 0.45), 0 2px 6px rgba(15, 23, 42, 0.04);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+}
+
+.dark .sentinel-panel {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(24, 25, 34, 0.94);
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.9);
 }
 
 .sentinel-input {
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.72);
   color: #0f172a;
 }
 
 .dark .sentinel-input {
-  border-color: rgba(71, 85, 105, 0.75);
-  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
   color: #f8fafc;
 }
+
+.sentinel-app .sentinel-input.rounded-xl,
+.sentinel-app .sentinel-input.rounded-lg { border-radius: 16px; }
+
+/* Panels nested inside cards pick up the softer corners and borders. */
+.sentinel-app .sentinel-card .rounded-2xl,
+.sentinel-app .sentinel-panel .rounded-2xl { border-radius: 20px; }
+.sentinel-app .sentinel-card .border-slate-200,
+.sentinel-app .sentinel-card .border-slate-100 { border-color: rgba(15, 23, 42, 0.07); }
+.sentinel-app .sentinel-card .bg-slate-50,
+.sentinel-app .sentinel-card .bg-slate-50\/80 { background-color: rgba(255, 255, 255, 0.55); }
+.dark .sentinel-app .sentinel-card .border-slate-800,
+.dark .sentinel-app .sentinel-card .border-slate-700 { border-color: rgba(255, 255, 255, 0.07); }
+.dark .sentinel-app .sentinel-card .dark\:bg-slate-800\/60,
+.dark .sentinel-app .sentinel-card .dark\:bg-slate-900 { background-color: rgba(255, 255, 255, 0.04); }
+
+/* Page headings (first block of each page) get the large title treatment. */
+.sentinel-content > div > div:first-child h2.text-2xl:not(.mt-2) {
+  font-size: 34px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+@media (max-width: 640px) { .sentinel-content > div > div:first-child h2.text-2xl:not(.mt-2) { font-size: 28px; } }
+
+/* Links and highlights move from blue to the ink accent. */
+.sentinel-app .text-blue-600 { color: #0f172a; }
+.dark .sentinel-app .dark\:text-blue-300 { color: #e2e8f0; }
+.sentinel-app .bg-blue-600 { background-color: #0f172a; }
+
+.sentinel-app ::-webkit-scrollbar { width: 10px; height: 10px; }
+.sentinel-app ::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: rgba(15, 23, 42, 0.18) padding-box; }
+.dark .sentinel-app ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.14) padding-box; }
+
+/* Reports: "Export PDF" prints only the report (browser print -> Save as PDF), always light. */
+@media print {
+  body.sentinel-printing * { visibility: hidden; }
+  body.sentinel-printing #sentinel-report, body.sentinel-printing #sentinel-report * { visibility: visible; }
+  body.sentinel-printing #sentinel-report { position: absolute; inset: 0 auto auto 0; width: 100%; color: #0f172a; background: #fff; }
+  body.sentinel-printing #sentinel-report .no-print { display: none !important; }
+  body.sentinel-printing #sentinel-report * { color: #0f172a !important; background: transparent !important; border-color: #cbd5e1 !important; box-shadow: none !important; }
+  body.sentinel-printing #sentinel-report section { break-inside: avoid; }
+  @page { margin: 14mm; }
+}
+
+/* Sign-in showcase */
+@keyframes sentinel-sweep { to { transform: rotate(360deg); } }
+.sentinel-sweep { animation: sentinel-sweep 9s linear infinite; }
+@keyframes sentinel-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.sentinel-fade-in { animation: sentinel-fade-in 0.6s ease-out; }
+.sentinel-auth-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
+@media (prefers-reduced-motion: reduce) { .sentinel-sweep, .sentinel-fade-in { animation: none; } }

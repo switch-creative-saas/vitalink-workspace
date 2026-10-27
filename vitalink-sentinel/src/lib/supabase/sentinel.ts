@@ -28,6 +28,15 @@ export async function signIn(email: string, password: string) {
   if (error) throw new Error(/invalid/i.test(error.message) ? 'Incorrect email or password.' : error.message);
 }
 
+/**
+ * Google sign-in. Supabase sends the user back to this page; a Google account with no Sentinel
+ * organisation yet continues registration from the organisation step.
+ */
+export async function signInWithGoogle() {
+  const { error } = await requireSupabase().auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+  if (error) throw new Error(error.message);
+}
+
 export class AccountExistsError extends Error {}
 
 /** Creates the sign-in account. Supabase emails a 6-digit code unless confirmation is off. */
@@ -695,3 +704,81 @@ export async function removeFacility(facilityId: string): Promise<'withdrawn' | 
   fail(error);
   return data as 'withdrawn' | 'stopped' | 'deactivated' | 'deleted';
 }
+
+// ---------------------------------------------------------------------------
+// Reports
+
+export interface SurveillanceReport {
+  from: string;
+  to: string;
+  days: number;
+  previousFrom: string;
+  organization: string;
+  totals: { cases: number; previousCases: number; suspected: number; confirmed: number; deaths: number; previousDeaths: number; hospitalized: number; states: number; diseases: number };
+  byDisease: Array<{
+    diseaseId: string; disease: string; category: 'infectious' | 'ntd' | 'ncd'; notifiable: boolean; suspected: number; confirmed: number; deaths: number;
+    cases: number; previousCases: number; cfr: number | null; states: number; ytdCases: number; ytdConfirmed: number; ytdDeaths: number;
+  }>;
+  byState: Array<{ state: string; cases: number; confirmed: number; deaths: number; lgas: number; topDisease: string; openOutbreaks: number }>;
+  byAgeSex: Array<{ ageGroup: string; male: number; female: number; unknown: number }>;
+  bySource: Record<string, number>;
+  weekly: Array<{ week_start: string; epi_week: string; cases: number; confirmed: number; deaths: number }>;
+  weeklyByDisease: Array<{ weekStart: string; disease: string; cases: number }>;
+  outbreaks: Array<{
+    id: string; disease: string; state: string; lga: string | null; severity: OutbreakSeverity; status: OutbreakStatus; startDate: string | null;
+    endDate: string | null; confirmed: number; suspected: number; deaths: number; cfr: number | null; responseTeamDeployed: boolean;
+    newCases: number; latestUpdate: string | null;
+  }>;
+  alerts: { total: number; critical: number; high: number; open: number; byType: Record<string, number> };
+  reporting: { expected: number; reported: number };
+}
+
+export async function getSurveillanceReport(orgId: string, from: string, to: string, options: { category?: 'infectious' | 'ntd' | 'ncd'; diseaseId?: string } = {}): Promise<SurveillanceReport> {
+  const { data, error } = await requireSupabase().rpc('sentinel_report', {
+    p_sentinel_org: orgId, p_from: from, p_to: to, p_category: options.category ?? null, p_disease: options.diseaseId ?? null,
+  });
+  fail(error);
+  return data as SurveillanceReport;
+}
+
+// ---------------------------------------------------------------------------
+// Header: global search and activity inbox
+
+export interface SearchResults {
+  cases: Array<{ id: string; reportId: string; disease: string; state: string | null; lga: string | null; status: CaseStatus; at: string }>;
+  outbreaks: Array<{ id: string; disease: string; state: string; lga: string | null; status: OutbreakStatus; severity: OutbreakSeverity }>;
+  alerts: Array<{ id: string; title: string; severity: string; status: AlertStatus; state: string | null }>;
+  facilities: Array<{ id: string; name: string; type: string | null; state: string | null; lga: string | null; consent: string }>;
+  diseases: Array<{ id: string; name: string; category: string; notifiable: boolean }>;
+}
+
+export async function searchSentinel(orgId: string, query: string): Promise<SearchResults> {
+  const { data, error } = await requireSupabase().rpc('sentinel_search', { p_sentinel_org: orgId, p_query: query, p_limit: 5 });
+  fail(error);
+  return data as SearchResults;
+}
+
+export interface InboxItem {
+  id: string;
+  kind: 'case' | 'outbreak' | 'facility';
+  event: string;
+  targetId: string;
+  actor: string | null;
+  at: string;
+  title: string;
+  detail: string | null;
+  unread: boolean;
+}
+
+export async function getInbox(orgId: string): Promise<{ items: InboxItem[]; unread: number }> {
+  const { data, error } = await requireSupabase().rpc('sentinel_inbox', { p_sentinel_org: orgId, p_limit: 30 });
+  fail(error);
+  const result = data as { items: InboxItem[]; unread: number };
+  return { items: result.items ?? [], unread: Number(result.unread ?? 0) };
+}
+
+export async function markInboxSeen(orgId: string) {
+  const { error } = await requireSupabase().rpc('sentinel_mark_inbox_seen', { p_sentinel_org: orgId });
+  fail(error);
+}
+

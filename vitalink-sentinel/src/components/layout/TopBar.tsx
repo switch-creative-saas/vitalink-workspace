@@ -1,73 +1,72 @@
-import { Bell, ChevronDown, Moon, Search, Settings, Sun } from 'lucide-react';
-import { SBadge as Badge } from '@/components/standalone/SBadge';
-import { SButton as Button } from '@/components/standalone/SButton';
-import { DateRangePicker } from '@/components/ui/DateRangePicker';
+import { useEffect, useState } from 'react';
+import { Menu, Search, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { useSentinelStore } from '@/store/useSentinelStore';
+import { NAV_ITEMS, iconButtonClass } from './navigation';
+import { AlertsMenu } from './header/AlertsMenu';
+import { InboxMenu } from './header/InboxMenu';
+import { ProfileMenu } from './header/ProfileMenu';
+import { SearchDialog } from './header/SearchDialog';
 
-const titles = {
-  login: 'Login',
-  dashboard: 'National Surveillance Dashboard',
-  outbreaks: 'Active Outbreaks',
-  cases: 'Case Registry',
-  alerts: 'Alert Management',
-  heatmaps: 'Geographic Heatmaps',
-  'contact-tracing': 'Contact Tracing',
-  vaccination: 'Vaccination Monitoring',
-  epidemiology: 'Epidemiology Analytics',
-  emergency: 'Emergency Response Center',
-  community: 'Community Reporting',
-  ntd: 'NTD Monitoring',
-  reports: 'Surveillance Reports',
-  diseases: 'Disease Intelligence Registry',
-  facilities: 'Reporting Network',
-  settings: 'Organization Settings',
-};
-
-function getOrgInitials(name?: string) {
-  return (name ?? 'Sentinel Organization')
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => word[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 4);
-}
+const groups = ['Overview', 'Surveillance', 'Intelligence', 'Operations', 'Administration'] as const;
 
 export function TopBar() {
-  const { route, activeOrganization, theme, toggleTheme } = useSentinelStore();
-  const orgInitials = getOrgInitials(activeOrganization?.fullName ?? activeOrganization?.name);
-  return (
-    <header className="sticky top-0 z-40 flex h-20 items-center justify-between gap-4 border-b border-slate-200 bg-white/90 px-4 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/90 lg:px-6">
-      <div>
-        <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Sentinel / {titles[route]}</p>
-        <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{titles[route]}</h1>
-      </div>
-      <div className="hidden min-w-0 flex-1 justify-center xl:flex">
-        <div className="flex h-10 w-full max-w-md items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-slate-400 dark:border-slate-800 dark:bg-slate-900">
-          <Search className="h-4 w-4" />
-          <input className="min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 dark:text-slate-50" placeholder="Search within Sentinel..." />
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <DateRangePicker />
-        <Button className="relative h-10 w-10 border-slate-200 bg-white p-0 text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800">
-          <Bell className="h-4 w-4" />
-          <span className="absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-red-500 px-1 text-[10px]">4</span>
-        </Button>
-        <Button className="hidden h-10 w-10 border-slate-200 bg-white p-0 text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 sm:inline-flex">
-          <Settings className="h-4 w-4" />
-        </Button>
-        <Badge className="hidden md:inline-flex">{orgInitials}</Badge>
-        <Button className="h-10 w-10 border-slate-200 bg-white p-0 text-slate-600 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800" onClick={toggleTheme}>
-          {theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
-        </Button>
-        <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-1 pl-1 pr-2 dark:border-slate-800 dark:bg-slate-900">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600 text-xs font-bold text-white">{orgInitials}</div>
-          <span className="hidden text-sm font-semibold text-slate-900 dark:text-slate-50 lg:inline">Jane C</span>
-          <ChevronDown className="hidden h-4 w-4 text-slate-400 lg:block" />
+  const { route, navigate } = useSentinelStore();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const live = isSupabaseConfigured;
+
+  // Ctrl/⌘ + K or "/" opens search from anywhere.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const typing = event.target instanceof HTMLElement && (event.target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName));
+      if ((event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) || (event.key === '/' && !typing)) { event.preventDefault(); setSearchOpen(true); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  return <>
+    <header className="sticky top-0 z-40 bg-[#e8ebf1]/75 px-4 backdrop-blur-xl dark:bg-[#0d0e14]/75 lg:px-6">
+      <div className="flex h-[76px] items-center gap-4">
+        <button type="button" onClick={() => setMenuOpen(true)} className={cn(iconButtonClass, 'lg:hidden')} aria-label="Open menu"><Menu className="h-[18px] w-[18px]" /></button>
+        <button type="button" onClick={() => navigate('dashboard')} className="flex shrink-0 items-center gap-2.5">
+          <img src="/sentinel-logo.svg" alt="" className="h-9 w-9 rounded-xl bg-white p-0.5 shadow-sm" />
+          <span className="hidden text-[22px] font-semibold tracking-tight text-slate-950 dark:text-white sm:inline">sentinel</span>
+        </button>
+
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">
+          {NAV_ITEMS.filter((item) => item.placement === 'top').map((item) => <button key={item.route} type="button" onClick={() => navigate(item.route)}
+            className={cn('h-11 rounded-full px-4 text-sm font-medium transition xl:px-5', route === item.route ? 'bg-slate-950 text-white shadow-[0_10px_24px_-12px_rgba(15,23,42,0.8)] dark:bg-white dark:text-slate-950' : 'text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white')}>
+            {item.label}
+          </button>)}
+        </nav>
+
+        <div className="ml-auto flex items-center gap-2 lg:ml-0">
+          <button type="button" onClick={() => setSearchOpen(true)} className={iconButtonClass} aria-label="Search" title="Search (Ctrl K)"><Search className="h-[18px] w-[18px]" /></button>
+          <InboxMenu live={live} />
+          <AlertsMenu live={live} />
+          <ProfileMenu />
         </div>
       </div>
     </header>
-  );
-}
 
+    {searchOpen && <SearchDialog live={live} onClose={() => setSearchOpen(false)} />}
+
+    {menuOpen && <div className="fixed inset-0 z-[60] bg-slate-950/30 backdrop-blur-sm lg:hidden" onPointerDown={(event) => { if (event.target === event.currentTarget) setMenuOpen(false); }}>
+      <div className="sentinel-panel absolute inset-y-3 left-3 flex w-[min(86vw,320px)] flex-col overflow-hidden rounded-[28px]">
+        <div className="flex items-center justify-between px-5 py-4"><span className="text-lg font-semibold text-slate-950 dark:text-white">Menu</span><button type="button" onClick={() => setMenuOpen(false)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10" aria-label="Close menu"><X className="h-4 w-4" /></button></div>
+        <nav className="flex-1 space-y-4 overflow-y-auto px-3 pb-5">
+          {groups.map((group) => <div key={group}>
+            <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">{group}</p>
+            {NAV_ITEMS.filter((item) => item.group === group).map((item) => {
+              const Icon = item.icon;
+              return <button key={item.route} type="button" onClick={() => { navigate(item.route); setMenuOpen(false); }} className={cn('flex w-full items-center gap-3 rounded-full px-3 py-2.5 text-sm font-medium', route === item.route ? 'bg-slate-950 text-white dark:bg-white dark:text-slate-950' : 'text-slate-600 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10')}><Icon className="h-4 w-4" />{item.label}</button>;
+            })}
+          </div>)}
+        </nav>
+      </div>
+    </div>}
+  </>;
+}

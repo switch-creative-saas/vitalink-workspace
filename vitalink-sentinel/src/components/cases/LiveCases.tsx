@@ -11,7 +11,7 @@ import { SSelect as Select } from '@/components/standalone/SSelect';
 import { DataTable } from '@/components/ui/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { diseaseLibrary } from '@/data/mockSentinelData';
-import { useSentinelStore } from '@/store/useSentinelStore';
+import { NEW_CASE, useSentinelStore } from '@/store/useSentinelStore';
 import {
   addCaseNote, canEditCases, exportCases, listCaseEvents, listCases, listDiseases, listLinkedFacilities, listOpenOutbreaks, reportCase, updateCase,
   type CaseEvent, type CaseFilters, type CaseSource, type CaseStatus, type LinkedFacility, type NewCaseReport, type OutbreakOption,
@@ -286,22 +286,37 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 // ---------------------------------------------------------------------------
 
 export function LiveCases() {
-  const { activeOrganization, me } = useSentinelStore();
+  const { activeOrganization, me, focus, clearFocus } = useSentinelStore();
   const orgId = activeOrganization?.id;
   const canEdit = canEditCases(me?.role);
-  const [searchInput, setSearchInput] = useState('');
-  const [filters, setFilters] = useState<CaseFilters>({ days: 90 });
+  const opening = focus?.route === 'cases' && focus.id !== NEW_CASE ? focus : null;
+  const [searchInput, setSearchInput] = useState(opening?.query ?? '');
+  const [filters, setFilters] = useState<CaseFilters>(opening ? { search: opening.query ?? '' } : { days: 90 });
   const [page, setPage] = useState(0);
   const [data, setData] = useState<{ key: string; cases: SentinelCase[]; total: number } | null>(null);
   const [error, setError] = useState('');
   const [diseases, setDiseases] = useState<RegistryDisease[]>([]);
   const [facilities, setFacilities] = useState<LinkedFacility[]>([]);
   const [outbreaks, setOutbreaks] = useState<OutbreakOption[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [reporting, setReporting] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(opening?.id ?? null);
+  const [reporting, setReporting] = useState(focus?.route === 'cases' && focus.id === NEW_CASE);
   const [exporting, setExporting] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const key = JSON.stringify({ filters, page, refresh });
+
+  // Opened from header search or the inbox: show that case, whatever its age.
+  const [openedFocus, setOpenedFocus] = useState(focus);
+  if (focus?.route === 'cases' && focus !== openedFocus) {
+    setOpenedFocus(focus);
+    if (focus.id === NEW_CASE) setReporting(true);
+    else {
+      setSearchInput(focus.query ?? '');
+      setFilters({ search: focus.query ?? '' });
+      setPage(0);
+      setSelectedId(focus.id);
+    }
+  }
+  useEffect(() => { if (focus?.route === 'cases') clearFocus(); }, [focus, clearFocus]);
 
   // Search waits for a pause in typing.
   useEffect(() => {

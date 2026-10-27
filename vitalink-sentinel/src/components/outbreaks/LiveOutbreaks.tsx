@@ -275,19 +275,28 @@ function OutbreakDetail({ outbreak, canManage, canPost, onClose, onChanged }: {
 // ---------------------------------------------------------------------------
 
 export function LiveOutbreaks() {
-  const { activeOrganization, me } = useSentinelStore();
+  const { activeOrganization, me, focus, clearFocus } = useSentinelStore();
   const orgId = activeOrganization?.id;
   const canManage = canManageOutbreaks(me?.role);
   const canPost = canEditCases(me?.role);
-  const [filters, setFilters] = useState<OutbreakFilters>({ view: 'open' });
+  const [filters, setFilters] = useState<OutbreakFilters>({ view: focus?.route === 'outbreaks' ? 'all' : 'open' });
   const [data, setData] = useState<{ key: string; outbreaks: SentinelOutbreak[] } | null>(null);
   const [signals, setSignals] = useState<OutbreakSignal[]>([]);
   const [diseases, setDiseases] = useState<RegistryDisease[]>([]);
   const [error, setError] = useState('');
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(focus?.route === 'outbreaks' ? focus.id : null);
   const [declaring, setDeclaring] = useState<Partial<DeclareOutbreak> | null>(null);
   const [refresh, setRefresh] = useState(0);
   const key = JSON.stringify({ filters, refresh });
+
+  // Opened from header search or the inbox (the outbreak may already be closed).
+  const [openedFocus, setOpenedFocus] = useState(focus);
+  if (focus?.route === 'outbreaks' && focus !== openedFocus) {
+    setOpenedFocus(focus);
+    setFilters({ view: 'all' });
+    setSelectedId(focus.id);
+  }
+  useEffect(() => { if (focus?.route === 'outbreaks') clearFocus(); }, [focus, clearFocus]);
 
   useEffect(() => {
     if (!orgId) return;

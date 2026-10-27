@@ -4,8 +4,15 @@ import { SButton as Button } from '@/components/standalone/SButton';
 import { SCard as Card } from '@/components/standalone/SCard';
 import { DataTable } from '@/components/ui/DataTable';
 import { mockStateData, mockWeeklyTrend } from '@/data/mockSentinelData';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveReports } from '@/components/reports/LiveReports';
 
 export function ReportsPage() {
+  return isSupabaseConfigured ? <LiveReports /> : <DemoReports />;
+}
+
+// Offline demo: sample data only.
+function DemoReports() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-bold text-slate-950 dark:text-slate-50">Surveillance Reports</h2><p className="text-sm text-slate-500 dark:text-slate-400">Weekly summaries, disease trends, NTD reports, and exports.</p></div><Button onClick={() => toast.success('Report generated')}>Generate Report</Button></div>

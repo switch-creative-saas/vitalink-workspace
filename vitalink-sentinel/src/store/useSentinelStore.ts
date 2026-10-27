@@ -35,6 +35,8 @@ interface SentinelStoreState {
   route: SentinelRoute;
   timeRange: '7d' | '30d' | '90d' | '1y';
   theme: SentinelTheme;
+  /** A record to open once its page loads (search results, inbox, alert links). */
+  focus: { route: SentinelRoute; id: string; query?: string } | null;
 }
 
 const STORAGE_KEY = 'vitalink-sentinel-standalone-store';
@@ -50,6 +52,7 @@ const defaultState: SentinelStoreState = {
   route: 'login',
   timeRange: '30d',
   theme: 'light',
+  focus: null,
 };
 
 const VALID_ROUTES: SentinelRoute[] = [
@@ -265,6 +268,18 @@ function setState(next: Partial<SentinelStoreState>) {
   emit();
 }
 
+/** `navigate('cases', NEW_CASE)` opens the case report form. */
+export const NEW_CASE = 'new';
+
+// Stable references, so components can pass them to effects and callbacks.
+function navigate(route: SentinelRoute, focusId?: string, query?: string) {
+  setState({ route, focus: focusId ? { route, id: focusId, query } : null });
+}
+
+function clearFocus() {
+  if (state.focus) setState({ focus: null });
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -367,7 +382,8 @@ export function useSentinelStore() {
     organizations: mockOrganizations,
     login,
     logout,
-    navigate: (route: SentinelRoute) => setState({ route }),
+    navigate,
+    clearFocus,
     setTimeRange: (timeRange: SentinelStoreState['timeRange']) => setState({ timeRange }),
     toggleTheme: () => setState({ theme: snapshot.theme === 'dark' ? 'light' : 'dark' }),
   };
