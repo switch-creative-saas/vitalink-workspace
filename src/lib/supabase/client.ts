@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { offlineFetch, startOfflineSync } from '@/lib/offline/sync';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 // VITE_SUPABASE_ANON_KEY is the name the other VitaLink apps use; accept either.
@@ -11,8 +12,32 @@ export const isSupabaseConfigured = Boolean(url && publishableKey);
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(url!, publishableKey!, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      // Saves data on this device and queues changes while offline (src/lib/offline).
+      global: { fetch: offlineFetch },
     })
   : null;
+
+if (supabase) {
+  startOfflineSync({
+    supabaseUrl: url!,
+    apiKey: publishableKey!,
+    accessToken: async () => (await supabase.auth.getSession()).data.session?.access_token ?? null,
+  });
+}
+
+/**
+ * The signed-in user from the session saved in this browser, without contacting
+ * the server. Used to keep working offline after a reload.
+ */
+export function storedSessionUser(): { id: string; email?: string; user_metadata?: Record<string, unknown> } | null {
+  try {
+    const key = Object.keys(localStorage).find((name) => /^sb-.+-auth-token$/.test(name));
+    const saved = key ? JSON.parse(localStorage.getItem(key) ?? 'null') as { user?: { id: string } } | null : null;
+    return saved?.user ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export function requireSupabase(): SupabaseClient {
   if (!supabase) throw new Error('Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY.');

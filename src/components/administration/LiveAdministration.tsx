@@ -3,7 +3,7 @@
 // every change goes through an audited RPC and shows up in the activity logs.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowRightLeft, BarChart3, Building2, CalendarClock, ChevronRight, Clock, Edit3, Hospital, Plus,
+  AlertTriangle, ArrowRightLeft, BarChart3, Building2, CalendarClock, ChevronRight, Clock, Database, Edit3, Hospital, Plus,
   RefreshCw, Save, Search, ShieldAlert, Trash2, UserMinus, UserPlus, Users, Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,12 +19,14 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { PublicHealthSharing } from './PublicHealthSharing';
+import { EmrConnections } from './EmrConnections';
 import {
   assignStaffToDepartment, deleteDepartment, getAdministrationOverview, removeStaffFromDepartment, saveDepartment, saveFacility,
   type AdminActivity, type AdminDepartment, type AdministrationOverview, type DepartmentInput, type FacilityInput, type WorkingDay,
 } from '@/lib/supabase/administration';
 
-type AdminTab = 'departments' | 'facility';
+type AdminTab = 'departments' | 'facility' | 'emr';
 
 const ADMIN_ROLES = ['super-admin', 'hospital-admin', 'ngo-admin', 'government-admin'];
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -203,6 +205,7 @@ export function LiveAdministration() {
         {[
           { id: 'departments' as const, label: 'Departments', icon: Building2 },
           { id: 'facility' as const, label: 'Facility Settings', icon: Hospital },
+          { id: 'emr' as const, label: 'Connected EMRs', icon: Database },
         ].map((t) => (
           <button
             key={t.id}
@@ -215,7 +218,9 @@ export function LiveAdministration() {
         ))}
       </div>
 
-      {loading && !data ? (
+      {tab === 'emr' ? (
+        <EmrConnections organizationId={organization.id} />
+      ) : loading && !data ? (
         <div className="premium-card p-8 text-center text-sm text-gray-500">Loading administration…</div>
       ) : tab === 'departments' ? (
         departments.length === 0 ? (
@@ -478,6 +483,8 @@ export function LiveAdministration() {
               </Button>
             </div>
           </div>
+
+          <PublicHealthSharing organizationId={organization.id} />
 
           <div className="premium-card p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Administration Audit Log</h3>

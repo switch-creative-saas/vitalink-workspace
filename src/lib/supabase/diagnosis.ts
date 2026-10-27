@@ -214,7 +214,8 @@ export interface VitaMindResult {
 }
 
 export class VitaMindError extends Error {
-  constructor(message: string, public code?: string) { super(message); }
+  code?: string;
+  constructor(message: string, code?: string) { super(message); this.code = code; }
 }
 
 async function vitamind<T>(body: Record<string, unknown>): Promise<T> {

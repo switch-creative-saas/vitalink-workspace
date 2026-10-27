@@ -3,6 +3,8 @@ import { User, Settings, Shield, CreditCard, LogOut, ChevronRight, Crown, Trash2
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { workspaceDescriptor } from '@/lib/workspace/workspace';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { useMyProfile } from '@/hooks/useMyProfile';
 
 interface ProfileDropdownProps {
   onNavigate: (page: string) => void;
@@ -14,6 +16,9 @@ export function ProfileDropdown({ onNavigate, onLogout, onDeleteAccount }: Profi
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { userName, userEmail, userAvatar, currentRole, isSuperAdmin, organization } = useAuth();
+  const profile = useMyProfile();
+  const photo = isSupabaseConfigured ? profile?.avatarUrl : null;
+  const openSettings = (tab: string) => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { path: `/settings?tab=${tab}` } }));
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -38,20 +43,20 @@ export function ProfileDropdown({ onNavigate, onLogout, onDeleteAccount }: Profi
       label: 'My Profile',
       icon: User,
       description: 'View and edit your profile',
-      action: () => onNavigate('settings'),
+      action: () => (isSupabaseConfigured ? openSettings('profile') : onNavigate('settings')),
     },
     {
       id: 'account',
       label: 'Account Settings',
       icon: Settings,
-      description: 'Manage account preferences',
-      action: () => onNavigate('settings'),
+      description: 'Sign-in, appearance, notifications',
+      action: () => (isSupabaseConfigured ? openSettings('security') : onNavigate('settings')),
     },
     {
       id: 'security',
       label: 'Security Settings',
       icon: Shield,
-      description: 'Password, 2FA, sessions',
+      description: 'Audit log, sessions, security policy',
       action: () => onNavigate('audit-logs'),
     },
     {
@@ -78,9 +83,11 @@ export function ProfileDropdown({ onNavigate, onLogout, onDeleteAccount }: Profi
           <p className="text-sm font-medium text-slate-900 dark:text-slate-50 truncate">{userName}</p>
           <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{userEmail}</p>
         </div>
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-vitalink-600 to-vitalink-700 flex items-center justify-center text-white font-semibold text-sm">
-          {userAvatar}
-        </div>
+        {photo ? <img src={photo} alt="" className="w-9 h-9 rounded-xl object-cover" /> : (
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-vitalink-600 to-vitalink-700 flex items-center justify-center text-white font-semibold text-sm">
+            {userAvatar}
+          </div>
+        )}
         {isSuperAdmin && (
           <Crown className="w-4 h-4 text-vitamind-500" />
         )}
@@ -91,9 +98,11 @@ export function ProfileDropdown({ onNavigate, onLogout, onDeleteAccount }: Profi
           {/* User Info Header */}
           <div className="px-4 py-4 border-b border-gray-100 dark:border-slate-700">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-vitalink-600 to-vitalink-700 flex items-center justify-center text-white font-bold text-lg">
-                {userAvatar}
-              </div>
+              {photo ? <img src={photo} alt="" className="w-12 h-12 rounded-xl object-cover" /> : (
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-vitalink-600 to-vitalink-700 flex items-center justify-center text-white font-bold text-lg">
+                  {userAvatar}
+                </div>
+              )}
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-slate-900 dark:text-slate-50 truncate">{userName}</p>
                 <p className="text-xs text-slate-600 dark:text-slate-400 truncate">{userEmail}</p>
@@ -153,10 +162,12 @@ export function ProfileDropdown({ onNavigate, onLogout, onDeleteAccount }: Profi
             </button>
             <button
               onClick={() => {
+                setIsOpen(false);
+                // Live accounts are tied to clinical records, so deletion goes through Support.
+                if (isSupabaseConfigured) { openSettings('security'); return; }
                 const confirmed = window.confirm('Delete this account permanently? This cannot be undone.');
                 if (!confirmed) return;
                 onDeleteAccount();
-                setIsOpen(false);
               }}
               className="w-full mt-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all duration-150 hover:bg-red-50 group"
             >

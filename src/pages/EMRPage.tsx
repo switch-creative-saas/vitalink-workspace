@@ -12,6 +12,7 @@ import {
   FlaskConical,
   History,
   Network,
+  Database,
   Lock,
   Mic,
   Paperclip,
@@ -31,6 +32,7 @@ import { findPatientBySwitchId, type RegistryPatient } from '@/lib/patientRegist
 import { SENTINEL_CLINICAL_EVENT, type SentinelClinicalPayload } from '@/lib/sentinel/events';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { ReceivedRecordsPanel } from '@/components/network/ReceivedRecordsPanel';
+import { ConnectedEmrRecords } from '@/components/patients/ConnectedEmrRecords';
 import {
   completeLab,
   formatVitals,
@@ -48,7 +50,7 @@ import { createPrescriptions, parsePrescriptionLines } from '@/lib/supabase/phar
 import { createLabOrder } from '@/lib/supabase/lab';
 import { DOCUMENT_CATEGORIES, documentLink, listDocuments, uploadDocument as uploadPatientDocument, type DocumentCategory } from '@/lib/supabase/documents';
 
-type EmrTab = 'overview' | 'clinical-notes' | 'lab-results' | 'documents' | 'timeline' | 'network';
+type EmrTab = 'overview' | 'clinical-notes' | 'lab-results' | 'documents' | 'timeline' | 'network' | 'connected-emr';
 type TimelineType = 'clinical-note' | 'lab-uploaded' | 'document-added' | 'diagnosis-updated' | 'prescription-issued';
 type RiskLevel = 'low' | 'moderate' | 'high' | 'critical';
 
@@ -99,6 +101,8 @@ const tabs: { id: EmrTab; label: string; icon: React.ElementType }[] = [
   { id: 'timeline', label: 'Timeline', icon: History },
   // Live workspaces only: records other hospitals shared over the VitaLink Network.
   ...(isSupabaseConfigured ? [{ id: 'network' as const, label: 'From other hospitals', icon: Network }] : []),
+  // Live workspaces only: history imported from the hospital's other EMR (Administration → Connected EMRs).
+  ...(isSupabaseConfigured ? [{ id: 'connected-emr' as const, label: 'From connected EMRs', icon: Database }] : []),
 ];
 
 const defaultLabResults: LabResultItem[] = [
@@ -1068,6 +1072,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
             )}
 
             {activeTab === 'network' && patientId && <ReceivedRecordsPanel patientId={patientId} />}
+            {activeTab === 'connected-emr' && patientId && <ConnectedEmrRecords patientId={patientId} />}
 
             {activeTab === 'timeline' && (
               <div className="space-y-3">

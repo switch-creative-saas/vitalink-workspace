@@ -52,3 +52,8 @@ export function applyTheme(mode: ThemeMode) {
 export function initTheme() {
   applyTheme(getSavedTheme());
 }
+
+/** Scales all rem-based text (Settings → Appearance → Text size). */
+export function applyFontScale(percent: number) {
+  document.documentElement.style.fontSize = `${percent}%`;
+}

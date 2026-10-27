@@ -699,6 +699,34 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   const handleOrgInfo = () => {
     setAuthError('');
     if (!orgForm.name.trim()) return setAuthError('Organization Name is required');
+    if (isPublicHealthSignup) {
+      const sentinelUrl = new URL(import.meta.env.VITE_SENTINEL_WORKSPACE_URL ?? 'http://127.0.0.1:5173/');
+      sentinelUrl.pathname = '/register';
+      sentinelUrl.searchParams.set('handoff', 'true');
+      sentinelUrl.searchParams.set('email', signupForm.email);
+      sentinelUrl.searchParams.set('fullName', `${signupForm.firstName} ${signupForm.lastName}`.trim());
+      sentinelUrl.searchParams.set('orgName', orgForm.name);
+      sentinelUrl.searchParams.set('orgType', selectedOrganizationType);
+      sentinelUrl.searchParams.set('state', orgForm.state || publicHealthSetup.jurisdiction);
+      sentinelUrl.searchParams.set('phone', orgForm.phone);
+      sentinelUrl.searchParams.set('sector', sectorForOrganizationType(selectedOrganizationType));
+      sentinelUrl.searchParams.set('joinedNetwork', String(networkForm.joinedNetwork));
+      localStorage.setItem('sentinel_registration_handoff', JSON.stringify({
+        email: signupForm.email,
+        fullName: `${signupForm.firstName} ${signupForm.lastName}`.trim(),
+        password: signupForm.password,
+        orgName: orgForm.name,
+        orgType: selectedOrganizationType,
+        state: orgForm.state || publicHealthSetup.jurisdiction,
+        contactPhone: orgForm.phone,
+        sector: sectorForOrganizationType(selectedOrganizationType),
+        joinedNetwork: networkForm.joinedNetwork,
+        source: 'hospital-dashboard-registration',
+        timestamp: new Date().toISOString(),
+      }));
+      window.location.href = sentinelUrl.toString();
+      return;
+    }
     setStage('subscription');
   };
 

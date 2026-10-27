@@ -23,17 +23,25 @@ interface AuthContextValue {
   currentRole: UserRole;
 }
 
+// Sentinel member roles (sentinel_users.role) to the app's role-based views.
+const LIVE_ROLES: Record<string, UserRole> = {
+  admin: 'super-admin', officer: 'public-health-officer', analyst: 'epidemiologist', field_worker: 'community-health-worker', viewer: 'who-ngo-observer',
+};
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { activeOrganization } = useSentinelStore();
+  const { activeOrganization, me } = useSentinelStore();
   const value = useMemo<AuthContextValue>(
-    () => ({
-      userName: 'Sentinel Officer',
-      userEmail: activeOrganization ? `officer@${activeOrganization.id}.sentinel.ng` : 'officer@sentinel.ng',
-      currentRole: activeOrganization?.type === 'ngo' ? 'ngo-program-manager' : 'public-health-officer',
-    }),
-    [activeOrganization],
+    () => (me
+      // Live: the signed-in member and their Sentinel role.
+      ? { userName: me.fullName, userEmail: me.email, currentRole: LIVE_ROLES[me.role] ?? 'public-health-officer' }
+      : {
+        userName: 'Sentinel Officer',
+        userEmail: activeOrganization ? `officer@${activeOrganization.id}.sentinel.ng` : 'officer@sentinel.ng',
+        currentRole: activeOrganization?.type === 'ngo' ? 'ngo-program-manager' : 'public-health-officer',
+      }),
+    [activeOrganization, me],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

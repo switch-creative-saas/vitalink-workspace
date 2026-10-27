@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { Bell, X, CheckCircle, Clock, AlertTriangle, CreditCard, UserPlus, FlaskConical, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveNotificationBell } from './LiveNotificationBell';
 
 interface Notification {
   id: string;
@@ -100,7 +102,12 @@ function formatTimeAgo(isoString: string): string {
   return `${days}d ago`;
 }
 
+// Live workspaces get real notifications; the samples below only back the offline demo.
 export function NotificationBell() {
+  return isSupabaseConfigured ? <LiveNotificationBell /> : <DemoNotificationBell />;
+}
+
+function DemoNotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState(mockNotifications);
   const panelRef = useRef<HTMLDivElement>(null);

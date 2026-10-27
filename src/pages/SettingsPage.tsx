@@ -38,6 +38,8 @@ import { useGuidedTour } from '@/contexts/GuidedTourContext';
 import { isFeatureEnabled, setFeatureOverride, clearFeatureOverride } from '@/config/featureFlags';
 
 import { RoleSwitcher } from '@/components/role/RoleSwitcher';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveSettings } from '@/components/settings/LiveSettings';
 
 const tabs = [
   { id: 'profile', label: 'Profile', icon: User },
@@ -80,7 +82,12 @@ function describeThisDevice() {
   return `${os} - ${browser} (this device)`;
 }
 
+// Live workspaces use real profile and preference settings; the rest of this file backs the offline demo.
 export function SettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
+  return isSupabaseConfigured ? <LiveSettings onLogout={onLogout} /> : <DemoSettingsPage onLogout={onLogout} onDeleteAccount={onDeleteAccount} />;
+}
+
+function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
   const { currentRole, setCurrentRole, userName, userEmail, hasPermission } = useAuth();
   const { subscription, hasAccess, DEV_OVERRIDE, addAudit } = useSubscription();
   const { toursEnabled, setToursEnabled, resetOnboarding, replayCurrentRoleTour, startRoleOnboarding } = useGuidedTour();

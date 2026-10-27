@@ -22,7 +22,7 @@ import {
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { SentinelProvider } from '@/contexts/SentinelContext';
-import { useSentinelStore } from '@/store/useSentinelStore';
+import { bootstrapLiveSession, useSentinelStore } from '@/store/useSentinelStore';
 
 function CurrentPage() {
   const { route } = useSentinelStore();
@@ -62,8 +62,12 @@ function CurrentPage() {
   }
 }
 
+// Live mode: restore the Supabase session before deciding what to show.
+bootstrapLiveSession();
+
 export default function App() {
-  const { isAuthenticated } = useSentinelStore();
+  const { isAuthenticated, authReady } = useSentinelStore();
+  if (!authReady) return <div className="grid min-h-screen place-items-center bg-white text-sm text-slate-500 dark:bg-slate-950 dark:text-slate-400">Loading VitaLink Sentinel…</div>;
   if (!isAuthenticated) return <LoginPage />;
 
   return (

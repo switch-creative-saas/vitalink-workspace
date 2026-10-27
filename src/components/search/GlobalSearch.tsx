@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, X, User, Calendar, FlaskConical, Pill, Users, ArrowRight, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveGlobalSearch } from './LiveGlobalSearch';
 
 interface SearchResult {
   id: string;
@@ -27,7 +29,12 @@ const mockSearchData: SearchResult[] = [
   { id: 'S-002', type: 'staff', title: 'Nurse Amina Bello', subtitle: 'Nurse • Emergency • Active', status: 'Active', icon: Users, color: 'text-royal-600', route: '/staff/S-002' },
 ];
 
+// Live workspaces search real records; the samples below only back the offline demo.
 export function GlobalSearch() {
+  return isSupabaseConfigured ? <LiveGlobalSearch /> : <DemoGlobalSearch />;
+}
+
+function DemoGlobalSearch() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);

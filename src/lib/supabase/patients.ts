@@ -225,6 +225,8 @@ async function findDuplicate(patient: NewPatient): Promise<PatientRow | null> {
     .eq('organization_id', patient.tenantId)
     .or(terms.join(','))
     .limit(1);
+  // Offline the registry can't be searched; the patient is still registered and syncs later.
+  if (error?.code === 'OFFLINE') return null;
   if (error) throw error;
   return (data?.[0] as PatientRow | undefined) ?? null;
 }

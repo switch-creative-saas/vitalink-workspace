@@ -13,7 +13,6 @@ import {
   Lock,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
   UserCog,
   Building2,
   Shield,
@@ -24,6 +23,7 @@ import {
   Video,
   BrainCircuit,
   Network,
+  Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useResponsive } from '@/contexts/ResponsiveContext';
@@ -253,17 +253,22 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
         })}
       </nav>
 
-      {/* VitaMind AI Promo */}
+      {/* VitaLink Sentinel: the disease-surveillance dashboard is its own app (vitalink-sentinel). */}
       {expanded && (
         <div className="mx-4 mb-4 p-4 rounded-2xl bg-gradient-to-br from-[#6D28D9]/30 to-[#4C1D95]/20 border border-[#6D28D9]/35">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="w-4 h-4 text-violet-200" />
-            <span className="text-xs font-semibold text-violet-100">{BRAND.assistant}</span>
+            <Activity className="w-4 h-4 text-violet-200" />
+            <span className="text-xs font-semibold text-violet-100">VitaLink Sentinel</span>
           </div>
-          <p className="text-[10px] text-white/70 mb-3 leading-snug">Clinical Intelligence for Better Healthcare</p>
-          <button type="button" className="w-full py-2 px-3 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-all duration-200">
-            Open VitaMind
-          </button>
+          <p className="text-[10px] text-white/70 mb-3 leading-snug">Disease surveillance and outbreak intelligence</p>
+          <a
+            href={import.meta.env.VITE_SENTINEL_WORKSPACE_URL ?? 'http://127.0.0.1:5173/'}
+            target="_blank"
+            rel="noreferrer"
+            className="block w-full py-2 px-3 rounded-lg bg-white/15 hover:bg-white/25 text-center text-white text-xs font-medium transition-all duration-200"
+          >
+            Open Sentinel
+          </a>
         </div>
       )}
 

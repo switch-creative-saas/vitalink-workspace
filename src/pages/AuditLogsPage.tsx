@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useSecurityAudit, type AuditLogEntry } from '@/contexts/SecurityAuditContext';
 import { toast } from 'sonner';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveSecurityAudit } from '@/components/security/LiveSecurityAudit';
 
 const getActionColor = (action: string) => {
   if (action === 'DELETE' || action === 'UNAUTHORIZED') return 'bg-red-500/10 text-red-600 border-red-200';
@@ -36,7 +38,12 @@ const formatDateTime = (isoString: string) => {
   };
 };
 
+// Live workspaces use the real audit trail and sessions; the sample data below only backs the offline demo.
 export function AuditLogsPage() {
+  return isSupabaseConfigured ? <LiveSecurityAudit /> : <DemoAuditLogsPage />;
+}
+
+function DemoAuditLogsPage() {
   const { currentRole, userEmail } = useAuth();
   const { subscription } = useSubscription();
   const { logs, sessions, policies, flagLog, exportLogs, terminateSession, terminateAllSessions, updatePolicy } = useSecurityAudit();

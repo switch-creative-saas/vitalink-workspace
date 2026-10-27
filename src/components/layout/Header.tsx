@@ -10,6 +10,9 @@ import { applyTheme, getSavedTheme, type ThemeMode } from '@/lib/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { workspaceDescriptor } from '@/lib/workspace/workspace';
 import { usePlan } from '@/hooks/usePlan';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { getMyProfile, updateMyProfile } from '@/lib/supabase/profile';
+import { OfflineStatusChip } from '@/components/offline/OfflineStatus';
 
 interface HeaderProps {
   title: string;
@@ -49,6 +52,10 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
   const setThemeMode = (mode: ThemeMode) => {
     setTheme(mode);
     applyTheme(mode);
+    // Saved to the account so the theme follows the user to other devices.
+    if (isSupabaseConfigured) {
+      void getMyProfile().then((p) => p && updateMyProfile(p.id, { preferences: { ...p.preferences, theme: mode } })).catch(() => undefined);
+    }
   };
 
   return (
@@ -87,7 +94,7 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
           <span className="max-w-full truncate text-[10px] text-slate-600 dark:text-slate-400">{workspaceDescriptor(organization)}</span>
         </div>
 
-        <div className={cn(
+        {isSupabaseConfigured ? <OfflineStatusChip /> : <div className={cn(
           "hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium",
           isOnline 
             ? "bg-green-100 text-green-700" 
@@ -95,7 +102,7 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
         )}>
           {isOnline ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
           <span className="hidden lg:inline">{isOnline ? 'Online' : 'Offline'}</span>
-        </div>
+        </div>}
 
         {/* AI Button */}
         <button

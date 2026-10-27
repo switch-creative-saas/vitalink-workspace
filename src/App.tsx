@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { LifeBuoy, Lock } from 'lucide-react';
 import { ResponsiveProvider } from '@/contexts/ResponsiveContext';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -44,6 +45,9 @@ import { usePlan } from '@/hooks/usePlan';
 import { UpgradeGate } from '@/components/UpgradeGate';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { signOut } from '@/lib/supabase/auth';
+import { SessionGuard } from '@/components/security/SessionGuard';
+import { OfflineBanner } from '@/components/offline/OfflineStatus';
+import { ProfileSync } from '@/components/profile/ProfileSync';
 
 // The VitaLink Console is its own app (own sign-in, own layout); only its code is downloaded at /console.
 const ConsoleApp = lazy(() => import('@/components/console/ConsoleApp'));
@@ -249,7 +253,7 @@ function AppShell() {
       case 'audit-logs':
         return <AuditLogsPage />;
       case 'settings':
-        return <SettingsPage onLogout={handleLogout} onDeleteAccount={handleDeleteAccount} />;
+        return <SettingsPage onLogout={() => void handleLogout()} onDeleteAccount={handleDeleteAccount} />;
       case 'help':
         return <HelpSupportPage />;
       default:
@@ -345,17 +349,30 @@ function AppShell() {
     window.history.pushState({}, '', path);
   };
 
-  const handleLogout = async () => {
-    if (!canLeaveOnboardingWizard()) return;
+  const loggingOut = useRef(false);
+  const handleLogout = async (forced = false) => {
+    if (!forced && !canLeaveOnboardingWizard()) return;
+    loggingOut.current = true;
     localStorage.removeItem('vitalink-auth-session');
     // Must finish before the gateway mounts, or its session check signs the user straight back in.
-    if (isSupabaseConfigured) await signOut().catch(() => undefined);
+    if (isSupabaseConfigured) {
+      const unsynced = await signOut().catch(() => 0);
+      if (unsynced) toast.info(`${unsynced} change${unsynced === 1 ? '' : 's'} made offline will be sent the next time you sign in on this device.`, { duration: 10000 });
+    }
     resetPlatformAdminCheck();
     setActiveOrganization(null);
     setIsAuthenticated(false);
     setCurrentPage('dashboard');
     setVitaMindPanelOpen(false);
     window.history.pushState({}, '', '/');
+    loggingOut.current = false;
+  };
+
+  // Idle timeout, or the session was ended from another device / by an admin.
+  const handleForcedSignOut = (reason: string) => {
+    if (loggingOut.current) return;
+    toast.info(reason, { duration: 8000 });
+    void handleLogout(true);
   };
 
   const handleDeleteAccount = () => {
@@ -382,6 +399,8 @@ function AppShell() {
         <GuidedTourProvider currentPage={currentPage} currentRole={currentRole} userName={userName} onNavigate={navigateToPage}>
           <AppointmentProvider>
           <AppLayout>
+            {isSupabaseConfigured && organization.id && <SessionGuard organizationId={organization.id} onSignOut={handleForcedSignOut} />}
+            {isSupabaseConfigured && <ProfileSync />}
             <div className="app-shell flex h-screen overflow-hidden min-w-0 max-w-[100vw]">
         <Sidebar 
           currentPage={currentPage} 
@@ -393,10 +412,11 @@ function AppShell() {
             title={getPageTitle()} 
             onAIClick={() => setVitaMindPanelOpen(!vitaMindPanelOpen)}
             onPageChange={(page) => navigateToPage(page as PageType)}
-            onLogout={handleLogout}
+            onLogout={() => void handleLogout()}
             onDeleteAccount={handleDeleteAccount}
           />
           
+          {isSupabaseConfigured && <OfflineBanner />}
           <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 page-transition">
             <PageContainer className="py-4 md:py-5 lg:py-6">
               {renderPage()}
@@ -417,12 +437,13 @@ function AppShell() {
           <LifeBuoy className="w-5 h-5" />
         </button>
         <AIFloatingButton onClick={() => setVitaMindPanelOpen(!vitaMindPanelOpen)} />
-        <Toaster position="top-right" />
             </div>
           </AppLayout>
           </AppointmentProvider>
         </GuidedTourProvider>
       )}
+      {/* Below the 80px header so toasts never cover search, the bell or the profile menu. */}
+      <Toaster position="top-right" offset={88} />
     </SecurityAuditProvider>
   );
 }

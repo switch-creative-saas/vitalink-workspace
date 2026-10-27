@@ -10,15 +10,23 @@ import { OutbreakTimeline } from '@/components/dashboard/OutbreakTimeline';
 import { GeographicHeatmap } from '@/components/dashboard/GeographicHeatmap';
 import { mockRecentCases } from '@/data/mockSentinelData';
 import { useSentinelStore } from '@/store/useSentinelStore';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveDashboard } from '@/components/dashboard/LiveDashboard';
+import { format } from 'date-fns';
 
 export function DashboardPage() {
+  return isSupabaseConfigured ? <LiveDashboard /> : <DemoDashboard />;
+}
+
+// Offline demo: sample data only.
+function DemoDashboard() {
   const { activeOrganization } = useSentinelStore();
   const topDiseases = ['Malaria', 'Cholera', 'Tuberculosis', 'Diphtheria', 'Lassa Fever'];
   return (
     <div className="space-y-5">
       <section className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-[#F1F5F9] p-6 dark:border-slate-800 dark:bg-slate-900">
         <div>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Saturday, 5th September</p>
+          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{format(new Date(), 'EEEE, do MMMM')}</p>
           <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">Good morning, {activeOrganization?.fullName ?? 'Sentinel team'}.</h2>
         </div>
         <div className="flex items-center gap-2">

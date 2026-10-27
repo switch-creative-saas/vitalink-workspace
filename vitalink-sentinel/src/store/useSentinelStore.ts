@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
 import { mockOrganizations, type MockOrganization, type OrganizationType } from '@/data/mockSentinelData';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase/client';
+import { getMe, signOut as liveSignOut, type SentinelMe } from '@/lib/supabase/sentinel';
 
 export type SentinelRoute =
   | 'login'
@@ -24,6 +26,12 @@ export type SentinelTheme = 'dark' | 'light';
 interface SentinelStoreState {
   isAuthenticated: boolean;
   activeOrganization: MockOrganization | null;
+  /** Live mode: false until the Supabase session has been checked. */
+  authReady: boolean;
+  /** Live mode: the signed-in Sentinel member. */
+  me: SentinelMe | null;
+  /** Live mode: signed in, but not yet part of a Sentinel organisation (finish registration). */
+  pendingAccount: { email: string; fullName: string } | null;
   route: SentinelRoute;
   timeRange: '7d' | '30d' | '90d' | '1y';
   theme: SentinelTheme;
@@ -36,6 +44,9 @@ const SENTINEL_ORG_KEY = 'sentinel_org';
 const defaultState: SentinelStoreState = {
   isAuthenticated: false,
   activeOrganization: null,
+  authReady: !isSupabaseConfigured,
+  me: null,
+  pendingAccount: null,
   route: 'login',
   timeRange: '30d',
   theme: 'light',
@@ -63,6 +74,17 @@ let state = loadState();
 const listeners = new Set<() => void>();
 
 function loadState(): SentinelStoreState {
+  // Live: only a real Supabase session (checked in bootstrapLiveSession) signs anyone
+  // in. Browser storage and ?sentinelAuto=1 links are trusted in the offline demo only.
+  if (isSupabaseConfigured) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<SentinelStoreState>;
+      return { ...defaultState, theme: saved.theme ?? defaultState.theme, timeRange: saved.timeRange ?? defaultState.timeRange };
+    } catch {
+      return defaultState;
+    }
+  }
+
   const bootstrapped = loadOrganizationFromUrl();
   if (bootstrapped) {
     return {
@@ -211,8 +233,10 @@ function normalizeSubscriptionTier(value?: string | null): 'free' | 'standard' |
 }
 
 function emit() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  if (state.isAuthenticated && state.activeOrganization) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(isSupabaseConfigured
+    ? { theme: state.theme, timeRange: state.timeRange, route: state.route }
+    : state));
+  if (!isSupabaseConfigured && state.isAuthenticated && state.activeOrganization) {
     localStorage.setItem(SENTINEL_AUTH_KEY, JSON.stringify({
       isAuthenticated: true,
       orgId: state.activeOrganization.id,
@@ -252,6 +276,69 @@ function getSnapshot() {
 
 emit();
 
+// ---------------------------------------------------------------------------
+// Live mode (Supabase)
+
+const LIVE_ORG_TYPES: Record<string, OrganizationType> = {
+  NGO: 'ngo', Government: 'national_agency', Ministry: 'state_ministry', International: 'international', Research: 'ngo', Academic: 'ngo',
+};
+
+function organizationFromMe(me: SentinelMe): MockOrganization {
+  const type = LIVE_ORG_TYPES[me.organization.type] ?? 'ngo';
+  return {
+    id: me.organization.id,
+    name: getOrgInitials(me.organization.name),
+    fullName: me.organization.name,
+    type,
+    state: me.organization.state,
+    sector: sectorForOrganizationType(type),
+    contactEmail: me.organization.contactEmail ?? undefined,
+    contactPhone: me.organization.contactPhone ?? undefined,
+    createdAt: me.organization.createdAt,
+    subscriptionTier: 'free',
+  };
+}
+
+function lastRoute(): SentinelRoute {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as { route?: SentinelRoute };
+    return saved.route && VALID_ROUTES.includes(saved.route) ? saved.route : 'dashboard';
+  } catch {
+    return 'dashboard';
+  }
+}
+
+/** Signs the current Supabase user in to Sentinel, or flags that they still need an organisation. */
+export async function syncLiveSession(): Promise<SentinelMe | null> {
+  const { data } = await supabase!.auth.getSession();
+  const user = data.session?.user;
+  if (!user) {
+    setState({ authReady: true, isAuthenticated: false, me: null, activeOrganization: null, pendingAccount: null, route: 'login' });
+    return null;
+  }
+  const me = await getMe().catch(() => null);
+  if (me) {
+    setState({ authReady: true, isAuthenticated: true, me, activeOrganization: organizationFromMe(me), pendingAccount: null,
+      route: state.isAuthenticated ? state.route : lastRoute() });
+  } else {
+    setState({ authReady: true, isAuthenticated: false, me: null, activeOrganization: null, route: 'login',
+      pendingAccount: { email: user.email ?? '', fullName: (user.user_metadata?.full_name as string | undefined) ?? '' } });
+  }
+  return me;
+}
+
+let liveStarted = false;
+/** Called once at start-up: restores the session and follows sign-in / sign-out from any tab. */
+export function bootstrapLiveSession() {
+  if (!isSupabaseConfigured || liveStarted) return;
+  liveStarted = true;
+  void syncLiveSession();
+  supabase!.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') setState({ isAuthenticated: false, me: null, activeOrganization: null, pendingAccount: null, route: 'login' });
+    if (event === 'SIGNED_IN') void syncLiveSession();
+  });
+}
+
 export function useSentinelStore() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
@@ -265,6 +352,11 @@ export function useSentinelStore() {
   }, []);
 
   const logout = useCallback(() => {
+    if (isSupabaseConfigured) {
+      void liveSignOut();
+      setState({ isAuthenticated: false, me: null, activeOrganization: null, pendingAccount: null, route: 'login' });
+      return;
+    }
     localStorage.removeItem(SENTINEL_AUTH_KEY);
     localStorage.removeItem(SENTINEL_ORG_KEY);
     setState({ isAuthenticated: false, activeOrganization: null, route: 'login' });

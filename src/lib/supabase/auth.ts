@@ -1,7 +1,8 @@
 import type { UserRole } from '@/contexts/AuthContext';
 import type { User } from '@supabase/supabase-js';
 import type { OrganizationType } from '@/lib/workspace/organizationTypes';
-import { requireSupabase, functionErrorMessage } from './client';
+import { requireSupabase, functionErrorMessage, storedSessionUser } from './client';
+import { offlineUserId, wipeOfflineData } from '@/lib/offline/sync';
 
 export type OAuthProvider = 'google' | 'microsoft' | 'apple';
 export type BillingCycle = 'monthly' | 'annual';
@@ -39,8 +40,14 @@ function toSessionUser(user: User): SessionUser {
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {
-  const { data } = await requireSupabase().auth.getUser();
-  return data.user ? toSessionUser(data.user) : null;
+  const { data, error } = await requireSupabase().auth.getUser();
+  if (data.user) return toSessionUser(data.user);
+  // Offline: keep the person signed in on a device they already used online,
+  // where their encrypted offline data is still present.
+  const unreachable = !navigator.onLine || error?.name === 'AuthRetryableFetchError';
+  const stored = unreachable ? storedSessionUser() : null;
+  if (stored && stored.id === (await offlineUserId())) return toSessionUser(stored as User);
+  return null;
 }
 
 export async function signIn(email: string, password: string): Promise<SessionUser> {
@@ -95,7 +102,12 @@ export async function updatePassword(password: string) {
 }
 
 export async function signOut() {
-  await requireSupabase().auth.signOut();
+  // Logged first, while the session can still write to the audit trail.
+  await requireSupabase().rpc('security_log_event', { p_action: 'sign_out' }).then(() => undefined, () => undefined);
+  // This device only. Supabase's default ('global') would end every session the user has,
+  // so an idle sign-out on one computer would sign them out everywhere.
+  await requireSupabase().auth.signOut({ scope: 'local' });
+  return wipeOfflineData();
 }
 
 export function onPasswordRecovery(callback: () => void) {
