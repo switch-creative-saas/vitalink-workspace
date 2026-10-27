@@ -6,8 +6,15 @@ import { SCard as Card } from '@/components/standalone/SCard';
 import { Modal } from '@/components/ui/Modal';
 import { SSelect as Select } from '@/components/standalone/SSelect';
 import { mockActiveOutbreaks, diseaseLibrary, mockFacilities } from '@/data/mockSentinelData';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveOutbreaks } from '@/components/outbreaks/LiveOutbreaks';
 
 export function OutbreaksPage() {
+  return isSupabaseConfigured ? <LiveOutbreaks /> : <DemoOutbreaks />;
+}
+
+// Offline demo: sample data only.
+function DemoOutbreaks() {
   const [open, setOpen] = useState(false);
   return (
     <div className="space-y-5">

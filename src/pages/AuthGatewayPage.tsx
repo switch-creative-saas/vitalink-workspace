@@ -3,8 +3,6 @@ import { toast } from 'sonner';
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { 
   GoogleButton, 
-  AppleButton, 
-  MicrosoftButton, 
   EmailButton, 
   AuthDivider 
 } from '@/components/auth/SocialButtons';
@@ -32,7 +30,7 @@ import {
   type WorkspaceType,
 } from '@/lib/workspace/organizationTypes';
 import { defaultPageForWorkspace } from '@/lib/workspace/workspace';
-import { PUBLIC_HEALTH_ROLES, defaultRoleForOrganizationType } from '@/lib/workspace/roles';
+import { PUBLIC_HEALTH_ROLES, WORKSPACE_OWNER_ROLE } from '@/lib/workspace/roles';
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
@@ -64,7 +62,7 @@ type AuthUser = {
   email: string;
   role: UserRole;
   passwordHash?: string;
-  provider: 'email' | 'google' | 'microsoft' | 'apple';
+  provider: 'email' | 'google';
   onboardingComplete: boolean;
   tenantId?: string;
   orgSlug?: string;
@@ -474,7 +472,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     email: '',
     password: '',
     confirmPassword: '',
-    provider: 'email' as 'email' | 'google' | 'microsoft' | 'apple',
+    provider: 'email' as 'email' | 'google',
   });
   
   const [orgForm, setOrgForm] = useState({
@@ -646,7 +644,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   /* ─────────────────────────────────────────────────────────
      OAUTH MOCK
      ───────────────────────────────────────────────────────── */
-  const handleOAuth = async (provider: 'google' | 'microsoft' | 'apple') => {
+  const handleOAuth = async (provider: 'google') => {
     setLoading(true);
     if (isSupabaseConfigured) {
       setAuthError('');
@@ -822,7 +820,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             verified: false,
           }).catch(() => undefined); // not fatal: they can finish it in Network settings
         }
-        const createdUser = membershipToAuthUser(sessionUser, { role: defaultRoleForOrganizationType(organizationType), organization: org });
+        const createdUser = membershipToAuthUser(sessionUser, { role: WORKSPACE_OWNER_ROLE, organization: org });
         localStorage.setItem('vitalink-active-organization', JSON.stringify(organizationForUser(createdUser)));
         localStorage.setItem('vitalink-last-workspace', org.slug);
         localStorage.removeItem('vitalink-pending-slug');
@@ -854,7 +852,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       id: `usr-${Date.now()}`,
       fullName: `${signupForm.firstName} ${signupForm.lastName}`,
       email: signupForm.email,
-      role: defaultRoleForOrganizationType(organizationType),
+      role: WORKSPACE_OWNER_ROLE,
       passwordHash: await hashPassword(signupForm.password),
       provider: signupForm.provider,
       onboardingComplete: true,
@@ -1011,9 +1009,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             <TrustIndicator />
             <AuthDivider />
 
-            <MicrosoftButton onClick={() => handleOAuth('microsoft')} disabled={loading} />
             <GoogleButton onClick={() => handleOAuth('google')} disabled={loading} />
-            <AppleButton onClick={() => handleOAuth('apple')} disabled={loading} />
 
             <FooterLinks 
               primaryText="Registering a new organization?"
@@ -1028,9 +1024,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
           <div className="animate-[auth-form-slide-up_0.5s_ease-out_both] flex flex-col gap-3">
             <p className="text-[var(--auth-text-secondary)] mb-1">Start setting up your enterprise workspace.</p>
             
-            <MicrosoftButton onClick={() => handleOAuth('microsoft')} disabled={loading} />
             <GoogleButton onClick={() => handleOAuth('google')} disabled={loading} />
-            <AppleButton onClick={() => handleOAuth('apple')} disabled={loading} />
             
             <AuthDivider />
             

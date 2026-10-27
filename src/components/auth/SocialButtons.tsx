@@ -36,43 +36,13 @@ export function GoogleButton({ onClick, disabled }: Omit<SocialButtonProps, 'ico
         disabled ? (
           <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
         ) : (
-          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.3-1.5 3.9-5.5 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.9 3.6 14.7 2.7 12 2.7 6.9 2.7 2.7 6.9 2.7 12S6.9 21.3 12 21.3c6.9 0 9.1-4.8 9.1-7.3 0-.5 0-.9-.1-1.3H12z"/>
+          <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+            <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
           </svg>
         )
-      }
-    />
-  );
-}
-
-export function AppleButton({ onClick, disabled }: Omit<SocialButtonProps, 'icon' | 'label'>) {
-  return (
-    <BaseSocialButton
-      onClick={onClick}
-      disabled={disabled}
-      label="Continue with Apple"
-      icon={
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="text-[var(--auth-text-primary)]">
-          <path d="M16.365 21.41c-1.393.991-2.915 1.056-4.321.037-1.464-1.042-2.951-1.042-4.402.019-1.503 1.096-3.125 1.036-4.354-.035-4.838-4.225-7.51-12.879-2.585-17.701 2.213-2.181 5.372-2.457 7.037-1.127 1.488 1.189 2.502 1.135 3.905-.03 2.184-1.815 5.568-1.378 7.027.915-4.636 2.302-3.805 9.155 1.097 10.976-1.082 3.036-2.079 5.862-3.404 6.946zM15.42 6.643c-.87.973-2.309 1.545-3.551 1.341-.284-1.442.366-2.88 1.171-3.791 1.01-1.138 2.535-1.637 3.655-1.376.242 1.542-.392 2.878-1.275 3.826z"/>
-        </svg>
-      }
-    />
-  );
-}
-
-export function MicrosoftButton({ onClick, disabled }: Omit<SocialButtonProps, 'icon' | 'label'>) {
-  return (
-    <BaseSocialButton
-      onClick={onClick}
-      disabled={disabled}
-      label="Continue with Microsoft"
-      icon={
-        <svg width="20" height="20" viewBox="0 0 21 21" fill="none" aria-hidden="true">
-          <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-          <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
-          <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
-          <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
-        </svg>
       }
     />
   );

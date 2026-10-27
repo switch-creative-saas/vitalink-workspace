@@ -7,6 +7,9 @@ import { ReportsPage } from '@/pages/ReportsPage';
 import { FacilitiesPage } from '@/pages/FacilitiesPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveCases } from '@/components/cases/LiveCases';
+import { LiveAlerts } from '@/components/alerts/LiveAlerts';
 import {
   CaseReportingFeature,
   CommunityReportingFeature,
@@ -32,9 +35,10 @@ function CurrentPage() {
     case 'outbreaks':
       return <OutbreaksPage />;
     case 'cases':
-      return <CaseReportingFeature />;
+      // Live: the case registry on Supabase; the demo keeps its sample feature module.
+      return isSupabaseConfigured ? <LiveCases /> : <CaseReportingFeature />;
     case 'alerts':
-      return <PublicHealthAlertsFeature />;
+      return isSupabaseConfigured ? <LiveAlerts /> : <PublicHealthAlertsFeature />;
     case 'heatmaps':
       return <GeographicHeatmapsFeature />;
     case 'contact-tracing':

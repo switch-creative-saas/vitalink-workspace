@@ -4,7 +4,8 @@ import type { OrganizationType } from '@/lib/workspace/organizationTypes';
 import { requireSupabase, functionErrorMessage, storedSessionUser } from './client';
 import { offlineUserId, wipeOfflineData } from '@/lib/offline/sync';
 
-export type OAuthProvider = 'google' | 'microsoft' | 'apple';
+// Google only for now; Microsoft and Apple can be added back when they're configured in Supabase.
+export type OAuthProvider = 'google';
 export type BillingCycle = 'monthly' | 'annual';
 
 export interface OrganizationRow {
@@ -59,10 +60,9 @@ export async function signIn(email: string, password: string): Promise<SessionUs
 /** Redirects to the provider; on return the gateway's session check picks the user up. */
 export async function signInWithProvider(provider: OAuthProvider, returnPath: string) {
   const { error } = await requireSupabase().auth.signInWithOAuth({
-    provider: provider === 'microsoft' ? 'azure' : provider,
+    provider,
     options: {
       redirectTo: `${window.location.origin}${returnPath}`,
-      scopes: provider === 'microsoft' ? 'email' : undefined,
     },
   });
   if (error) throw error;

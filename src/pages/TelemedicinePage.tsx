@@ -38,8 +38,8 @@ function DemoTelemedicinePage() {
   const [sessionTimer, setSessionTimer] = useState(0);
   const [consentGranted, setConsentGranted] = useState(false);
 
-  const canStartConsult = canCreate('Appointments') && (currentRole === 'doctor' || currentRole === 'nurse' || currentRole === 'hospital-admin');
-  const canSpecialistConference = currentRole === 'doctor' || currentRole === 'hospital-admin';
+  const canStartConsult = canCreate('Appointments') && (currentRole === 'doctor' || currentRole === 'nurse' || currentRole === 'hospital-admin' || currentRole === 'super-admin');
+  const canSpecialistConference = currentRole === 'doctor' || currentRole === 'hospital-admin' || currentRole === 'super-admin';
   const canRecord = currentRole === 'hospital-admin' || currentRole === 'super-admin';
 
   const controls = useMemo(

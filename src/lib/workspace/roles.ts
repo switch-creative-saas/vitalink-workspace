@@ -57,12 +57,8 @@ export const WORKSPACE_ROLE_PERMISSIONS: Partial<Record<UserRole, WorkspacePermi
   'who-ngo-observer': ['dashboard.view', 'sentinel.view', 'support.view'],
 };
 
-export function defaultRoleForOrganizationType(type: OrganizationType): UserRole {
-  if (type === 'ngo') return 'ngo-admin';
-  if (type === 'government') return 'government-admin';
-  if (type === 'hmo' || type === 'insurance') return 'public-health-officer';
-  return 'hospital-admin';
-}
+/** Whoever sets up a workspace owns it, whatever its type (matches create_workspace in the database). */
+export const WORKSPACE_OWNER_ROLE: UserRole = 'super-admin';
 
 export function roleOptionsForOrganizationType(type: OrganizationType): UserRole[] {
   if (type === 'ngo') {

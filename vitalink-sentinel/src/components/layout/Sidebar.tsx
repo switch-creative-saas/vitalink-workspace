@@ -1,7 +1,10 @@
+import { useCallback } from 'react';
 import { AlertTriangle, BarChart3, Bell, BookOpen, Building2, ClipboardList, Grid3X3, LogOut, MapPinned, Microscope, Network, RadioTower, Settings, Syringe, Users } from 'lucide-react';
 import { SButton as Button } from '@/components/standalone/SButton';
 import { cn } from '@/lib/utils';
 import { useSentinelStore, type SentinelRoute } from '@/store/useSentinelStore';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { useOpenAlerts } from '@/hooks/useOpenAlerts';
 
 const navSections: { label: string; items: { route: SentinelRoute; label: string; icon: typeof Grid3X3 }[] }[] = [
   {
@@ -59,7 +62,9 @@ function formatOrgType(type?: string) {
 }
 
 export function Sidebar() {
-  const { route, navigate, activeOrganization, logout } = useSentinelStore();
+  const { route, navigate, activeOrganization, logout, me } = useSentinelStore();
+  const goToAlerts = useCallback(() => navigate('alerts'), [navigate]);
+  const openAlerts = useOpenAlerts(isSupabaseConfigured ? activeOrganization?.id : undefined, goToAlerts);
   const orgType = activeOrganization?.type ?? 'ngo';
 
   return (
@@ -105,7 +110,7 @@ export function Sidebar() {
                   >
                     <Icon className="h-4 w-4" />
                     <span>{item.label}</span>
-                    {item.route === 'alerts' && <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] text-white">4</span>}
+                    {item.route === 'alerts' && (isSupabaseConfigured ? openAlerts > 0 : true) && <span className="ml-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] text-white">{isSupabaseConfigured ? openAlerts : 4}</span>}
                   </button>
                 );
               })}
@@ -115,8 +120,8 @@ export function Sidebar() {
       </nav>
 
       <div className="border-t border-slate-200 pt-4 dark:border-slate-800">
-        <p className="text-sm font-medium text-slate-950 dark:text-slate-50">Sentinel Officer</p>
-        <p className="text-xs text-slate-500 dark:text-slate-400">{activeOrganization?.name}</p>
+        <p className="text-sm font-medium text-slate-950 dark:text-slate-50">{me?.fullName || 'Sentinel Officer'}</p>
+        <p className="text-xs capitalize text-slate-500 dark:text-slate-400">{me ? `${me.role.replace('_', ' ')} · ${me.organization.name}` : activeOrganization?.name}</p>
         <Button className="mt-3 w-full bg-slate-950 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700" onClick={logout}>
           <LogOut className="h-4 w-4" />
           Sign out

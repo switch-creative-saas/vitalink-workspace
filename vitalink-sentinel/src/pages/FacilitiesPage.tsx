@@ -6,8 +6,15 @@ import { DataTable } from '@/components/ui/DataTable';
 import { Modal } from '@/components/ui/Modal';
 import { SSelect as Select } from '@/components/standalone/SSelect';
 import { mockFacilities } from '@/data/mockSentinelData';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveFacilities } from '@/components/facilities/LiveFacilities';
 
 export function FacilitiesPage() {
+  return isSupabaseConfigured ? <LiveFacilities /> : <DemoFacilities />;
+}
+
+// Offline demo: sample data and this browser's saved links only.
+function DemoFacilities() {
   const [open, setOpen] = useState(false);
   const linkedFacilities = useMemo(() => {
     try { return JSON.parse(localStorage.getItem('sentinel_linked_facilities') ?? '[]') as Array<{ facilityId: string; linkedAt?: string; dataConsent?: boolean; vitaLinkConnected?: boolean }>; } catch { return []; }

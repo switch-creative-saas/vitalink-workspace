@@ -6,8 +6,15 @@ import { CaseTable } from '@/components/cases/CaseTable';
 import { CaseDetailPanel } from '@/components/cases/CaseDetailPanel';
 import { NewCaseForm } from '@/components/cases/NewCaseForm';
 import { diseaseLibrary, mockRecentCases, type MockCaseReport } from '@/data/mockSentinelData';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { LiveCases } from '@/components/cases/LiveCases';
 
 export function CasesPage() {
+  return isSupabaseConfigured ? <LiveCases /> : <DemoCases />;
+}
+
+// Offline demo: sample data only.
+function DemoCases() {
   const [query, setQuery] = useState('');
   const [disease, setDisease] = useState('all');
   const [status, setStatus] = useState('all');
