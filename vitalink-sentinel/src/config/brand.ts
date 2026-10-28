@@ -14,7 +14,7 @@ export const BRAND = {
   patientIdLabel: 'VitaLink ID',
   idPrefix: 'VL',
   tokenPrefix: 'vl',
-  website: 'https://vitalink.africa',
+  website: 'https://www.vitalink.africa',
   supportEmail: 'support@vitalink.africa',
   noreplyEmail: 'noreply@vitalink.africa',
   logoPath: '/vitalink-logo.png',

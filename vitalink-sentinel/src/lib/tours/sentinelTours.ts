@@ -78,6 +78,15 @@ export const SENTINEL_TOURS: SentinelTour[] = [
     ],
   },
   {
+    id: sentinelPageTourId('heatmaps'), route: 'heatmaps', title: 'Heatmaps', summary: 'Where cases are, and where they are rising.', minutes: 1,
+    steps: [
+      { element: 'heatmap-filters', side: 'bottom', title: 'Choose what to map', body: 'Pick a period and a disease or disease group, and whether to map all cases, confirmed cases or deaths.' },
+      { element: 'heatmap-map', side: 'right', title: 'The map', body: 'Each circle is a state. The bigger it is, the more cases; the colour shows its risk, which rises with outbreaks, alerts and fast growth. Click a circle to zoom in.' },
+      { element: 'heatmap-detail', side: 'left', title: 'State details', body: "The most affected states, or, once you pick one, its cases by LGA, the diseases involved and any open outbreaks." },
+      { element: 'heatmap-table', side: 'top', title: 'Every state at a glance', body: 'All states with activity, compared with the period before. Click a row to look at that state.' },
+    ],
+  },
+  {
     id: sentinelPageTourId('facilities'), route: 'facilities', title: 'Facilities', summary: 'Where your data comes from.', minutes: 1,
     steps: [
       { element: 'facilities-tabs', side: 'bottom', title: 'Your reporting network', body: 'Hospitals on VitaLink that share with you, sites that report directly, data requests, and partner systems that send data automatically.' },

@@ -782,3 +782,40 @@ export async function markInboxSeen(orgId: string) {
   fail(error);
 }
 
+
+// ---------------------------------------------------------------------------
+// Geographic heatmap
+
+export type RiskLevel = 'critical' | 'high' | 'moderate' | 'low';
+
+export interface HeatmapState {
+  state: string;
+  cases: number;
+  previous: number;
+  confirmed: number;
+  deaths: number;
+  hospitalized: number;
+  outbreaks: number;
+  alerts: number;
+  topDisease: string | null;
+  risk: RiskLevel;
+  lgas: Array<{ lga: string; cases: number; confirmed: number; deaths: number; topDisease: string | null }>;
+  diseases: Array<{ disease: string; cases: number }>;
+}
+
+export interface HeatmapData {
+  from: string;
+  to: string;
+  days: number;
+  totals: { cases: number; previous: number; confirmed: number; deaths: number; states: number; lgas: number; unlocated: number };
+  states: HeatmapState[];
+  outbreaks: Array<{ id: string; disease: string; state: string; lga: string | null; severity: OutbreakSeverity; status: OutbreakStatus; confirmed: number; suspected: number; deaths: number }>;
+}
+
+export async function getHeatmap(orgId: string, days: number, options: { diseaseId?: string; category?: 'infectious' | 'ntd' | 'ncd' } = {}): Promise<HeatmapData> {
+  const { data, error } = await requireSupabase().rpc('sentinel_heatmap', {
+    p_sentinel_org: orgId, p_days: days, p_disease: options.diseaseId ?? null, p_category: options.category ?? null,
+  });
+  fail(error);
+  return data as HeatmapData;
+}

@@ -732,29 +732,41 @@
    ═══════════════════════════════════════════════════════════════ */
 
 .theme-dark {
-  --auth-bg: #0B0617;
-  --auth-card-bg: #171028;
-  --auth-accent: #7B4DFF;
-  --auth-accent-hover: #8E63FF;
-  --auth-text-primary: #ffffff;
-  --auth-text-secondary: rgba(255, 255, 255, 0.72);
+  --auth-bg: #0A0D16;
+  --auth-card-bg: #121726;
+  --auth-accent: #3B6CF6;
+  --auth-accent-hover: #5582FF;
+  --auth-text-primary: #F8FAFC;
+  --auth-text-secondary: rgba(226, 232, 240, 0.7);
   --auth-border: rgba(255, 255, 255, 0.08);
-  --auth-input-bg: #111111;
-  --auth-input-border: rgba(255, 255, 255, 0.12);
-  --auth-shadow: 0 32px 80px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --auth-input-bg: #0C101B;
+  --auth-input-border: rgba(255, 255, 255, 0.1);
+  --auth-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.8);
 }
 
 .theme-light {
-  --auth-bg: #F7F8FC;
-  --auth-card-bg: #FFFFFF;
-  --auth-accent: #7B4DFF;
-  --auth-accent-hover: #8E63FF;
-  --auth-text-primary: #111827;
-  --auth-text-secondary: #6B7280;
-  --auth-border: #E6E8F0;
+  --auth-bg: #FFFFFF;
+  --auth-card-bg: #F4F5F8;
+  --auth-accent: #1E4ED8;
+  --auth-accent-hover: #1A43BD;
+  --auth-text-primary: #0F172A;
+  --auth-text-secondary: #64748B;
+  --auth-border: #E5E8EF;
   --auth-input-bg: #FFFFFF;
-  --auth-input-border: #E6E8F0;
-  --auth-shadow: 0 10px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+  --auth-input-border: #E2E6EE;
+  --auth-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* The form card on the sign-in / sign-up pages. */
+.auth-card {
+  background: var(--auth-card-bg);
+  border: 1px solid var(--auth-border);
+  border-radius: 24px;
+  box-shadow: var(--auth-shadow);
+  padding: 28px 22px;
+}
+@media (min-width: 640px) {
+  .auth-card { padding: 32px 36px; }
 }
 
 .auth-glass-container {

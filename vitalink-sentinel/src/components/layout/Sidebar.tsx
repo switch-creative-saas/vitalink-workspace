@@ -15,7 +15,7 @@ export function Sidebar() {
   const { route, navigate, theme, toggleTheme } = useSentinelStore();
   const go = (target: SentinelRoute) => () => navigate(target);
 
-  return <aside data-tour-id="rail" className="sticky top-[76px] hidden h-[calc(100vh-76px)] w-11 shrink-0 flex-col items-center justify-between pb-6 pt-1 md:flex">
+  return <aside data-tour-id="rail" className="sticky top-[76px] z-30 hidden h-[calc(100vh-76px)] w-11 shrink-0 flex-col items-center justify-between pb-6 pt-1 md:flex">
     <div className="flex flex-col items-center gap-2.5">
       <RailButton label="Report a case" tourId="rail-report" onClick={() => navigate('cases', NEW_CASE)}><Plus className="h-[18px] w-[18px]" /></RailButton>
       <span className="my-1 h-px w-6 bg-slate-900/10 dark:bg-white/10" />

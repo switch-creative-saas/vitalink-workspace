@@ -138,3 +138,7 @@ textarea {
 .sentinel-fade-in { animation: sentinel-fade-in 0.6s ease-out; }
 .sentinel-auth-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
 @media (prefers-reduced-motion: reduce) { .sentinel-sweep, .sentinel-fade-in { animation: none; } }
+
+/* Focus: a soft ring that follows rounded corners, only for keyboard focus. */
+.sentinel-app :is(button, a, [role='button']):focus { outline: none; }
+.sentinel-app :is(button, a, [role='button']):focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 2px; }

@@ -32,7 +32,7 @@ export function TopBar() {
     <header className="sticky top-0 z-40 bg-[#e8ebf1]/75 px-4 backdrop-blur-xl dark:bg-[#0d0e14]/75 lg:px-6">
       <div className="flex h-[76px] items-center gap-4">
         <button type="button" onClick={() => setMenuOpen(true)} className={cn(iconButtonClass, 'lg:hidden')} aria-label="Open menu"><Menu className="h-[18px] w-[18px]" /></button>
-        <button type="button" onClick={() => navigate('dashboard')} className="flex shrink-0 items-center gap-2.5">
+        <button type="button" onClick={() => navigate('dashboard')} aria-label="Sentinel dashboard" className="flex shrink-0 items-center gap-2.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 dark:focus-visible:ring-white/40">
           <img src="/sentinel-logo.svg" alt="" className="h-9 w-9 rounded-xl bg-white p-0.5 shadow-sm" />
           <span className="hidden text-[22px] font-semibold tracking-tight text-slate-950 dark:text-white sm:inline">sentinel</span>
         </button>

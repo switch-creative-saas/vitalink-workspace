@@ -10,6 +10,7 @@ import { NotFoundPage } from '@/pages/NotFoundPage';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { LiveCases } from '@/components/cases/LiveCases';
 import { LiveAlerts } from '@/components/alerts/LiveAlerts';
+import { LiveHeatmaps } from '@/components/heatmaps/LiveHeatmaps';
 import {
   CaseReportingFeature,
   CommunityReportingFeature,
@@ -40,7 +41,7 @@ function CurrentPage() {
     case 'alerts':
       return isSupabaseConfigured ? <LiveAlerts /> : <PublicHealthAlertsFeature />;
     case 'heatmaps':
-      return <GeographicHeatmapsFeature />;
+      return isSupabaseConfigured ? <LiveHeatmaps /> : <GeographicHeatmapsFeature />;
     case 'contact-tracing':
       return <ContactTracingFeature />;
     case 'vaccination':

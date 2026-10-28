@@ -14,7 +14,7 @@ function BaseSocialButton({ onClick, icon, label, disabled }: SocialButtonProps)
   return (
     <Button
       variant="outline"
-      className="w-full h-[50px] rounded-full bg-transparent border-[var(--auth-border)] text-[var(--auth-text-primary)] hover:bg-[var(--auth-border)] hover:text-[var(--auth-text-primary)] transition-colors relative justify-center text-[15px] font-medium"
+      className="w-full h-12 rounded-xl bg-[var(--auth-input-bg)] border-[var(--auth-input-border)] text-[var(--auth-text-primary)] hover:bg-[var(--auth-input-bg)] hover:border-[var(--auth-accent)]/40 hover:text-[var(--auth-text-primary)] shadow-none transition-colors relative justify-center text-[14px] font-medium"
       onClick={onClick}
       disabled={disabled}
     >
@@ -66,7 +66,7 @@ export function AuthDivider() {
         <div className="w-full border-t border-[var(--auth-border)]" />
       </div>
       <span className="relative bg-[var(--auth-card-bg)] px-4 text-[13px] text-[var(--auth-text-secondary)] font-medium transition-colors">
-        or
+        Or
       </span>
     </div>
   );

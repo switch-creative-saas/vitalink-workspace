@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { AuthLayout } from '@/components/auth/AuthLayout';
-import { 
-  GoogleButton, 
-  EmailButton, 
-  AuthDivider 
+import {
+  GoogleButton,
+  AuthDivider
 } from '@/components/auth/SocialButtons';
 import { AuthField, AuthPrimaryButton, TrustIndicator } from '@/components/auth/AuthForm';
+import { LegalLink } from '@/components/auth/LegalLink';
 import { FooterLinks } from '@/components/auth/FooterLinks';
 import { EnterpriseSubscription } from '@/components/auth/EnterpriseSubscription';
 import { ProvisioningScreen } from '@/components/auth/ProvisioningScreen';
@@ -39,19 +39,19 @@ import * as backend from '@/lib/supabase/auth';
 import { acceptInvitation, getInvitation, roleLabel, type InvitationPreview } from '@/lib/supabase/staff';
 import { saveWorkspacePlan } from '@/hooks/usePlan';
 
-type Stage = 
+type Stage =
   | 'checking-session'
-  | 'login' 
-  | 'org-signup-start' 
-  | 'org-signup-details' 
+  | 'login'
+  | 'org-signup-start'
+  | 'org-signup-details'
   | 'org-info'
   | 'subscription'
   | 'workspace-url'
   | 'verify-email'
   | 'provisioning'
-  | 'welcome' 
-  | 'forgot-password' 
-  | 'reset-password' 
+  | 'welcome'
+  | 'forgot-password'
+  | 'reset-password'
   | 'email-sent'
   | 'workspace-select'
   | 'accept-invite';
@@ -181,10 +181,10 @@ function ErrorText({ text }: { text: string }) {
 function SessionCheckScreen() {
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--auth-bg,#0B0617)] transition-colors">
-      <img 
-        src="/vitalink-logo.png" 
-        alt="VitaLink" 
-        className="h-10 w-auto invert opacity-90 mb-6 animate-pulse" 
+      <img
+        src="/vitalink-logo.png"
+        alt="VitaLink"
+        className="h-10 w-auto invert opacity-90 mb-6 animate-pulse"
       />
       <p className="text-sm text-gray-400 mb-6">Signing you in...</p>
       <div className="auth-progress-bar w-48 rounded-full overflow-hidden">
@@ -244,8 +244,9 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   const onAuthenticatedRef = useRef(onAuthenticated);
   const [stage, setStage] = useState<Stage>('checking-session');
   const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [authError, setAuthError] = useState('');
-  
+
   const [pendingUser, setPendingUser] = useState<AuthUser | null>(null);
 
   // ── Staff invitation (/invite?token=...) ──────────────────────────
@@ -438,9 +439,9 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       if (sessionEmail) {
         // Automatically reopen the last used workspace or match the current urlSlug
         const lastWorkspaceSlug = urlSlug || localStorage.getItem('vitalink-last-workspace');
-        
-        const sessionUser = users.find(u => 
-          u.email.toLowerCase() === sessionEmail.toLowerCase() && 
+
+        const sessionUser = users.find(u =>
+          u.email.toLowerCase() === sessionEmail.toLowerCase() &&
           (!lastWorkspaceSlug || u.orgSlug === lastWorkspaceSlug)
         ) || users.find(u => u.email.toLowerCase() === sessionEmail.toLowerCase());
 
@@ -465,7 +466,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   }, []);
 
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  
+
   const [signupForm, setSignupForm] = useState({
     firstName: '',
     lastName: '',
@@ -474,7 +475,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     confirmPassword: '',
     provider: 'email' as 'email' | 'google',
   });
-  
+
   const [orgForm, setOrgForm] = useState({
     name: '',
     type: 'Hospital',
@@ -602,7 +603,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         logLoginAttempt('failed', 'Invalid password');
         return;
       }
-      
+
       logLoginAttempt('success', 'Password login');
 
       // If user belongs to multiple organizations
@@ -623,7 +624,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     if (isSupabaseConfigured && user.tenantId) await syncWorkspacePlan(user.tenantId).catch(() => null);
     const token = `${BRAND.tokenPrefix}.jwt.${btoa(`${user.email}:${Date.now()}`)}`;
     localStorage.setItem(sessionKey(), token);
-    
+
     // Store last workspace slug and automatically update path/history URL
     if (user.orgSlug) {
       localStorage.setItem('vitalink-last-workspace', user.orgSlug);
@@ -636,7 +637,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
 
     const organization = organizationForUser(user);
     localStorage.setItem('vitalink-active-organization', JSON.stringify(organization));
-    
+
     window.dispatchEvent(new CustomEvent('vitalink:notify', { detail: { module: 'auth', type: 'login-success', message: 'Secure enterprise session started' } }));
     onAuthenticated({ role: user.role, name: user.fullName, email: user.email, redirectPage: roleRedirect(user), organization });
   };
@@ -682,7 +683,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     if (!validateEmail(signupForm.email)) return setAuthError('Enter a valid work email');
     if (signupForm.password.length < 8) return setAuthError('Password must be at least 8 characters');
     if (signupForm.password !== signupForm.confirmPassword) return setAuthError('Passwords do not match');
-    
+
     const users = isSupabaseConfigured ? [] : getUsers();
     if (users.some((u) => u.email.toLowerCase() === signupForm.email.toLowerCase())) {
       setAuthError('An account with this email already exists.');
@@ -868,7 +869,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       orgCreatedAt,
       subscriptionTier,
     };
-    
+
     setUsers([createdUser, ...getUsers()]);
     const organizationProfile = createOrganizationProfile({
       id: tenantId,
@@ -923,14 +924,14 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       {stage === 'checking-session' && <SessionCheckScreen />}
 
       <div className="flex w-full flex-col justify-center">
-        
+
         {/* Back Button for multi-step */}
         {stage !== 'login' && stage !== 'org-signup-start' && stage !== 'provisioning' && stage !== 'welcome' && stage !== 'email-sent' && stage !== 'checking-session' && stage !== 'accept-invite' && (
-          <button 
+          <button
             onClick={() => {
               setAuthError('');
               if (stage === 'org-signup-details') setStage('org-signup-start');
-              if (stage === 'org-info') setStage(signupForm.provider === 'email' ? 'org-signup-details' : 'org-signup-start');
+              if (stage === 'org-info') setStage('org-signup-start');
               if (stage === 'subscription') setStage('org-info');
               if (stage === 'workspace-url') setStage('subscription');
               if (stage === 'verify-email') setStage('workspace-url');
@@ -945,9 +946,9 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
 
         {/* Header */}
         {(stage !== 'provisioning' && stage !== 'checking-session') && (
-          <h1 className="text-[32px] md:text-[38px] font-semibold tracking-[-0.03em] mb-[20px] text-[var(--auth-text-primary)] font-inter animate-[auth-form-slide-up_0.4s_ease-out_both]">
-            {stage === 'login' && 'Sign In'}
-            {stage === 'org-signup-start' && 'Create Workspace'}
+          <h1 className="text-[26px] md:text-[30px] font-semibold tracking-[-0.02em] mb-1 text-[var(--auth-text-primary)] font-inter animate-[auth-form-slide-up_0.4s_ease-out_both]">
+            {stage === 'login' && 'Welcome back'}
+            {stage === 'org-signup-start' && 'Create your workspace'}
             {stage === 'org-signup-details' && 'Administrator Info'}
             {stage === 'org-info' && 'Organization Details'}
             {stage === 'subscription' && 'Choose Plan'}
@@ -961,6 +962,12 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             {stage === 'workspace-select' && 'Choose Workspace'}
           </h1>
         )}
+        {(stage === 'login' || stage === 'org-signup-start') && (
+          <p className="mb-6 text-sm text-[var(--auth-text-secondary)]">
+            {stage === 'login' ? 'Sign in to your VitaLink workspace.' : 'Set up VitaLink for your hospital or clinic in a few minutes.'}
+          </p>
+        )}
+        {stage !== 'login' && stage !== 'org-signup-start' && stage !== 'provisioning' && stage !== 'checking-session' && <div className="mb-4" />}
 
         {authError && <ErrorText text={authError} />}
 
@@ -972,48 +979,46 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                 Signing into workspace: <span className="font-semibold">{detectedOrgName}</span>
               </div>
             )}
-            <AuthField 
-              value={loginForm.email} 
-              onChange={(v) => setLoginForm(f => ({...f, email: v}))} 
-              type="email" 
-              placeholder="Work email address" 
+            <GoogleButton onClick={() => handleOAuth('google')} disabled={loading} />
+            <AuthDivider />
+
+            <AuthField
+              label="Email"
+              value={loginForm.email}
+              onChange={(v) => setLoginForm(f => ({...f, email: v}))}
+              type="email"
+              autoComplete="email"
+              placeholder="you@hospital.com"
             />
-            <AuthField 
-              value={loginForm.password} 
-              onChange={(v) => setLoginForm(f => ({...f, password: v}))} 
-              type="password" 
-              placeholder="Password" 
-            />
-            
-            <div className="flex justify-between items-center px-1 mt-[-2px]">
-              <label className="flex items-center text-sm text-[var(--auth-text-secondary)] cursor-pointer hover:text-[var(--auth-text-primary)]">
-                <input type="checkbox" className="mr-2 rounded border-[var(--auth-border)] bg-[var(--auth-input-bg)] text-[var(--auth-accent)] focus:ring-[var(--auth-accent)]" />
-                Remember Me
-              </label>
-              <button 
-                className="text-[14px] text-[var(--auth-text-secondary)] hover:text-[var(--auth-text-primary)] transition-colors"
+            <div className="relative">
+              <button
+                type="button"
+                className="absolute right-1 top-0 z-10 text-[13px] font-medium text-[var(--auth-accent)] hover:underline"
                 onClick={() => { setAuthError(''); setStage('forgot-password'); }}
               >
-                Forgot Password?
+                Forgot password?
               </button>
-            </div>
-
-            <div className="mt-[6px]">
-              <AuthPrimaryButton 
-                label="Sign In" 
-                onClick={handleLogin} 
-                loading={loading} 
+              <AuthField
+                label="Password"
+                value={loginForm.password}
+                onChange={(v) => setLoginForm(f => ({...f, password: v}))}
+                type="password"
+                autoComplete="current-password"
+                placeholder="Enter your password"
               />
             </div>
 
-            <TrustIndicator />
-            <AuthDivider />
+            <AuthPrimaryButton
+              label="Sign in"
+              onClick={handleLogin}
+              loading={loading}
+            />
 
-            <GoogleButton onClick={() => handleOAuth('google')} disabled={loading} />
+            <TrustIndicator />
 
             <FooterLinks 
-              primaryText="Registering a new organization?"
-              actionText="Create Workspace"
+              primaryText="New to VitaLink?"
+              actionText="Create a workspace"
               onAction={() => { setAuthError(''); setStage('org-signup-start'); }}
             />
           </div>
@@ -1022,27 +1027,38 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         {/* ── Org Signup 1: Auth Options ─────────────────────────── */}
         {stage === 'org-signup-start' && (
           <div className="animate-[auth-form-slide-up_0.5s_ease-out_both] flex flex-col gap-3">
-            <p className="text-[var(--auth-text-secondary)] mb-1">Start setting up your enterprise workspace.</p>
-            
             <GoogleButton onClick={() => handleOAuth('google')} disabled={loading} />
-            
             <AuthDivider />
-            
-            <EmailButton 
-              label="Continue with work email"
-              onClick={() => { 
-                setAuthError(''); 
-                setSignupForm(s => ({...s, provider: 'email'})); 
-                setStage('org-signup-details'); 
-              }} 
-              disabled={loading} 
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <AuthField label="First name" value={signupForm.firstName} onChange={(v) => setSignupForm(s => ({...s, firstName: v}))} autoComplete="given-name" placeholder="Adaeze" />
+              <AuthField label="Last name" value={signupForm.lastName} onChange={(v) => setSignupForm(s => ({...s, lastName: v}))} autoComplete="family-name" placeholder="Okafor" />
+            </div>
+            <AuthField label="Work email" value={signupForm.email} onChange={(v) => setSignupForm(s => ({...s, email: v}))} type="email" autoComplete="email" placeholder="you@hospital.com" />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <AuthField label="Password" value={signupForm.password} onChange={(v) => setSignupForm(s => ({...s, password: v}))} type="password" autoComplete="new-password" placeholder="At least 8 characters" />
+              <AuthField label="Confirm password" value={signupForm.confirmPassword} onChange={(v) => setSignupForm(s => ({...s, confirmPassword: v}))} type="password" autoComplete="new-password" placeholder="Repeat password" />
+            </div>
+            <label className="mt-1 flex cursor-pointer items-center gap-2.5 text-sm text-[var(--auth-text-secondary)]">
+              <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} className="h-4 w-4 rounded border-[var(--auth-input-border)] accent-[var(--auth-accent)]" />
+              <span>I agree to the <LegalLink doc="terms" className="font-medium text-[var(--auth-text-primary)] underline underline-offset-2">Terms of Use</LegalLink> and <LegalLink doc="privacy" className="font-medium text-[var(--auth-text-primary)] underline underline-offset-2">Privacy Policy</LegalLink></span>
+            </label>
+
+            <AuthPrimaryButton
+              label="Create account"
+              onClick={() => {
+                if (!termsAccepted) { setAuthError('Please agree to the Terms of Use and Privacy Policy to continue.'); return; }
+                setSignupForm(s => ({...s, provider: 'email'}));
+                handleAdminDetails();
+              }}
+              loading={loading}
             />
 
             <TrustIndicator />
 
-            <FooterLinks 
+            <FooterLinks
               primaryText="Already have an account?"
-              actionText="Sign In"
+              actionText="Sign in"
               onAction={() => { setAuthError(''); setStage('login'); }}
             />
           </div>
@@ -1058,8 +1074,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             <AuthField value={signupForm.email} onChange={(v) => setSignupForm(s => ({...s, email: v}))} type="email" placeholder="Work Email" />
             <AuthField value={signupForm.password} onChange={(v) => setSignupForm(s => ({...s, password: v}))} type="password" placeholder="Password (min 8 chars)" />
             <AuthField value={signupForm.confirmPassword} onChange={(v) => setSignupForm(s => ({...s, confirmPassword: v}))} type="password" placeholder="Confirm Password" />
-            
-            <Button 
+
+            <Button
               className="w-full h-[52px] rounded-full bg-[var(--auth-accent)] hover:bg-[var(--auth-accent-hover)] text-white mt-2 font-semibold text-[14px] shadow-[0_0_15px_rgba(123,77,255,0.25)]"
               onClick={handleAdminDetails}
             >
@@ -1072,9 +1088,9 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         {stage === 'org-info' && (
           <div className="animate-[auth-form-slide-up_0.5s_ease-out_both] flex flex-col gap-3">
             <AuthField value={orgForm.name} onChange={(v) => setOrgForm(s => ({...s, name: v}))} placeholder="Organization Name (e.g. Lagos Central)" />
-            
+
             <div className="grid grid-cols-2 gap-3">
-              <select 
+              <select
                 className="w-full h-[48px] rounded-[14px] bg-[var(--auth-input-bg)] border border-[var(--auth-input-border)] text-[var(--auth-text-secondary)] focus:border-[var(--auth-accent)] px-4 text-sm"
                 value={orgForm.type}
                 onChange={(e) => setOrgForm(f => ({...f, type: e.target.value}))}
@@ -1083,8 +1099,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              
-              <select 
+
+              <select
                 className="w-full h-[48px] rounded-[14px] bg-[var(--auth-input-bg)] border border-[var(--auth-input-border)] text-[var(--auth-text-secondary)] focus:border-[var(--auth-accent)] px-4 text-sm"
                 value={orgForm.ownership}
                 onChange={(e) => setOrgForm(f => ({...f, ownership: e.target.value}))}
@@ -1096,7 +1112,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             </div>
 
             <AuthField value={orgForm.address} onChange={(v) => setOrgForm(s => ({...s, address: v}))} placeholder="Corporate Address" />
-            
+
             <div className="grid grid-cols-2 gap-3">
               <AuthField value={orgForm.country} onChange={(v) => setOrgForm(s => ({...s, country: v}))} placeholder="Country" />
               <AuthField value={orgForm.phone} onChange={(v) => setOrgForm(s => ({...s, phone: v}))} placeholder="Contact Phone" />
@@ -1160,7 +1176,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             </div>
             )}
 
-            <Button 
+            <Button
               className="w-full h-[48px] rounded-full bg-[var(--auth-accent)] hover:bg-[var(--auth-accent-hover)] text-white mt-2 font-semibold text-[14px] shadow-[0_0_15px_rgba(123,77,255,0.25)]"
               onClick={handleOrgInfo}
             >
@@ -1191,11 +1207,11 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
               Enter the 6-digit verification code sent to
             </p>
             <p className="text-[var(--auth-text-primary)] font-medium text-base mb-3">{signupForm.email}</p>
-            
+
             <OTPInput onComplete={handleVerifyOTP} />
-            
+
             {loading && <Loader2 className="w-5 h-5 animate-spin text-[var(--auth-accent)] mt-3" />}
-            
+
             <p className="text-xs text-[var(--auth-text-secondary)] mt-4">
               Didn't receive the code? <button className="text-[var(--auth-text-primary)] hover:underline" onClick={async () => {
                 if (!isSupabaseConfigured) return;
@@ -1223,14 +1239,14 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                 Also: app.vitalink.africa/{pendingUser.orgSlug}
               </p>
             </div>
-            
+
               <p className="text-[14px] text-[var(--auth-text-secondary)]">
               Your {workspaceLabel(pendingUser.workspaceType ?? 'healthcare').toLowerCase()} is ready. You are signed in as the {pendingUser.role.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}.
             </p>
-            
-            <AuthPrimaryButton 
-              label="Enter Workspace" 
-              onClick={() => authenticateSuccess(pendingUser)} 
+
+            <AuthPrimaryButton
+              label="Enter Workspace"
+              onClick={() => authenticateSuccess(pendingUser)}
             />
           </div>
         )}
@@ -1305,15 +1321,15 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             <p className="text-[14px] text-[var(--auth-text-secondary)] mb-1">
               Enter your work email and we'll send a secure reset link.
             </p>
-            <AuthField 
-              value={loginForm.email} 
-              onChange={(v) => setLoginForm(f => ({...f, email: v}))} 
-              type="email" 
-              placeholder="Email address" 
+            <AuthField
+              value={loginForm.email}
+              onChange={(v) => setLoginForm(f => ({...f, email: v}))}
+              type="email"
+              placeholder="Email address"
             />
-            
-            <AuthPrimaryButton 
-              label="Send Reset Link" 
+
+            <AuthPrimaryButton
+              label="Send Reset Link"
               onClick={async () => {
                 if (!validateEmail(loginForm.email)) return setAuthError('Enter a valid email');
                 setLoading(true);
@@ -1326,8 +1342,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                   setLoading(false);
                 }
                 setStage('email-sent');
-              }} 
-              loading={loading} 
+              }}
+              loading={loading}
             />
           </div>
         )}
@@ -1345,14 +1361,14 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
 
         {stage === 'reset-password' && (
           <div className="animate-[auth-form-slide-up_0.5s_ease-out_both] flex flex-col gap-3">
-            <AuthField 
-              value={loginForm.password} 
-              onChange={(v) => setLoginForm(f => ({...f, password: v}))} 
-              type="password" 
-              placeholder="New password (min 8 chars)" 
+            <AuthField
+              value={loginForm.password}
+              onChange={(v) => setLoginForm(f => ({...f, password: v}))}
+              type="password"
+              placeholder="New password (min 8 chars)"
             />
-            <AuthPrimaryButton 
-              label="Update Password" 
+            <AuthPrimaryButton
+              label="Update Password"
               onClick={async () => {
                 if (loginForm.password.length < 8) {
                   setAuthError('Password must be at least 8 characters');
@@ -1381,8 +1397,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                 setLoading(false);
                 toast.success('Password updated');
                 setStage('login');
-              }} 
-              loading={loading} 
+              }}
+              loading={loading}
             />
           </div>
         )}
