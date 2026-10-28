@@ -446,6 +446,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
+    // Help & Support is every staff member's line to their admins (internal help desk), whatever their role.
+    if (pageType === 'help') return true;
     const module = MODULE_MAP[page];
     if (!module) return false;
     if (currentRole === 'super-admin') return true;
