@@ -735,7 +735,7 @@ export function DashboardPage() {
         {/* Quick Actions */}
         <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           <div className="bg-white/70 backdrop-blur-xl border border-white/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-soft min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/80">
-            <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-3 truncate">Quick Actions</h2>
+            <h2 data-tour-id="dashboard-quick-actions" className="text-sm font-semibold text-slate-900 dark:text-slate-50 mb-3 truncate">Quick Actions</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
               {quickActions.map((action) => (
                 <button
@@ -789,7 +789,7 @@ export function DashboardPage() {
             <div className="flex flex-col gap-3 mb-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-50 truncate">Upcoming Appointments</h2>
+                  <h2 data-tour-id="dashboard-appointments" className="text-base sm:text-lg font-semibold text-slate-900 dark:text-slate-50 truncate">Upcoming Appointments</h2>
                   <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2 mt-0.5">
                     {isOnline ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" /> : <WifiOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
                     <span className="truncate">{isOnline ? 'Live scheduling feed' : `Offline mode - ${pendingSyncCount} queued updates`}</span>
@@ -899,7 +899,7 @@ export function DashboardPage() {
             <div className="flex items-center gap-2 mb-3">
               <AlertCircle className="w-4 h-4 text-vitamind-600 shrink-0" />
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">Needs Attention</h2>
+                <h2 data-tour-id="dashboard-attention" className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">Needs Attention</h2>
                 <p className="text-[10px] text-slate-600 dark:text-slate-400 truncate">From labs, pharmacy and billing in this workspace</p>
               </div>
             </div>

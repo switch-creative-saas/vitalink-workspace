@@ -150,11 +150,11 @@ export function LiveAlerts() {
           <h2 className="text-2xl font-bold text-slate-950 dark:text-slate-50">Alerts</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Raised automatically from cases, outbreaks and facility reporting, or issued by your officers.</p>
         </div>
-        {canIssue && <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />Issue alert</Button>}
+        {canIssue && <Button data-tour-id="alerts-issue" onClick={() => setCreating(true)}><Plus className="h-4 w-4" />Issue alert</Button>}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+        <div data-tour-id="alerts-status" className="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
           {TABS.map((t) => (
             <button key={t.status} type="button" onClick={() => setFilters({ ...filters, status: t.status })}
               className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${filters.status === t.status ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>

@@ -327,12 +327,12 @@ export function LiveOutbreaks() {
           <h2 className="flex items-center gap-2 text-2xl font-bold text-slate-950 dark:text-slate-50">Outbreaks {activeCount > 0 && <Badge tone="critical">{activeCount} active</Badge>}</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Declared outbreaks, their response, and possible outbreaks detected from incoming cases.</p>
         </div>
-        {canManage && <Button onClick={() => setDeclaring({})}><Plus className="h-4 w-4" />Declare outbreak</Button>}
+        {canManage && <Button data-tour-id="outbreaks-declare" onClick={() => setDeclaring({})}><Plus className="h-4 w-4" />Declare outbreak</Button>}
       </div>
 
       {signals.length > 0 && (
         <Card>
-          <div className="mb-3 flex items-center gap-2"><Radar className="h-5 w-5 text-amber-500" /><h3 className="font-bold text-slate-950 dark:text-slate-50">Possible outbreaks detected</h3></div>
+          <div className="mb-3 flex items-center gap-2"><Radar className="h-5 w-5 text-amber-500" /><h3 data-tour-id="outbreaks-signals" className="font-bold text-slate-950 dark:text-slate-50">Possible outbreaks detected</h3></div>
           <div className="space-y-2">
             {signals.map((s) => (
               <div key={`${s.diseaseId}-${s.state}`} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/60 dark:bg-amber-950/30">

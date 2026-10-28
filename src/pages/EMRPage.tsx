@@ -679,7 +679,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
           <p className="text-sm text-gray-500 dark:text-slate-400">Government-grade clinical documentation, lab intelligence, and secure document vault.</p>
         </div>
         <div className="flex gap-2">
-          <Button className="bg-gradient-to-r from-royal-600 to-royal-800 text-white gap-2" onClick={launchClinicalEditor}>
+          <Button data-tour-id="emr-new-note" className="bg-gradient-to-r from-royal-600 to-royal-800 text-white gap-2" onClick={launchClinicalEditor}>
             <Plus className="w-4 h-4" />
             New Clinical Note
           </Button>
@@ -790,7 +790,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
 
       {!editorOpen && (
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-          <aside className="xl:col-span-1 premium-card p-4 min-w-0 overflow-hidden">
+          <aside data-tour-id="emr-patient" className="xl:col-span-1 premium-card p-4 min-w-0 overflow-hidden">
             <div className="text-center">
               <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-royal-500 to-royal-700 mx-auto mb-2 text-white flex items-center justify-center font-bold text-xl shrink-0">{patient ? `${patient.firstName[0] ?? ''}${patient.lastName[0] ?? ''}`.toUpperCase() : '--'}</div>
               <h3 className="font-semibold text-gray-900 truncate dark:text-slate-50">{patient ? `${patient.firstName} ${patient.lastName}` : 'No Patient Selected'}</h3>
@@ -805,7 +805,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
           </aside>
 
           <main className="xl:col-span-3 space-y-4 min-w-0">
-            <div className="hidden md:flex flex-wrap gap-2 p-1 rounded-xl bg-gray-100 w-full max-w-full min-w-0 dark:bg-slate-900/50">
+            <div data-tour-id="emr-tabs" className="hidden md:flex flex-wrap gap-2 p-1 rounded-xl bg-gray-100 w-full max-w-full min-w-0 dark:bg-slate-900/50">
               {tabs.filter((tab) => (currentRole === 'lab-scientist' ? tab.id === 'lab-results' : true)).map((tab) => (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={cn('px-4 py-2 rounded-lg text-sm flex items-center gap-2 whitespace-nowrap min-w-0', activeTab === tab.id ? 'bg-white text-royal-700 shadow-sm dark:bg-slate-800/60 dark:text-white' : 'text-gray-600 dark:text-slate-400')}>
                   <tab.icon className="w-4 h-4 shrink-0" />

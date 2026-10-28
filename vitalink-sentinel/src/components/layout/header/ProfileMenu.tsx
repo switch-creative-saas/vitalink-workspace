@@ -17,7 +17,7 @@ export function ProfileMenu() {
   const name = me?.fullName || activeOrganization?.fullName || 'Sentinel user';
   const item = 'flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-900/[0.05] dark:text-slate-200 dark:hover:bg-white/[0.07]';
 
-  return <HeaderPopover label="Account" className="overflow-hidden border-2 border-white p-0 dark:border-white/20" panelClassName="w-[min(92vw,300px)]"
+  return <HeaderPopover label="Account" tourId="profile" className="overflow-hidden border-2 border-white p-0 dark:border-white/20" panelClassName="w-[min(92vw,300px)]"
     trigger={<span className="grid h-full w-full place-items-center bg-gradient-to-br from-indigo-500 via-violet-500 to-rose-400 text-sm font-semibold text-white">{initials(name)}</span>}>
     {(close) => <>
       <div className="flex items-center gap-3 px-5 pb-4 pt-5">

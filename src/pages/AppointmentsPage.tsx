@@ -93,10 +93,6 @@ export function AppointmentsPage() {
   }, [isMobile]);
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'appointments:viewed' } }));
-  }, []);
-
-  useEffect(() => {
     setNewForm((prev) => ({ ...prev, date: filters.date }));
   }, [filters.date]);
 
@@ -194,9 +190,6 @@ export function AppointmentsPage() {
       consultationMinutes: 0,
     });
     setShowNewModal(false);
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'appointments:created' } }));
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'appointments:doctor-assigned' } }));
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'appointments:confirmation-sent' } }));
   };
 
   const openPatient = (switchId: string) => {
@@ -262,7 +255,7 @@ export function AppointmentsPage() {
             <Button variant="outline" size="icon" onClick={() => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'settings' } }))}>
               <UserCircle2 className="w-4 h-4" />
             </Button>
-            <div className="hidden md:flex gap-1 p-1 bg-gray-100 rounded-lg dark:bg-slate-900/70">
+            <div data-tour-id="appointments-view" className="hidden md:flex gap-1 p-1 bg-gray-100 rounded-lg dark:bg-slate-900/70">
               <button onClick={() => setView('calendar')} className={cn('px-3 py-1.5 rounded-md text-sm', view === 'calendar' ? 'bg-white text-royal-700 dark:bg-slate-800 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400')}>Calendar</button>
               <button onClick={() => setView('list')} className={cn('px-3 py-1.5 rounded-md text-sm', view === 'list' ? 'bg-white text-royal-700 dark:bg-slate-800 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400')}>List</button>
           </div>
@@ -279,7 +272,7 @@ export function AppointmentsPage() {
         </div>
       </div>
 
-      <div className="rounded-3xl border border-white/70 bg-white/75 backdrop-blur-xl p-3 grid grid-cols-1 md:grid-cols-4 gap-2 dark:border-slate-700 dark:bg-slate-800/80">
+      <div data-tour-id="appointments-filters" className="rounded-3xl border border-white/70 bg-white/75 backdrop-blur-xl p-3 grid grid-cols-1 md:grid-cols-4 gap-2 dark:border-slate-700 dark:bg-slate-800/80">
         <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={filters.doctorId} onChange={(e) => setFilters({ doctorId: e.target.value })}>
           <option value="all">All doctors</option>
           {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.name}</option>)}

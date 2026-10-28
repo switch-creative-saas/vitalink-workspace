@@ -14,8 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
-import { useGuidedTour } from '@/contexts/GuidedTourContext';
-import { isFeatureEnabled } from '@/config/featureFlags';
+import { GuidedToursList } from '@/components/tours/GuidedToursList';
 import { requireSupabase } from '@/lib/supabase/client';
 import {
   KIND_LABEL, STATUS_LABEL, TICKET_CATEGORIES, createTicket, getSupportContact, listMessages, listMyTickets, markRead, reply,
@@ -59,8 +58,6 @@ const errorText = (error: unknown, fallback: string) => (error instanceof Error 
 export function LiveHelpSupport() {
   const { organization, currentRole } = useAuth();
   const orgId = organization.id;
-  const { replayCurrentRoleTour, startIntroTour, startWorkflowTraining } = useGuidedTour();
-  const toursEnabled = isFeatureEnabled('onboardingToursEnabled');
   const isWorkspaceAdmin = currentRole === 'super-admin' || currentRole === 'hospital-admin';
 
   const [tickets, setTickets] = useState<SupportTicket[] | null>(null);
@@ -168,6 +165,8 @@ export function LiveHelpSupport() {
             </div>
           )}
 
+          <GuidedToursList />
+
           <div className="premium-card p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-semibold text-gray-900">How-to guides</h3>
@@ -196,17 +195,6 @@ export function LiveHelpSupport() {
 
         <div className="space-y-4">
           <ConnectionCheck />
-          {toursEnabled && (
-            <div className="premium-card p-5">
-              <h3 className="mb-2 font-semibold text-gray-900">Guided tours</h3>
-              <p className="mb-3 text-sm text-gray-600">Step-by-step walkthroughs of the pages your role uses.</p>
-              <div className="grid gap-2">
-                <Button variant="outline" onClick={startIntroTour}>Start intro tour</Button>
-                <Button variant="outline" onClick={() => startWorkflowTraining()}>Workflow training</Button>
-                <Button variant="outline" onClick={replayCurrentRoleTour}>Replay my role's tour</Button>
-              </div>
-            </div>
-          )}
           <div className="premium-card p-5">
             <h3 className="mb-2 font-semibold text-gray-900">Ideas & feedback</h3>
             <p className="mb-3 text-sm text-gray-600">The VitaLink team reads every message.</p>

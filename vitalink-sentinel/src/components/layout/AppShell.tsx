@@ -3,10 +3,12 @@ import { useSentinelStore } from '@/store/useSentinelStore';
 import { PAGE_TITLES } from './navigation';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { SentinelToursProvider } from '@/components/tours/SentinelTours';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { route, activeOrganization } = useSentinelStore();
   return (
+    <SentinelToursProvider>
     <div className="sentinel-app min-h-screen overflow-x-clip text-slate-950 dark:text-slate-100">
       <TopBar />
       <div className="flex gap-5 px-4 lg:gap-6 lg:px-6">
@@ -21,5 +23,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         </main>
       </div>
     </div>
+    </SentinelToursProvider>
   );
 }

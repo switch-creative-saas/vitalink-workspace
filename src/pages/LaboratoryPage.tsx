@@ -571,7 +571,6 @@ export function LaboratoryPage() {
           setNewOrderOpen(false);
           resetNewOrderForm();
           toast.success('Lab order created', { description: `${patient.name} · Status: Pending` });
-          window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'laboratory:order-created' } }));
         })
         .catch((error) => toast.error(errorText(error, 'Could not create the lab order')))
         .finally(() => setBusy(false));
@@ -605,7 +604,6 @@ export function LaboratoryPage() {
         detail: { channel: 'lab', type: 'new-order', orderId: id, message: 'New lab order queued' },
       }),
     );
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'laboratory:order-created' } }));
   };
 
   const exportCsv = () => {
@@ -733,9 +731,6 @@ export function LaboratoryPage() {
         }),
       );
     }
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'laboratory:results-submitted' } }));
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'laboratory:report-uploaded' } }));
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'laboratory:doctor-notified' } }));
     window.dispatchEvent(
       new CustomEvent<SentinelLabPayload>(SENTINEL_LAB_EVENT, {
         detail: {
@@ -776,9 +771,6 @@ export function LaboratoryPage() {
     } else {
       persistOrderPatch(order.id, { status });
       toast.success(`Status updated → ${status}`);
-    }
-    if (status === 'processing') {
-      window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'laboratory:processing' } }));
     }
   };
 
@@ -950,7 +942,6 @@ export function LaboratoryPage() {
                   className="gap-1.5 rounded-xl border-[#1E4ED8]/20"
                   onClick={() => {
                     bulkCsvInputRef.current?.click();
-                    window.dispatchEvent(new CustomEvent('vitalink:tour-trigger', { detail: { tourId: 'micro-lab-upload' } }));
                   }}
                 >
                   <Upload className="w-4 h-4" />
@@ -978,7 +969,7 @@ export function LaboratoryPage() {
               <FileText className="w-4 h-4" />
               PDF
             </Button>
-            <Button
+            <Button data-tour-id="lab-new-order"
               size="sm"
               className="gap-1.5 rounded-xl bg-gradient-to-r from-[#1E4ED8] to-[#1E3A8A] text-white shadow-md"
               disabled={!perms.canCreateOrder}
@@ -1033,7 +1024,7 @@ export function LaboratoryPage() {
           ))}
         </div>
 
-        <div className="flex flex-wrap gap-1.5 p-1 mt-4 rounded-2xl bg-white/60 backdrop-blur-md border border-white/60 shadow-inner w-full max-w-full dark:border-slate-700 dark:bg-slate-900/50">
+        <div data-tour-id="lab-tabs" className="flex flex-wrap gap-1.5 p-1 mt-4 rounded-2xl bg-white/60 backdrop-blur-md border border-white/60 shadow-inner w-full max-w-full dark:border-slate-700 dark:bg-slate-900/50">
           {tabs.map((tab) => (
             <button
               key={tab.id}

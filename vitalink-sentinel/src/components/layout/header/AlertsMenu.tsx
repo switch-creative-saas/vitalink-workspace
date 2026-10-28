@@ -34,7 +34,7 @@ export function AlertsMenu({ live }: { live: boolean }) {
     } finally { setBusy(null); }
   };
 
-  return <HeaderPopover label="Alerts" trigger={<Bell className="h-[18px] w-[18px]" />} badge={live ? openCount : false} onOpenChange={(open) => { if (open) load(); }}>
+  return <HeaderPopover label="Alerts" tourId="alerts-bell" trigger={<Bell className="h-[18px] w-[18px]" />} badge={live ? openCount : false} onOpenChange={(open) => { if (open) load(); }}>
     {(close) => <>
       <div className="flex items-center justify-between px-5 pb-3 pt-4">
         <div><p className="text-sm font-semibold text-slate-950 dark:text-white">Alerts</p><p className="text-xs text-slate-500 dark:text-slate-400">{live ? `${openCount} open` : 'Available with the live backend'}</p></div>

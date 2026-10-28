@@ -380,11 +380,11 @@ export function LiveCases() {
         </div>
         <div className="flex gap-2">
           <Button className={muted} disabled={exporting || total === 0} onClick={() => void download()}>{exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}Export CSV</Button>
-          {canEdit && <Button onClick={() => setReporting(true)}><Plus className="h-4 w-4" />Report New Case</Button>}
+          {canEdit && <Button data-tour-id="cases-report" onClick={() => setReporting(true)}><Plus className="h-4 w-4" />Report New Case</Button>}
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[1fr_200px_160px_180px_150px]">
+      <div data-tour-id="cases-filters" className="grid gap-3 md:grid-cols-[1fr_200px_160px_180px_150px]">
         <input className={inputClass} placeholder="Search case ID, disease, state, LGA, reporter" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
         <Select value={filters.diseaseId ?? ''} onChange={(e) => setFilter({ diseaseId: e.target.value || undefined })}>
           <option value="">All diseases</option>{diseases.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -409,7 +409,7 @@ export function LiveCases() {
         </div>
       ) : (
         <div className={loading ? 'opacity-60 transition-opacity' : ''}>
-          <DataTable headers={['Case ID', 'Disease', 'State / LGA', 'Source', 'Reported', 'Age / Sex', 'Status', 'Lab', '']}>
+          <DataTable data-tour-id="cases-table" headers={['Case ID', 'Disease', 'State / LGA', 'Source', 'Reported', 'Age / Sex', 'Status', 'Lab', '']}>
             {cases.map((c) => (
               <tr key={c.id} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60" onClick={() => setSelectedId(c.id)}>
                 <td className="px-4 py-3 font-mono text-xs text-blue-600 dark:text-blue-300">{c.reportId}</td>

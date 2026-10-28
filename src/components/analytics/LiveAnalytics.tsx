@@ -101,7 +101,7 @@ export function LiveAnalytics() {
           <p className="text-sm text-slate-500 dark:text-slate-400">How {organization.name} is doing, from your own records. Compared with the {prevLabel}.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900/60">
+          <div data-tour-id="analytics-range" className="flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-900/60">
             {RANGES.map((r) => (
               <button key={r.id} type="button" onClick={() => pickRange(r.id)}
                 className={cn('rounded-md px-3 py-1.5 text-sm', range === r.id ? 'bg-white font-medium text-royal-700 shadow-sm dark:bg-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400')}>
@@ -110,7 +110,7 @@ export function LiveAnalytics() {
             ))}
           </div>
           <Button variant="outline" size="sm" onClick={load} aria-label="Refresh"><RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} /></Button>
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={!data}><Download className="mr-1 h-4 w-4" />Export CSV</Button>
+          <Button data-tour-id="analytics-export" variant="outline" size="sm" onClick={exportCsv} disabled={!data}><Download className="mr-1 h-4 w-4" />Export CSV</Button>
         </div>
       </header>
 
@@ -118,7 +118,7 @@ export function LiveAnalytics() {
 
       {data && (
         <>
-          <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <section data-tour-id="analytics-cards" className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {cards.map((c) => (
               <div key={c.label} className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/80">
                 <div className="flex items-center justify-between">

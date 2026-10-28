@@ -35,6 +35,7 @@ import { applyTheme, getSavedTheme, type ThemeMode } from '@/lib/theme';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useGuidedTour } from '@/contexts/GuidedTourContext';
+import { WELCOME_TOUR_ID } from '@/lib/tours/workspaceTours';
 import { isFeatureEnabled, setFeatureOverride, clearFeatureOverride } from '@/config/featureFlags';
 
 import { RoleSwitcher } from '@/components/role/RoleSwitcher';
@@ -90,7 +91,7 @@ export function SettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
 function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
   const { currentRole, setCurrentRole, userName, userEmail, hasPermission } = useAuth();
   const { subscription, hasAccess, DEV_OVERRIDE, addAudit } = useSubscription();
-  const { toursEnabled, setToursEnabled, resetOnboarding, replayCurrentRoleTour, startRoleOnboarding } = useGuidedTour();
+  const { offerPageTours, setOfferPageTours, resetProgress, startTour } = useGuidedTour();
   const globalToursEnabled = isFeatureEnabled('onboardingToursEnabled');
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [query, setQuery] = useState('');
@@ -271,7 +272,6 @@ function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
   const triggerRoleSimulation = (role: UserRole) => {
     setSimulatedRole(role);
     setCurrentRole(role);
-    startRoleOnboarding(role);
     toast.success(`Viewing system as ${role.replace('-', ' ')}`);
   };
 
@@ -567,11 +567,11 @@ function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
                       <p className="font-medium text-gray-900">Guided Tours</p>
                       <p className="text-xs text-gray-500">Enable onboarding and contextual walkthroughs.</p>
                     </div>
-                    <Switch checked={toursEnabled} onCheckedChange={setToursEnabled} />
+                    <Switch checked={offerPageTours} onCheckedChange={setOfferPageTours} />
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={replayCurrentRoleTour}>Replay Current Role Tour</Button>
-                    <Button variant="outline" size="sm" onClick={resetOnboarding}>Reset Onboarding</Button>
+                    <Button variant="outline" size="sm" onClick={() => startTour(WELCOME_TOUR_ID)}>Replay getting started</Button>
+                    <Button variant="outline" size="sm" onClick={() => void resetProgress()}>Start tours over</Button>
                   </div>
                 </div>
               )}

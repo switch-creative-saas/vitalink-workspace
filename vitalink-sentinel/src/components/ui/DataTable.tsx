@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
-export function DataTable({ headers, children }: { headers: string[]; children: ReactNode }) {
+export function DataTable({ headers, children, 'data-tour-id': tourId }: { headers: string[]; children: ReactNode; 'data-tour-id'?: string }) {
   return (
-    <div className="sentinel-card overflow-x-auto rounded-[28px] px-3 pb-2">
+    <div data-tour-id={tourId} className="sentinel-card overflow-x-auto rounded-[28px] px-3 pb-2">
       <table className="w-full min-w-[760px] text-left text-sm">
         <thead className="text-xs text-slate-400 dark:text-slate-500">
           <tr>

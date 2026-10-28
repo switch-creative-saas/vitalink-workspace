@@ -160,11 +160,11 @@ export function LiveReports() {
         </div>
         <div className="flex gap-2">
           <Button className={muted} disabled={!data || loading} onClick={exportCsv}><Download className="h-4 w-4" />Export CSV</Button>
-          <Button disabled={!data || loading} onClick={print}><Printer className="h-4 w-4" />Export PDF</Button>
+          <Button data-tour-id="reports-export" disabled={!data || loading} onClick={print}><Printer className="h-4 w-4" />Export PDF</Button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div data-tour-id="reports-kinds" className="flex flex-wrap gap-2">
         {KINDS.map((k) => <Button key={k.id} className={kind === k.id ? '' : muted} onClick={() => setKind(k.id)}>{k.label}</Button>)}
       </div>
 

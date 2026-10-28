@@ -68,7 +68,7 @@ export function LiveDiagnosis() {
       )}
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <div className="flex w-fit flex-wrap gap-1 rounded-xl bg-gray-100 p-1">
+        <div data-tour-id="ai-tools" className="flex w-fit flex-wrap gap-1 rounded-xl bg-gray-100 p-1">
           {([
             { id: 'engine', label: 'Symptom Diagnosis Engine', icon: BrainCircuit },
             { id: 'ai', label: 'VitaMind AI', icon: Sparkles },
@@ -80,7 +80,7 @@ export function LiveDiagnosis() {
             </button>
           ))}
         </div>
-        <div className="md:ml-auto md:w-96"><PatientPicker organizationId={organization.id} value={patient} onChange={setPatient} /></div>
+        <div data-tour-id="ai-patient" className="md:ml-auto md:w-96"><PatientPicker organizationId={organization.id} value={patient} onChange={setPatient} /></div>
       </div>
 
       {tab === 'engine' && (

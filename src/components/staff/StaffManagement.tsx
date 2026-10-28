@@ -225,7 +225,7 @@ export function StaffManagement() {
             <RefreshCw className="h-4 w-4" />
             Refresh
           </Button>
-          <Button className="gap-2 rounded-xl bg-gradient-to-r from-royal-500 to-royal-700 text-white" disabled={!isAdmin} onClick={() => { setLastInvite(null); setInviteOpen(true); }}>
+          <Button data-tour-id="staff-invite" className="gap-2 rounded-xl bg-gradient-to-r from-royal-500 to-royal-700 text-white" disabled={!isAdmin} onClick={() => { setLastInvite(null); setInviteOpen(true); }}>
             <UserPlus className="h-4 w-4" />
             Invite Staff
           </Button>
@@ -241,7 +241,7 @@ export function StaffManagement() {
         ))}
       </div>
 
-      <div className="flex w-fit gap-2 rounded-xl bg-gray-100 p-1">
+      <div data-tour-id="staff-tabs" className="flex w-fit gap-2 rounded-xl bg-gray-100 p-1">
         {([
           { id: 'staff', label: 'Staff Directory', icon: Users },
           ...(isAdmin ? [{ id: 'invitations', label: `Invitations${pendingInvites.length ? ` (${pendingInvites.length})` : ''}`, icon: Mail }] : []),

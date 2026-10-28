@@ -126,7 +126,7 @@ function NetworkTab({ orgId, canEdit, isAdmin, onRequest }: { orgId: string; can
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         {isAdmin && <Button className={muted} onClick={onRequest}><Network className="h-4 w-4" />Request a VitaLink hospital</Button>}
-        {canEdit && <Button onClick={() => setEditing('new')}><Plus className="h-4 w-4" />Add direct reporting site</Button>}
+        {canEdit && <Button data-tour-id="facilities-add" onClick={() => setEditing('new')}><Plus className="h-4 w-4" />Add direct reporting site</Button>}
       </div>
       {facilities === null ? <div className="h-40 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
         : facilities.length === 0 ? (
@@ -134,7 +134,7 @@ function NetworkTab({ orgId, canEdit, isAdmin, onRequest }: { orgId: string; can
             No facilities yet. Ask VitaLink hospitals to share de-identified disease reports automatically, or register clinics and community sites that report through your officers.
           </div>
         ) : (
-          <DataTable headers={['Facility', 'State / LGA', 'Type', 'Connection', 'Last report', 'Cases (7d / total)', 'Symptom reports (7d)', '']}>
+          <DataTable data-tour-id="facilities-table" headers={['Facility', 'State / LGA', 'Type', 'Connection', 'Last report', 'Cases (7d / total)', 'Symptom reports (7d)', '']}>
             {facilities.map((f) => {
               const c = connection(f);
               return (
@@ -313,7 +313,7 @@ export function LiveFacilities() {
         <h2 className="text-2xl font-bold text-slate-950 dark:text-slate-50">Reporting Network</h2>
         <p className="text-sm text-slate-500 dark:text-slate-400">Where your surveillance data comes from: VitaLink hospitals, direct reporting sites and partner systems.</p>
       </div>
-      <div className="flex w-fit flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+      <div data-tour-id="facilities-tabs" className="flex w-fit flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
         {tabs.map((t) => (
           <button key={t.id} type="button" onClick={() => setTab(t.id)}
             className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${tab === t.id ? 'bg-white text-blue-600 shadow-sm dark:bg-slate-700 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>{t.label}</button>

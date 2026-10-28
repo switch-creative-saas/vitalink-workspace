@@ -1,0 +1,85 @@
+/* Guided tour popovers (Driver.js), in VitaLink's colours. Shared look for light and dark. */
+.driver-popover.vl-tour {
+  max-width: 360px;
+  padding: 20px 20px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: #ffffff;
+  color: #334155;
+  box-shadow: 0 24px 60px -20px rgba(15, 23, 42, 0.45);
+  font-family: inherit;
+}
+
+.driver-popover.vl-tour .driver-popover-title {
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.driver-popover.vl-tour .driver-popover-description {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #475569;
+}
+
+.driver-popover.vl-tour .driver-popover-progress-text {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.driver-popover.vl-tour .driver-popover-footer { margin-top: 16px; }
+
+.driver-popover.vl-tour .driver-popover-footer button {
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  text-shadow: none;
+  color: #334155;
+  background: #ffffff;
+}
+
+.driver-popover.vl-tour .driver-popover-footer .driver-popover-next-btn {
+  border-color: #1e4ed8;
+  background: #1e4ed8;
+  color: #ffffff;
+}
+
+.driver-popover.vl-tour .driver-popover-footer .driver-popover-next-btn:hover { background: #1d40b0; }
+.driver-popover.vl-tour .driver-popover-footer .driver-popover-prev-btn:hover { background: #f1f5f9; }
+.driver-popover.vl-tour .driver-popover-footer button:focus-visible { outline: 2px solid #93c5fd; outline-offset: 2px; }
+
+.driver-popover.vl-tour .driver-popover-close-btn {
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  color: #94a3b8;
+}
+.driver-popover.vl-tour .driver-popover-close-btn:hover { background: #f1f5f9; color: #0f172a; }
+
+.driver-popover.vl-tour .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: #ffffff; }
+.driver-popover.vl-tour .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: #ffffff; }
+.driver-popover.vl-tour .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: #ffffff; }
+.driver-popover.vl-tour .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #ffffff; }
+
+/* Dark mode */
+.dark .driver-popover.vl-tour { border-color: rgba(255, 255, 255, 0.08); background: #111827; color: #cbd5e1; }
+.dark .driver-popover.vl-tour .driver-popover-title { color: #f8fafc; }
+.dark .driver-popover.vl-tour .driver-popover-description { color: #cbd5e1; }
+.dark .driver-popover.vl-tour .driver-popover-footer button { border-color: rgba(255, 255, 255, 0.12); background: transparent; color: #e2e8f0; }
+.dark .driver-popover.vl-tour .driver-popover-footer .driver-popover-next-btn { border-color: #3b82f6; background: #3b82f6; color: #ffffff; }
+.dark .driver-popover.vl-tour .driver-popover-footer .driver-popover-prev-btn:hover,
+.dark .driver-popover.vl-tour .driver-popover-close-btn:hover { background: rgba(255, 255, 255, 0.08); color: #ffffff; }
+.dark .driver-popover.vl-tour .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: #111827; }
+.dark .driver-popover.vl-tour .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: #111827; }
+.dark .driver-popover.vl-tour .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: #111827; }
+.dark .driver-popover.vl-tour .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: #111827; }
+
+@media (prefers-reduced-motion: reduce) {
+  .driver-popover.vl-tour { animation: none; }
+}

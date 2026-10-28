@@ -175,8 +175,6 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
         onCreated={() => {
           setPage(1);
           refresh();
-          window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'patients:created' } }));
-          window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'patients:vitalink-id-generated' } }));
         }}
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -193,7 +191,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
             ))}
           </select>
           <Button variant="outline" onClick={saveTemplate} className="min-w-0">Template</Button>
-          <label className="inline-flex items-center shrink-0">
+          <label data-tour-id="patients-import" className="inline-flex items-center shrink-0">
             <input
               className="hidden"
               type="file"
@@ -205,7 +203,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
             />
             <span className="inline-flex h-10 items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium gap-2 cursor-pointer min-w-0"><Upload className="w-4 h-4 shrink-0" /><span className="truncate">Import</span></span>
           </label>
-          <Button variant="outline" onClick={() => exportRows('filtered', 'csv')} className="gap-2 min-w-0"><Download className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">Export CSV</span></Button>
+          <Button data-tour-id="patients-export" variant="outline" onClick={() => exportRows('filtered', 'csv')} className="gap-2 min-w-0"><Download className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">Export CSV</span></Button>
           <Button variant="outline" onClick={() => exportRows('all', 'xlsx')} className="min-w-0">Excel</Button>
           <Button variant="outline" onClick={() => exportRows('filtered', 'pdf')} className="min-w-0">PDF</Button>
           <Button
@@ -213,7 +211,6 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
             className="bg-gradient-to-r from-royal-600 to-royal-800 text-white gap-2 min-w-0"
             onClick={() => {
               setWizardOpen(true);
-              window.dispatchEvent(new CustomEvent('vitalink:tour-trigger', { detail: { tourId: 'micro-new-patient' } }));
             }}
             disabled={!canCreate('Patients')}
           >
@@ -235,7 +232,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
         <div className="flex flex-col md:flex-row gap-2">
           <div className="flex-1 relative min-w-0">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 shrink-0" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by Name, VitaLink ID, Phone" className="pl-9 min-w-0" />
+            <Input data-tour-id="patients-search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by Name, VitaLink ID, Phone" className="pl-9 min-w-0" />
           </div>
           <Button variant="outline" className="gap-2 min-w-0" onClick={() => setDrawerOpen((value) => !value)}>
             <Filter className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">Advanced Filters</span>
@@ -286,7 +283,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
 
       <div className="rounded-2xl border border-white/60 bg-white/75 backdrop-blur-xl overflow-hidden min-w-0">
         <div className="hidden md:block responsive-table-wrap">
-          <table className="min-w-full">
+          <table data-tour-id="patients-table" className="min-w-full">
             <thead className="sticky top-0 bg-gray-50/95 backdrop-blur z-10">
               <tr className="text-xs uppercase text-gray-500">
                 <th className="px-4 py-3 text-left cursor-pointer min-w-0" onClick={() => { setSortBy('name'); setSortOrder((v) => (sortBy === 'name' && v === 'asc' ? 'desc' : 'asc')); }}>Patient</th>

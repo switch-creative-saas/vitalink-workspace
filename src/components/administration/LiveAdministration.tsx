@@ -194,14 +194,14 @@ export function LiveAdministration() {
             <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
             Refresh
           </Button>
-          <Button className="bg-gradient-to-r from-royal-500 to-royal-700 text-white gap-2 rounded-xl" onClick={openCreate}>
+          <Button data-tour-id="admin-add-department" className="bg-gradient-to-r from-royal-500 to-royal-700 text-white gap-2 rounded-xl" onClick={openCreate}>
             <Plus className="w-4 h-4" />
             Add Department
           </Button>
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+      <div data-tour-id="admin-tabs" className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
         {[
           { id: 'departments' as const, label: 'Departments', icon: Building2 },
           { id: 'facility' as const, label: 'Facility Settings', icon: Hospital },

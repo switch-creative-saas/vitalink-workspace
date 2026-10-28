@@ -48,7 +48,7 @@ export function LiveSecurityAudit() {
         </p>
       </div>
 
-      <div className="flex w-fit flex-wrap gap-1 rounded-xl border border-gray-100 bg-gray-100 p-1">
+      <div data-tour-id="audit-tabs" className="flex w-fit flex-wrap gap-1 rounded-xl border border-gray-100 bg-gray-100 p-1">
         {([
           { id: 'logs', label: 'Audit Log', icon: History },
           { id: 'sessions', label: 'Sessions', icon: Monitor },

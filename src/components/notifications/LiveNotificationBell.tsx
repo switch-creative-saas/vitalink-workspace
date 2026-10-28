@@ -78,7 +78,7 @@ export function LiveNotificationBell() {
 
   return (
     <div ref={panelRef} className="relative">
-      <button onClick={() => setOpen(!open)} aria-label={`Notifications${unread ? ` (${unread} unread)` : ''}`}
+      <button data-tour-id="notifications" onClick={() => setOpen(!open)} aria-label={`Notifications${unread ? ` (${unread} unread)` : ''}`}
         className={cn('relative rounded-xl p-2.5 transition-colors', open ? 'bg-[#1E4ED8]/10 text-[#1E4ED8]' : 'text-slate-600 hover:bg-gray-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-50')}>
         <Bell className="h-5 w-5" />
         {unread > 0 && (

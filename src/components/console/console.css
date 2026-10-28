@@ -1,0 +1,88 @@
+/* VitaLink Console look: a white canvas, a soft blue-grey navigation panel, navy primary,
+   orange accents, rounded bordered tables with outlined status pills. Scoped to .console-app
+   so the workspace app keeps its own theme. */
+
+.console-app {
+  --primary: 234 87% 30%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 234 87% 30%;
+  --accent: 220 33% 95%;
+  --accent-foreground: 234 87% 30%;
+  --border: 220 23% 91%;
+  --input: 220 23% 89%;
+  --console-navy: #0a1a8f;
+  --console-orange: #ff5b1f;
+  --console-panel: #e9eef5;
+  background: #ffffff;
+  color: #111827;
+}
+
+.dark .console-app {
+  --primary: 230 90% 70%;
+  --primary-foreground: 234 60% 12%;
+  --ring: 230 90% 70%;
+  --accent: 228 20% 18%;
+  --accent-foreground: 0 0% 100%;
+  --border: 228 16% 20%;
+  --input: 228 16% 22%;
+  --console-navy: #8ea0ff;
+  --console-panel: #151925;
+  background: #0b0d14;
+  color: #e5e7eb;
+}
+
+/* Buttons and fields: fully rounded. */
+.console-app [data-slot='button'] { border-radius: 999px; }
+.console-app [data-slot='input'],
+.console-app select { border-radius: 999px; border-color: hsl(var(--input)); }
+.console-app [data-slot='input'] { padding-left: 1rem; padding-right: 1rem; }
+.console-app [data-slot='input'].pl-9 { padding-left: 2.25rem; }
+.console-app [data-slot='textarea'] { border-radius: 18px; }
+
+/* Cards and table frames. */
+.console-app main .rounded-xl.border,
+.console-app main .rounded-lg.border.bg-white,
+.console-app main .rounded-2xl.border {
+  border-radius: 24px;
+  border-color: #e6eaf0;
+  box-shadow: none;
+}
+.dark .console-app main .rounded-xl.border,
+.dark .console-app main .rounded-2xl.border { border-color: rgba(255, 255, 255, 0.08); background-color: #11141d; }
+
+.console-app main .overflow-x-auto.rounded-xl.border { padding: 8px 16px 12px; }
+.console-app main table thead { background: transparent; color: #1f2937; font-size: 0.875rem; }
+.dark .console-app main table thead { color: #cbd5e1; }
+.console-app main table thead th { padding-top: 14px; padding-bottom: 12px; font-weight: 500; border-bottom: 1px solid #e6eaf0; }
+.dark .console-app main table thead th { border-bottom-color: rgba(255, 255, 255, 0.08); }
+.console-app main table tbody tr { border-color: #edf0f4; }
+.console-app main table tbody tr:nth-child(odd) { background: #f7f8fa; }
+.dark .console-app main table tbody tr:nth-child(odd) { background: rgba(255, 255, 255, 0.025); }
+.console-app main table tbody tr:hover { background: #eef1fb; }
+.dark .console-app main table tbody tr:hover { background: rgba(142, 160, 255, 0.08); }
+.console-app main table td { padding-top: 12px; padding-bottom: 12px; }
+/* Names and contacts may wrap; figures, dates and statuses stay on one line. */
+.console-app main table td:nth-child(n + 3) { white-space: nowrap; }
+
+/* Status chips become outlined pills. */
+.console-app main span.rounded-full[class*='bg-emerald-100'] { background: transparent; box-shadow: inset 0 0 0 1px #16a34a; color: #15803d; }
+.console-app main span.rounded-full[class*='bg-amber-100'] { background: transparent; box-shadow: inset 0 0 0 1px #f59e0b; color: #b45309; }
+.console-app main span.rounded-full[class*='bg-red-100'] { background: transparent; box-shadow: inset 0 0 0 1px #ef4444; color: #b91c1c; }
+.console-app main span.rounded-full[class*='bg-sky-100'],
+.console-app main span.rounded-full[class*='bg-blue-100'] { background: transparent; box-shadow: inset 0 0 0 1px #0ea5e9; color: #0369a1; }
+.console-app main span.rounded-full[class*='bg-violet-100'] { background: transparent; box-shadow: inset 0 0 0 1px var(--console-navy); color: var(--console-navy); }
+.console-app main span.rounded-full[class*='bg-slate-100'] { background: transparent; box-shadow: inset 0 0 0 1px #cbd5e1; color: #475569; }
+.console-app main span.rounded-full[class*='px-2'] { padding-left: 12px; padding-right: 12px; }
+.console-app main span.rounded-full[class*='bg-'] { display: inline-block; white-space: nowrap; }
+
+/* Violet accents move to the console navy. */
+.console-app .bg-violet-500,
+.console-app .bg-violet-600 { background-color: var(--console-navy); }
+.console-app .text-violet-600,
+.console-app .text-violet-700,
+.console-app .text-violet-900 { color: var(--console-navy); }
+.console-app .border-violet-200 { border-color: #c7cdf2; }
+.console-app .bg-violet-50 { background-color: #eef1fb; }
+.console-app .hover\:bg-violet-50\/50:hover { background-color: #eef1fb; }
+.console-app .hover\:border-violet-300:hover { border-color: var(--console-navy); }
+.console-app .bg-rose-500 { background-color: var(--console-orange); }

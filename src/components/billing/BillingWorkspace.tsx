@@ -172,7 +172,7 @@ export function BillingWorkspace() {
         ))}
       </div>
 
-      <div className="flex w-full max-w-full flex-wrap gap-2 rounded-xl border border-white/60 bg-white/70 p-1">
+      <div data-tour-id="billing-tabs" className="flex w-full max-w-full flex-wrap gap-2 rounded-xl border border-white/60 bg-white/70 p-1">
         {([
           { id: 'invoices', label: 'Invoices' },
           { id: 'payments', label: 'Payments' },

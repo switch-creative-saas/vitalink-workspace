@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGuidedTour } from '@/contexts/GuidedTourContext';
+import { WELCOME_TOUR_ID } from '@/lib/tours/workspaceTours';
 import { usePlan } from '@/hooks/usePlan';
 import { initialsOf, useMyProfile } from '@/hooks/useMyProfile';
 import { applyFontScale, applyTheme, getSavedTheme, type ThemeMode } from '@/lib/theme';
@@ -60,7 +61,7 @@ export function LiveSettings({ onLogout }: { onLogout: () => void }) {
         <p className="mt-1 text-sm text-gray-500">Your profile, sign-in, appearance and notifications.</p>
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        <nav className="premium-card h-fit p-2 lg:col-span-1">
+        <nav data-tour-id="settings-tabs" className="premium-card h-fit p-2 lg:col-span-1">
           {TABS.map((t) => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={cn('flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium', tab === t.id ? 'bg-royal-50 text-royal-700' : 'text-gray-600 hover:bg-gray-50')}>
@@ -240,7 +241,7 @@ const THEMES: Array<{ id: ThemeMode; label: string; icon: React.ElementType }> =
 const SIZES = [{ value: 90, label: 'Small' }, { value: 100, label: 'Default' }, { value: 110, label: 'Large' }, { value: 120, label: 'Larger' }];
 
 function AppearanceTab({ profile }: { profile: MyProfile }) {
-  const { toursEnabled, setToursEnabled, replayCurrentRoleTour } = useGuidedTour();
+  const { offerPageTours, setOfferPageTours, startTour, resetProgress } = useGuidedTour();
   const [theme, setTheme] = useState<ThemeMode>(() => getSavedTheme());
   const [size, setSize] = useState(profile.preferences.fontScale ?? 100);
 
@@ -270,10 +271,13 @@ function AppearanceTab({ profile }: { profile: MyProfile }) {
           ))}
         </div>
       </Section>
-      <Section title="Guided tours" description="Short walkthroughs that explain each page the first time you open it.">
+      <Section title="Guided tours" description="Short walkthroughs of each page. All tours are listed under Help & Support.">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <label className="flex items-center gap-3 text-sm text-gray-800"><Switch checked={toursEnabled} onCheckedChange={setToursEnabled} />Show guided tours</label>
-          <Button variant="outline" size="sm" onClick={replayCurrentRoleTour}>Replay the tour for my role</Button>
+          <label className="flex items-center gap-3 text-sm text-gray-800"><Switch checked={offerPageTours} onCheckedChange={setOfferPageTours} />Offer a tour the first time I open a page</label>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={() => startTour(WELCOME_TOUR_ID)}>Replay getting started</Button>
+            <Button variant="outline" size="sm" onClick={() => void resetProgress().then(() => toast.success('Tour progress cleared. Tours will be offered again.'))}>Start tours over</Button>
+          </div>
         </div>
       </Section>
     </>

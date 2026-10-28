@@ -351,7 +351,6 @@ function DemoBillingPage() {
             className="bg-gradient-to-r from-royal-500 to-royal-700 text-white gap-2 rounded-xl"
             onClick={() => {
               setInvoiceOpen(true);
-              window.dispatchEvent(new CustomEvent('vitalink:tour-trigger', { detail: { tourId: 'micro-billing-first' } }));
             }}
             disabled={!canCreateInvoice}
           >

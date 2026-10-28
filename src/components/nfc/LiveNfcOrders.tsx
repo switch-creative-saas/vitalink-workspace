@@ -207,7 +207,7 @@ function OrderForm({ terms, organizationName, onPlaced }: { terms: OrderingTerms
         </section>
       </div>
 
-      <aside className="h-fit space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-6 dark:border-slate-700 dark:bg-slate-900">
+      <aside data-tour-id="nfc-summary" className="h-fit space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-6 dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-indigo-600 dark:text-indigo-300" /><h2 className="font-semibold text-slate-900 dark:text-slate-50">Order summary</h2></div>
         <dl className="space-y-3 text-sm">
           <div className="flex justify-between gap-4 text-slate-600 dark:text-slate-400"><dt>{quantity} cards × {naira(terms.cardPrice)}</dt><dd>{naira(subtotal)}</dd></div>
@@ -308,7 +308,7 @@ function OrderHistory({ orders, terms, canOrder, onChanged }: { orders: NfcOrder
 
   return (
     <section>
-      <h2 className="mb-3 text-lg font-bold text-slate-900 dark:text-slate-50">Order history</h2>
+      <h2 data-tour-id="nfc-history" className="mb-3 text-lg font-bold text-slate-900 dark:text-slate-50">Order history</h2>
       <div className="space-y-3">
         {orders.map((order) => (
           <div key={order.id} className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">

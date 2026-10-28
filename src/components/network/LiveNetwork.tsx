@@ -90,7 +90,7 @@ export function LiveNetwork() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {settings && (
-            <span className={cn('rounded-full px-3 py-1 text-xs', settings.joined ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600')}>
+            <span data-tour-id="network-status" className={cn('rounded-full px-3 py-1 text-xs', settings.joined ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600')}>
               {settings.joined ? (settings.visibleInDirectory ? 'On the network · listed' : 'On the network · not listed') : 'Not on the network'}
             </span>
           )}
@@ -105,14 +105,14 @@ export function LiveNetwork() {
         </div>
       )}
 
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section data-tour-id="network-stats" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Metric label="Hospitals on the network" value={others.length} hint={`${others.filter((f) => f.verified).length} verified`} />
         <Metric label="Incoming, open" value={incomingOpen} hint={`${(transfers ?? []).filter((t) => t.receivingOrgId === orgId && t.status === 'pending_review').length} awaiting your review`} />
         <Metric label="Sent, open" value={(transfers ?? []).filter((t) => t.referringOrgId === orgId && OPEN.includes(t.status)).length} hint="referrals and transfers" />
         <Metric label="Completed this month" value={(transfers ?? []).filter((t) => t.status === 'completed' && new Date(t.updatedAt) >= thisMonth).length} hint="both directions" />
       </section>
 
-      <div className="flex w-fit gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70">
+      <div data-tour-id="network-tabs" className="flex w-fit gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-900/70">
         {([['directory', 'Directory'], ['transfers', 'Referrals & transfers']] as Array<[Tab, string]>).map(([id, label]) => (
           <button key={id} type="button" onClick={() => setTab(id)}
             className={cn('rounded-lg px-4 py-2 text-sm', tab === id ? 'bg-white font-medium text-royal-700 shadow-sm dark:bg-slate-800 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400')}>

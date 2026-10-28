@@ -1154,3 +1154,18 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Toasts: solid cards that stand out from the page in both themes. */
+[data-sonner-toast].vl-toast {
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  box-shadow: 0 18px 40px -16px rgba(15, 23, 42, 0.35), 0 2px 6px rgba(15, 23, 42, 0.06);
+  opacity: 1;
+}
+[data-sonner-toast].vl-toast [data-title] { font-weight: 600; }
+[data-sonner-toast].vl-toast [data-description] { color: #475569; opacity: 1; }
+.dark [data-sonner-toast].vl-toast { box-shadow: 0 18px 40px -16px rgba(0, 0, 0, 0.7); }
+.dark [data-sonner-toast].vl-toast [data-description] { color: #cbd5e1; }
+[data-sonner-toast].vl-toast [data-button] { border-radius: 999px; padding: 0 12px; height: 28px; font-weight: 600; background: #1e4ed8; color: #fff; }
+[data-sonner-toast].vl-toast [data-cancel] { border-radius: 999px; padding: 0 12px; height: 28px; background: transparent; color: inherit; border: 1px solid hsl(var(--border)); }

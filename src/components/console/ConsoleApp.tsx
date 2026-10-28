@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
-  Bell, Building2, CreditCard, ExternalLink, FileClock, Inbox, LayoutDashboard, LogOut, Menu, Package, Radio, Settings, ShieldCheck, X,
+  ArrowUpRight, Bell, Building2, CreditCard, FileClock, History, Inbox, LayoutDashboard, LogOut, Menu, Package, Radio, Settings, ShieldCheck, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ import { listInbox, subscribeToAllSupport } from '@/lib/supabase/support';
 import { resetPlatformAdminCheck } from '@/hooks/usePlatformAdmin';
 import type { ConsoleSection } from './ConsoleSections';
 import { ConsoleBody, type ConsoleRoute } from './ConsoleBody';
+import './console.css';
 
 type Route = ConsoleRoute;
 
@@ -83,7 +84,7 @@ export default function ConsoleApp() {
 
   let content: React.ReactNode;
   if (session === undefined || (session && isAdmin === null)) {
-    content = <div className="flex min-h-screen items-center justify-center text-sm text-slate-400">Loading...</div>;
+    content = <div className="console-app flex min-h-screen items-center justify-center text-sm text-slate-400">Loading...</div>;
   } else if (!session) {
     content = <ConsoleSignIn />;
   } else if (!isAdmin) {
@@ -101,6 +102,27 @@ export default function ConsoleApp() {
 }
 
 // ---------------------------------------------------------------------------
+
+function ConsoleMark({ className }: { className?: string }) {
+  return <span className={cn('grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--console-navy)] shadow-[0_8px_20px_-10px_rgba(10,26,143,0.8)] dark:bg-[#0a1a8f]', className)}>
+    <img src="/vitalink-icon.png" alt="" className="h-7 w-7 brightness-0 invert" />
+  </span>;
+}
+
+// Signed-out and not-a-team-account screens share the console frame.
+function ConsoleGate({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="console-app flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-[420px] rounded-[32px] bg-[var(--console-panel)] p-8 sm:p-10">
+        <div className="mb-8 flex items-center gap-3">
+          <ConsoleMark />
+          <div><p className="text-lg font-semibold text-slate-900 dark:text-white">VitaLink Console</p><p className="text-sm text-slate-500">VitaLink team only</p></div>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function ConsoleSignIn() {
   const [email, setEmail] = useState('');
@@ -121,41 +143,36 @@ function ConsoleSignIn() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-      <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-7 shadow-2xl dark:bg-slate-900">
-        <div className="flex items-center gap-2">
-          <img src="/vitalink-icon.png" alt="" className="h-8 w-8" />
-          <div>
-            <p className="font-semibold text-slate-900 dark:text-white">VitaLink Console</p>
-            <p className="text-xs text-slate-500">VitaLink team sign-in</p>
-          </div>
-        </div>
-        <label className="block text-sm">Email<Input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
-        <label className="block text-sm">Password<Input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+    <ConsoleGate>
+      <form onSubmit={(e) => { e.preventDefault(); void submit(); }} className="space-y-4">
+        <label className="block space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Email<Input className="h-12 bg-white dark:bg-white/5" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
+        <label className="block space-y-1.5 text-sm font-medium text-slate-700 dark:text-slate-300">Password<Input className="h-12 bg-white dark:bg-white/5" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button type="submit" className="w-full" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</Button>
-        <p className="text-center text-xs text-slate-500">Forgot your password? Reset it from the <a href="/" className="text-violet-700 hover:underline">VitaLink sign-in page</a>.</p>
+        <Button type="submit" className="h-12 w-full" disabled={busy}>{busy ? 'Signing in...' : 'Sign in'}</Button>
+        <p className="text-center text-xs text-slate-500">Forgot your password? Reset it from the <a href="/" className="font-medium text-[var(--console-navy)] hover:underline">VitaLink sign-in page</a>.</p>
       </form>
-    </div>
+    </ConsoleGate>
   );
 }
 
 function NotATeamAccount({ email }: { email: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-      <div className="w-full max-w-sm space-y-3 rounded-2xl bg-white p-7 text-center dark:bg-slate-900">
-        <p className="font-semibold">This isn't a VitaLink team account</p>
+    <ConsoleGate>
+      <div className="space-y-3">
+        <p className="font-semibold text-slate-900 dark:text-white">This isn't a VitaLink team account</p>
         <p className="text-sm text-slate-500">{email} can't open this page. Sign in with a VitaLink team account, or go back to your workspace.</p>
-        <div className="flex justify-center gap-2">
-          <Button variant="outline" onClick={() => location.assign('/')}>My workspace</Button>
-          <Button onClick={() => void signOut()}>Use another account</Button>
+        <div className="flex gap-2 pt-2">
+          <Button variant="outline" className="flex-1" onClick={() => location.assign('/')}>My workspace</Button>
+          <Button className="flex-1" onClick={() => void signOut()}>Use another account</Button>
         </div>
       </div>
-    </div>
+    </ConsoleGate>
   );
 }
 
 // ---------------------------------------------------------------------------
+
+const roundButton = 'relative grid h-12 w-12 shrink-0 place-items-center rounded-full transition';
 
 function ConsoleShell({ email }: { email: string }) {
   const [route, setRoute] = useState<Route>(parseRoute);
@@ -203,60 +220,69 @@ function ConsoleShell({ email }: { email: string }) {
   const badge = (id: ConsoleSection) => (id === 'notifications' ? unreadFeed : id === 'inbox' ? unreadInbox : 0);
   const current = NAV.find((item) => item.id === route.section);
 
-  const nav = (
-    <nav className="flex h-full flex-col gap-1 p-3">
-      <div className="mb-4 flex items-center gap-2 px-2 pt-1">
-        <img src="/vitalink-icon.png" alt="" className="h-7 w-7" />
-        <div>
-          <p className="text-sm font-semibold text-white">VitaLink Console</p>
-          <p className="text-[11px] text-slate-400">Team only</p>
-        </div>
+  const panel = (
+    <nav className="flex h-full flex-col rounded-[32px] bg-[var(--console-panel)] p-5">
+      <div className="mb-8 flex items-center justify-between">
+        <button type="button" onClick={() => go({ section: 'overview', id: null })} aria-label="Overview"><ConsoleMark /></button>
+        <button type="button" onClick={() => go({ section: 'log', id: null })} title="Audit log" aria-label="Audit log"
+          className={cn(roundButton, 'bg-[var(--console-orange)] text-white shadow-[0_10px_22px_-10px_rgba(255,91,31,0.9)] hover:brightness-110')}><History className="h-5 w-5" /></button>
       </div>
-      {['Business', 'Clinical', 'Team'].map((group) => (
-        <div key={group} className="mb-2">
-          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{group}</p>
-          {NAV.filter((item) => item.group === group).map((item) => (
-            <button key={item.id} type="button" onClick={() => go({ section: item.id, id: null })}
-              className={cn('flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm',
-                route.section === item.id ? 'bg-violet-600 text-white' : 'text-slate-300 hover:bg-white/5 hover:text-white')}>
-              <item.icon className="h-4 w-4" />
-              <span className="flex-1 text-left">{item.label}</span>
-              {badge(item.id) > 0 && <span className="rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">{badge(item.id) > 99 ? '99+' : badge(item.id)}</span>}
-            </button>
-          ))}
+      <div className="flex-1 space-y-5 overflow-y-auto">
+        {['Business', 'Clinical', 'Team'].map((group) => (
+          <div key={group}>
+            <p className="px-4 pb-2 text-[11px] font-medium uppercase tracking-wider text-slate-400">{group}</p>
+            <div className="space-y-1">
+              {NAV.filter((item) => item.group === group).map((item) => {
+                const active = route.section === item.id;
+                return <button key={item.id} type="button" onClick={() => go({ section: item.id, id: null })}
+                  className={cn('flex w-full items-center gap-3 rounded-full px-4 py-2.5 text-sm transition',
+                    active ? 'bg-[var(--console-navy)] font-medium text-white shadow-[0_10px_22px_-12px_rgba(10,26,143,0.9)] dark:bg-[#0a1a8f]' : 'text-slate-600 hover:bg-white hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white')}>
+                  <item.icon className="h-4 w-4" />
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {badge(item.id) > 0 && <span className={cn('grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[10px] font-semibold', active ? 'bg-white text-[var(--console-navy)]' : 'bg-[var(--console-orange)] text-white')}>{badge(item.id) > 99 ? '99+' : badge(item.id)}</span>}
+                </button>;
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-4 rounded-[22px] bg-white p-3 dark:bg-white/5">
+        <div className="flex items-center gap-3 px-1">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--console-navy)] text-xs font-semibold uppercase text-white dark:bg-[#0a1a8f]">{email.slice(0, 2)}</span>
+          <div className="min-w-0"><p className="truncate text-sm font-medium text-slate-900 dark:text-white" title={email}>{email}</p><p className="text-[11px] text-slate-500">Platform admin</p></div>
         </div>
-      ))}
-      <div className="mt-auto space-y-1 border-t border-white/10 pt-3">
-        <a href="/" target="_blank" rel="noopener" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white">
-          <ExternalLink className="h-4 w-4" />Open my workspace
-        </a>
-        <p className="truncate px-3 text-[11px] text-slate-500" title={email}>{email}</p>
-        <button type="button" onClick={() => void signOut()} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white">
-          <LogOut className="h-4 w-4" />Sign out
-        </button>
       </div>
     </nav>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <aside className="fixed inset-y-0 left-0 hidden w-60 bg-slate-950 lg:block">{nav}</aside>
+    <div className="console-app min-h-screen lg:flex lg:gap-8 lg:p-6">
+      <aside className="sticky top-6 hidden h-[calc(100vh-48px)] w-[300px] shrink-0 lg:block">{panel}</aside>
       {menuOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <button type="button" className="absolute inset-0 bg-black/40" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
-          <aside className="absolute inset-y-0 left-0 w-64 bg-slate-950">{nav}</aside>
+          <button type="button" className="absolute inset-0 bg-slate-950/40" aria-label="Close menu" onClick={() => setMenuOpen(false)} />
+          <aside className="absolute inset-y-3 left-3 w-[min(86vw,300px)]">{panel}</aside>
         </div>
       )}
-      <div className="lg:pl-60">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
-          <button type="button" className="lg:hidden" onClick={() => setMenuOpen(true)} aria-label="Open menu">{menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-white">{current?.label}</h1>
-          <button type="button" onClick={() => go({ section: 'notifications', id: null })} className="relative ml-auto rounded-full p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={`Notifications (${unreadFeed} new)`}>
-            <Bell className="h-5 w-5" />
-            {unreadFeed > 0 && <span className="absolute -right-0.5 -top-0.5 rounded-full bg-rose-500 px-1.5 text-[10px] font-semibold text-white">{unreadFeed > 99 ? '99+' : unreadFeed}</span>}
-          </button>
+      <div className="min-w-0 flex-1 px-4 pb-10 lg:px-0">
+        <header className="sticky top-0 z-30 flex items-center gap-3 bg-white/90 py-4 backdrop-blur dark:bg-[#0b0d14]/90 lg:py-3">
+          <button type="button" className={cn(roundButton, 'h-11 w-11 bg-[var(--console-panel)] text-slate-700 lg:hidden dark:text-slate-200')} onClick={() => setMenuOpen(true)} aria-label="Open menu">{menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}</button>
+          <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight text-slate-900 sm:text-[26px] dark:text-white">{current?.label}</h1>
+          <div className="ml-auto flex items-center gap-2.5">
+            <a href="/" target="_blank" rel="noopener" className="hidden h-11 items-center gap-1.5 rounded-full border border-[#e2e6ee] px-5 text-sm text-[var(--console-navy)] transition hover:bg-[#f4f6fb] sm:inline-flex dark:border-white/10 dark:hover:bg-white/5">
+              Open my workspace<ArrowUpRight className="h-4 w-4" />
+            </a>
+            <button type="button" onClick={() => go({ section: 'notifications', id: null })} title="Notifications" aria-label={`Notifications (${unreadFeed} new)`}
+              className={cn(roundButton, 'bg-[var(--console-orange)] text-white shadow-[0_10px_22px_-10px_rgba(255,91,31,0.9)] hover:brightness-110')}>
+              <Bell className="h-5 w-5" />
+              {unreadFeed > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[var(--console-navy)] px-1 text-[10px] font-semibold text-white ring-2 ring-white dark:bg-[#0a1a8f] dark:ring-[#0b0d14]">{unreadFeed > 99 ? '99+' : unreadFeed}</span>}
+            </button>
+            <button type="button" onClick={() => void signOut()} title="Sign out" aria-label="Sign out" className={cn(roundButton, 'bg-slate-950 text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950')}>
+              <LogOut className="h-[18px] w-[18px]" />
+            </button>
+          </div>
         </header>
-        <main className="p-4 lg:p-6">
+        <main className="pt-4">
           <ConsoleBody route={route} go={go} email={email} admins={admins} onFeedRead={refreshCounts} />
         </main>
       </div>

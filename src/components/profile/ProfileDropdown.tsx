@@ -70,7 +70,7 @@ export function ProfileDropdown({ onNavigate, onLogout, onDeleteAccount }: Profi
 
   return (
     <div ref={dropdownRef} className="relative">
-      <button
+      <button data-tour-id="profile-menu"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3 pr-2 py-1.5 rounded-xl transition-all duration-200 min-w-0 max-w-[12rem] sm:max-w-none",

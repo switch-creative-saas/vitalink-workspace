@@ -222,7 +222,7 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
       <div className="mx-5 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
       {/* Main Navigation */}
-      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto scrollbar-hide">
+      <nav data-tour-id="sidebar-nav" className="flex-1 py-4 px-3 space-y-1 overflow-y-auto scrollbar-hide">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentPage === item.id;

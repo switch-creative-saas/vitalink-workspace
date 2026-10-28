@@ -13,6 +13,7 @@ import { usePlan } from '@/hooks/usePlan';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { getMyProfile, updateMyProfile } from '@/lib/supabase/profile';
 import { OfflineStatusChip } from '@/components/offline/OfflineStatus';
+import { TourMenu } from '@/components/tours/TourMenu';
 
 interface HeaderProps {
   title: string;
@@ -106,6 +107,7 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
 
         {/* AI Button */}
         <button
+          data-tour-id="vitamind-button"
           onClick={onAIClick}
           className="relative p-2.5 rounded-xl bg-vitalink-50 hover:bg-vitalink-100 border border-vitalink-200 transition-all duration-200"
           title="Open VitaMind AI"
@@ -119,6 +121,9 @@ export function Header({ title, onAIClick, onPageChange, onLogout, onDeleteAccou
             AI
           </span>
         </button>
+
+        {/* Guided tours */}
+        <TourMenu onOpenHelp={() => onPageChange('help')} />
 
         {/* Notifications */}
         <NotificationBell />

@@ -69,7 +69,7 @@ export function LiveDashboard() {
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{format(new Date(), 'EEEE, do MMMM')}</p>
           <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-950 dark:text-slate-50">{greeting()}, {activeOrganization?.fullName ?? 'Sentinel team'}.</h2>
         </div>
-        <div className="rounded-xl bg-white p-1 shadow-sm dark:bg-slate-800">
+        <div data-tour-id="dashboard-period" className="rounded-xl bg-white p-1 shadow-sm dark:bg-slate-800">
           {PERIODS.map((item) => (
             <button key={item.range} type="button" onClick={() => setTimeRange(item.range)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${item.range === period.range ? 'bg-blue-600 text-white dark:bg-blue-500' : 'text-slate-500 dark:text-slate-400'}`}>{item.label}</button>
           ))}
@@ -92,7 +92,7 @@ export function LiveDashboard() {
       <section className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(360px,1.35fr)]">
         <Card>
           <div className="mb-4">
-            <h2 className="font-bold text-slate-950 dark:text-slate-50">Disease Case Trends</h2>
+            <h2 data-tour-id="dashboard-trends" className="font-bold text-slate-950 dark:text-slate-50">Disease Case Trends</h2>
             <p className="text-sm text-slate-500 dark:text-slate-400">Reported cases per {period.days > 30 ? 'week' : 'day'}, top {data?.trendDiseases.length || 5} diseases</p>
           </div>
           {loading ? <div className="h-80 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
@@ -101,7 +101,7 @@ export function LiveDashboard() {
                 series={data.trendDiseases.map((disease, index) => ({ key: disease, color: LINE_COLORS[index % LINE_COLORS.length] }))} />}
         </Card>
         <Card>
-          <h2 className="font-bold text-slate-950 dark:text-slate-50">Surveillance Status</h2>
+          <h2 data-tour-id="dashboard-status" className="font-bold text-slate-950 dark:text-slate-50">Surveillance Status</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">How recently each sharing facility reported</p>
           {stats && stats.facilities === 0 ? <div className="mt-5"><Empty>No facilities are sharing data yet. <button type="button" className="font-semibold text-blue-600 dark:text-blue-300" onClick={() => navigate('facilities')}>Link facilities</button></Empty></div> : (
             <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -117,12 +117,12 @@ export function LiveDashboard() {
           )}
         </Card>
         <Card>
-          <h2 className="mb-4 font-bold text-slate-950 dark:text-slate-50">Active Outbreaks</h2>
+          <h2 data-tour-id="dashboard-outbreaks" className="mb-4 font-bold text-slate-950 dark:text-slate-50">Active Outbreaks</h2>
           {data && data.outbreaks.length === 0 ? <Empty>No active outbreaks.</Empty>
             : <OutbreakTimeline outbreaks={data?.outbreaks ?? []} today={new Date()} onView={() => navigate('outbreaks')} />}
         </Card>
         <Card>
-          <h2 className="mb-4 font-bold text-slate-950 dark:text-slate-50">Alert Feed</h2>
+          <h2 data-tour-id="dashboard-alerts" className="mb-4 font-bold text-slate-950 dark:text-slate-50">Alert Feed</h2>
           {data && data.alerts.length === 0 ? <Empty>No open alerts.</Empty>
             : <AlertFeed alerts={(data?.alerts ?? []).map((alert) => ({ ...alert, acknowledged: false }))} onReview={() => navigate('alerts')} />}
         </Card>
@@ -130,7 +130,7 @@ export function LiveDashboard() {
 
       <section className="grid gap-6 xl:grid-cols-[420px_1fr]">
         <Card>
-          <h2 className="mb-4 font-bold text-slate-950 dark:text-slate-50">Nigeria Surveillance Risk</h2>
+          <h2 data-tour-id="dashboard-risk" className="mb-4 font-bold text-slate-950 dark:text-slate-50">Nigeria Surveillance Risk</h2>
           {data && data.states.length === 0 ? <Empty>No state activity in the last {period.label}.</Empty>
             : <GeographicHeatmap states={(data?.states ?? []).map((row) => ({ state: row.state, riskLevel: row.risk, alerts: row.alerts, totalCases: row.cases }))} />}
         </Card>

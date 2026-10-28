@@ -384,7 +384,6 @@ export function PharmacyPage() {
         .then(() => {
           toast.success(`Dispensed for ${rx.patientName}`);
           notify('dispensed', `${rx.drugName} dispensed for ${rx.patientName}`);
-          window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'pharmacy:dispensed' } }));
           setDispenseOpen(false);
           setDispenseForm({ patient_id: '', medication_id: '', quantity: 0 });
           setAllergyChecked(false);
@@ -398,7 +397,6 @@ export function PharmacyPage() {
     if (!patientPrescription || !med || !dispenseForm.quantity) return toast.error('Complete dispensation details');
     if (med.stock < dispenseForm.quantity) return toast.error('Insufficient stock');
     setMedications((prev) => prev.map((m) => (m.id === med.id ? { ...m, stock: m.stock - Number(dispenseForm.quantity) } : m)));
-    const resultingStock = med.stock - Number(dispenseForm.quantity);
     setDispensations((prev) => [
       {
         id: `disp-${Date.now()}`,
@@ -418,11 +416,6 @@ export function PharmacyPage() {
     ]);
     toast.success('Medication dispensed and synced to EMR + Billing');
     notify('dispensed', `${med.name} dispensed for ${patientPrescription.patient_name}`);
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'pharmacy:dispensed' } }));
-    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'pharmacy:inventory-updated' } }));
-    if (resultingStock <= med.reorder_threshold) {
-      window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'pharmacy:low-stock-handled' } }));
-    }
     setDispenseOpen(false);
   }
 
@@ -573,11 +566,11 @@ export function PharmacyPage() {
                 </div>
               </PopoverContent>
             </Popover>
-            <Button className="gap-2 rounded-xl bg-gradient-to-r from-[#1E4ED8] to-[#1E3A8A] text-white hover:shadow-lg" onClick={() => setAddStockOpen(true)} disabled={!canCreate}>
+            <Button data-tour-id="pharmacy-add-stock" className="gap-2 rounded-xl bg-gradient-to-r from-[#1E4ED8] to-[#1E3A8A] text-white hover:shadow-lg" onClick={() => setAddStockOpen(true)} disabled={!canCreate}>
               <Plus className="w-4 h-4" />
               Add Stock
             </Button>
-            <Button className="gap-2 rounded-xl bg-emerald-600 text-white hover:shadow-lg" onClick={() => setDispenseOpen(true)} disabled={!(isPharmacist || currentRole === 'super-admin' || isHospitalAdmin)}>
+            <Button data-tour-id="pharmacy-dispense" className="gap-2 rounded-xl bg-emerald-600 text-white hover:shadow-lg" onClick={() => setDispenseOpen(true)} disabled={!(isPharmacist || currentRole === 'super-admin' || isHospitalAdmin)}>
               <ShoppingCart className="w-4 h-4" />
               Dispense
             </Button>
@@ -612,7 +605,7 @@ export function PharmacyPage() {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 p-1 bg-white/70 dark:bg-slate-900/50 rounded-xl w-full max-w-full border border-white/60 dark:border-slate-700">
+      <div data-tour-id="pharmacy-tabs" className="flex flex-wrap gap-2 p-1 bg-white/70 dark:bg-slate-900/50 rounded-xl w-full max-w-full border border-white/60 dark:border-slate-700">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -948,11 +941,7 @@ export function PharmacyPage() {
                 className="mt-1 w-full rounded-md border border-input px-3 py-2 text-sm bg-white text-slate-900 dark:bg-slate-900/50 dark:text-slate-50 dark:border-slate-700"
                 value={dispenseForm.medication_id}
                 onChange={(e) => {
-                  const selectedMed = medications.find((m) => m.id === e.target.value);
                   setDispenseForm((s) => ({ ...s, medication_id: e.target.value }));
-                  if (selectedMed) {
-                    window.dispatchEvent(new CustomEvent('vitalink:training-action', { detail: { action: 'pharmacy:stock-checked' } }));
-                  }
                 }}
               >
                 <option value="">Select medication</option>

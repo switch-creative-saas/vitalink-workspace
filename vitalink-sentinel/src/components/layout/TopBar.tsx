@@ -8,6 +8,7 @@ import { AlertsMenu } from './header/AlertsMenu';
 import { InboxMenu } from './header/InboxMenu';
 import { ProfileMenu } from './header/ProfileMenu';
 import { SearchDialog } from './header/SearchDialog';
+import { TourMenu } from '@/components/tours/SentinelTours';
 
 const groups = ['Overview', 'Surveillance', 'Intelligence', 'Operations', 'Administration'] as const;
 
@@ -36,15 +37,16 @@ export function TopBar() {
           <span className="hidden text-[22px] font-semibold tracking-tight text-slate-950 dark:text-white sm:inline">sentinel</span>
         </button>
 
-        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">
-          {NAV_ITEMS.filter((item) => item.placement === 'top').map((item) => <button key={item.route} type="button" onClick={() => navigate(item.route)}
+        <nav data-tour-id="top-nav" className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">
+          {NAV_ITEMS.filter((item) => item.placement === 'top').map((item) => <button key={item.route} type="button" data-tour-id={`nav-${item.route}`} onClick={() => navigate(item.route)}
             className={cn('h-11 rounded-full px-4 text-sm font-medium transition xl:px-5', route === item.route ? 'bg-slate-950 text-white shadow-[0_10px_24px_-12px_rgba(15,23,42,0.8)] dark:bg-white dark:text-slate-950' : 'text-slate-600 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white')}>
             {item.label}
           </button>)}
         </nav>
 
         <div className="ml-auto flex items-center gap-2 lg:ml-0">
-          <button type="button" onClick={() => setSearchOpen(true)} className={iconButtonClass} aria-label="Search" title="Search (Ctrl K)"><Search className="h-[18px] w-[18px]" /></button>
+          <button type="button" data-tour-id="search" onClick={() => setSearchOpen(true)} className={iconButtonClass} aria-label="Search" title="Search (Ctrl K)"><Search className="h-[18px] w-[18px]" /></button>
+          <TourMenu />
           <InboxMenu live={live} />
           <AlertsMenu live={live} />
           <ProfileMenu />

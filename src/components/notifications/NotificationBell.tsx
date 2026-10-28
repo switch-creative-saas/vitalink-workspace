@@ -190,7 +190,7 @@ function DemoNotificationBell() {
 
   return (
     <div ref={panelRef} className="relative">
-      <button
+      <button data-tour-id="notifications"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "relative p-2.5 rounded-xl transition-all duration-200",

@@ -39,7 +39,7 @@ export function OfflineStatusChip() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button type="button" className={cn('hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium', tone)} title="Connection and offline sync">
+        <button data-tour-id="offline-status" type="button" className={cn('hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium', tone)} title="Connection and offline sync">
           <Icon className={cn('w-3.5 h-3.5', status.syncing && 'animate-spin')} />
           <span className="hidden lg:inline">{label}</span>
         </button>

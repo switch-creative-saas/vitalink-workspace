@@ -117,7 +117,7 @@ export function LiveTelemedicine() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit dark:bg-slate-800">
+      <div data-tour-id="telemedicine-modes" className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit dark:bg-slate-800">
         {[
           { id: 'consultation' as const, label: 'Patient Consultation', count: waitingRoom.filter((item) => isWaitingNow(item, now)).length },
           { id: 'conference' as const, label: 'Specialist Conference', count: conferences.filter((item) => item.guestId === me && item.status !== 'ended' && item.status !== 'cancelled').length },
@@ -144,7 +144,7 @@ export function LiveTelemedicine() {
             onCreated={reload}
           />
           <aside className="rounded-3xl border border-white/70 bg-white/70 backdrop-blur-xl p-4 shadow-soft space-y-3 min-w-0 dark:border-slate-700 dark:bg-slate-800/80">
-            <h3 className="font-semibold text-gray-900 dark:text-slate-50">Waiting Room</h3>
+            <h3 data-tour-id="telemedicine-waiting" className="font-semibold text-gray-900 dark:text-slate-50">Waiting Room</h3>
             {waitingRoom.length === 0 && <p className="text-xs text-gray-500">No open visits. Create one and send the patient their link.</p>}
             {waitingRoom.map((session) => {
               const here = isWaitingNow(session, now);
@@ -257,7 +257,7 @@ function NewVisitCard({ canRun, appointments, handoffAppointmentId, onHandoffUse
       <div className="rounded-2xl bg-gradient-to-br from-royal-800/90 to-royal-600/90 text-white p-4 sm:p-5 flex items-center gap-3">
         <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center"><Video className="w-5 h-5" /></div>
         <div>
-          <p className="text-sm font-semibold">Start a video visit</p>
+          <p data-tour-id="telemedicine-start" className="text-sm font-semibold">Start a video visit</p>
           <p className="text-xs text-white/70">The patient joins from a link on their phone or computer. No app or account needed.</p>
         </div>
       </div>

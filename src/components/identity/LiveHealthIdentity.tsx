@@ -264,7 +264,7 @@ export function LiveHealthIdentity() {
             <span className="truncate">{isOnline ? 'Online' : 'Offline: lookups need a connection'}</span>
           </div>
           {canCreate('Patients') && (
-            <Button onClick={() => setShowOnboarding(true)} className="bg-gradient-to-r from-royal-500 to-royal-700 text-white min-w-0">
+            <Button data-tour-id="identity-register" onClick={() => setShowOnboarding(true)} className="bg-gradient-to-r from-royal-500 to-royal-700 text-white min-w-0">
               <Plus className="w-4 h-4 mr-2 shrink-0" />
               <span className="truncate">Register New Patient</span>
             </Button>
@@ -272,7 +272,7 @@ export function LiveHealthIdentity() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl min-w-0 dark:bg-slate-800">
+      <div data-tour-id="identity-modes" className="flex flex-wrap gap-2 p-1 bg-gray-100 rounded-xl min-w-0 dark:bg-slate-800">
         {[
           { id: 'nfc' as const, label: 'VitaCard (NFC)', icon: Nfc },
           { id: 'qr' as const, label: 'QR Code', icon: QrCode },

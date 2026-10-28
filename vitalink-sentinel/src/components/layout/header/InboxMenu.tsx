@@ -42,7 +42,7 @@ export function InboxMenu({ live }: { live: boolean }) {
     else navigate('facilities');
   };
 
-  return <HeaderPopover label="Activity inbox" trigger={<Mail className="h-[18px] w-[18px]" />} badge={(data?.unread ?? 0) > 0} onOpenChange={onOpenChange} panelClassName="w-[min(92vw,400px)]">
+  return <HeaderPopover label="Activity inbox" tourId="inbox" trigger={<Mail className="h-[18px] w-[18px]" />} badge={(data?.unread ?? 0) > 0} onOpenChange={onOpenChange} panelClassName="w-[min(92vw,400px)]">
     {(close) => <>
       <div className="px-5 pb-3 pt-4"><p className="text-sm font-semibold text-slate-950 dark:text-white">Activity</p><p className="text-xs text-slate-500 dark:text-slate-400">{live ? (data?.unread ? `${data.unread} new since you last checked` : 'Case reports, outbreak updates and facility responses') : 'Available with the live backend'}</p></div>
       <div className="max-h-[400px] overflow-y-auto px-2 pb-2">
