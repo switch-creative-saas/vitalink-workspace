@@ -531,7 +531,7 @@ export function PharmacyPage() {
               <Button
                 variant="outline"
                 className="gap-2 rounded-xl border-[#1E4ED8]/20"
-                onClick={() => toast.message('Prescription workflow', { description: 'Open EMR to prescribe medications' })}
+                onClick={() => { toast.info('Open the patient, then prescribe from their EMR'); window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'patients' } })); }}
               >
                 <FileText className="w-4 h-4" />
                 Prescribe (EMR)

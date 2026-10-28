@@ -5,3 +5,6 @@ export const BILLING_HANDOFF_KEY = 'vitalink-billing-new-invoice';
 
 /** Appointment id the Telemedicine page should open a video visit for (set by an appointment's Join Telemedicine). */
 export const TELEMEDICINE_HANDOFF_KEY = 'vitalink-telemedicine-appointment';
+
+/** { switchId, symptoms } the AI Clinical Intelligence page should analyse (set by the EMR note editor). */
+export const DIAGNOSIS_HANDOFF_KEY = 'vitalink-diagnosis-handoff';

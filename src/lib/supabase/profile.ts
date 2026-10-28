@@ -82,7 +82,7 @@ export async function uploadAvatar(userId: string, file: File): Promise<string> 
   if (file.size > 2 * 1024 * 1024) throw new Error('Photos must be 2 MB or smaller.');
   const db = requireSupabase();
   const path = `${userId}/avatar-${Date.now()}.${file.type.split('/')[1].replace('jpeg', 'jpg')}`;
-  const { error } = await db.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+  const { error } = await db.storage.from('avatars').upload(path, file, { contentType: file.type });
   fail(error);
   const url = db.storage.from('avatars').getPublicUrl(path).data.publicUrl;
   const { error: saveError } = await db.from('profiles').update({ avatar_url: url }).eq('id', userId);

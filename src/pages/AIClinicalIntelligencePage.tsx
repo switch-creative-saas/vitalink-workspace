@@ -31,7 +31,7 @@ export function AIClinicalIntelligencePage() {
     return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Access denied by RBAC policy.</div>;
   }
   if (!hasAccess('ai_limited')) {
-    return <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-800">AI Clinical Intelligence is locked on Free. Upgrade to Pro.</div>;
+    return <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-800">AI Clinical Intelligence (VitaMind Dx) is part of the Growth plan. Upgrade from Subscription to use it.</div>;
   }
   // Live workspaces use VitaMind Dx; the sample screens below only back the offline demo.
   if (isSupabaseConfigured) return <LiveDiagnosis />;

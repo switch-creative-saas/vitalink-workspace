@@ -35,7 +35,6 @@ import { PUBLIC_HEALTH_ROLES, WORKSPACE_OWNER_ROLE } from '@/lib/workspace/roles
 import { AlertCircle, ArrowLeft, ArrowRight, Loader2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
-import { saveSettings as saveNetworkSettings } from '@/lib/supabase/network';
 import * as backend from '@/lib/supabase/auth';
 import { acceptInvitation, getInvitation, roleLabel, type InvitationPreview } from '@/lib/supabase/staff';
 import { syncWorkspacePlan } from '@/lib/workspace/planSync';
@@ -477,7 +476,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   });
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
   // Live workspaces start blank so nothing invented ends up in the network directory.
-  const [networkForm, setNetworkForm] = useState(() => isSupabaseConfigured ? {
+  const [networkForm] = useState(() => isSupabaseConfigured ? {
     joinedNetwork: true,
     visibleInDirectory: true,
     specialties: '',
@@ -779,35 +778,11 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
           organizationType,
           state: orgForm.state || publicHealthSetup.jurisdiction || networkForm.location,
           contactPhone: orgForm.phone,
-          joinedNetwork: networkForm.joinedNetwork,
+          // Healthcare workspaces join the network in the setup that follows sign-up.
+          joinedNetwork: workspaceType === 'healthcare' ? false : networkForm.joinedNetwork,
           planId: ['starter', 'growth', 'trial'].includes(orgForm.plan) ? orgForm.plan : 'free',
           billingCycle,
         });
-        if (workspaceType === 'healthcare' && networkForm.joinedNetwork) {
-          // The directory profile from the sign-up form; editable later in VitaLink Network settings.
-          const [city, state] = networkForm.location.split(',').map((part) => part.trim());
-          await saveNetworkSettings(org.id, {
-            joined: true,
-            visibleInDirectory: networkForm.visibleInDirectory,
-            facilityType: networkForm.facilityType.trim(),
-            city: city ?? '',
-            state: state || orgForm.state || '',
-            description: '',
-            specialties: networkForm.specialties.split(',').map((item) => item.trim()).filter(Boolean),
-            services: networkForm.services.split(',').map((item) => item.trim()).filter(Boolean),
-            emergency: networkForm.emergencyAvailable,
-            laboratory: networkForm.laboratory,
-            imaging: networkForm.imaging,
-            pharmacy: networkForm.pharmacy,
-            telemedicine: networkForm.telemedicine,
-            acceptingReferrals: networkForm.acceptingReferrals,
-            acceptingTransfers: networkForm.acceptingTransfers,
-            capacity: ({ Available: 'available', Limited: 'limited', Unavailable: 'unavailable' } as const)[networkForm.capacity as 'Available'] ?? 'not_reported',
-            referralEmail: '',
-            referralPhone: orgForm.phone,
-            verified: false,
-          }).catch(() => undefined); // not fatal: they can finish it in Network settings
-        }
         const createdUser = membershipToAuthUser(sessionUser, { role: WORKSPACE_OWNER_ROLE, organization: org });
         localStorage.setItem('vitalink-active-organization', JSON.stringify(organizationForUser(createdUser)));
         localStorage.setItem('vitalink-last-workspace', org.slug);
@@ -1138,33 +1113,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
                   </button>
                 </div>
               </div>
-            ) : (
-            <div className="rounded-xl border border-[var(--auth-input-border)] bg-[var(--auth-input-bg)] p-3 space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div><p className="text-sm font-semibold text-[var(--auth-text-primary)]">{BRAND.network}</p><p className="text-[11px] text-[var(--auth-text-secondary)]">Referrals, transfers, and authorized exchange.</p></div>
-                <button type="button" aria-pressed={networkForm.joinedNetwork} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-semibold ${networkForm.joinedNetwork ? 'bg-[var(--auth-accent)] text-white' : 'bg-black/10 text-[var(--auth-text-secondary)]'}`} onClick={() => setNetworkForm((form) => ({ ...form, joinedNetwork: !form.joinedNetwork }))}>{networkForm.joinedNetwork ? 'Joined' : 'Join Network'}</button>
-              </div>
-              {networkForm.joinedNetwork && (
-                <div className="space-y-3">
-                  <label className="flex items-center justify-between gap-3 rounded-lg bg-black/5 px-3 py-2 text-xs text-[var(--auth-text-secondary)]"><span><span className="block font-medium text-[var(--auth-text-primary)]">Directory listing</span>Let other organizations find your facility.</span><input type="checkbox" className="h-4 w-4 accent-[var(--auth-accent)]" checked={networkForm.visibleInDirectory} onChange={(event) => setNetworkForm((form) => ({ ...form, visibleInDirectory: event.target.checked }))} /></label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <AuthField value={networkForm.specialties} onChange={(v) => setNetworkForm((form) => ({ ...form, specialties: v }))} placeholder="Specialties" />
-                    <AuthField value={networkForm.services} onChange={(v) => setNetworkForm((form) => ({ ...form, services: v }))} placeholder="Services" />
-                    <AuthField value={networkForm.location} onChange={(v) => setNetworkForm((form) => ({ ...form, location: v }))} placeholder="Location" />
-                    <AuthField value={networkForm.facilityType} onChange={(v) => setNetworkForm((form) => ({ ...form, facilityType: v }))} placeholder="Facility type" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                    {(['emergencyAvailable', 'laboratory', 'imaging', 'pharmacy', 'telemedicine', 'acceptingReferrals', 'acceptingTransfers'] as const).map((key) => (
-                      <label key={key} className="flex items-center gap-1.5 rounded-lg bg-black/5 px-2 py-1.5 text-[11px] text-[var(--auth-text-secondary)] capitalize">
-                        <input type="checkbox" checked={networkForm[key]} onChange={(event) => setNetworkForm((form) => ({ ...form, [key]: event.target.checked }))} />
-                        {key.replace(/([A-Z])/g, ' $1')}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            )}
+            ) : null}
 
             <Button
               className="w-full h-[48px] rounded-full bg-[var(--auth-accent)] hover:bg-[var(--auth-accent-hover)] text-white mt-2 font-semibold text-[14px] shadow-[0_0_15px_rgba(123,77,255,0.25)]"

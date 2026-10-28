@@ -752,7 +752,7 @@ export function DashboardPage() {
             </div>
           </div>
 
-          {!hasSentinel() && (
+          {!hasSentinel() && ['super-admin', 'hospital-admin'].includes(currentRole) && (
           <button
             type="button"
             onClick={() => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { path: '/subscription?addon=sentinel' } }))}

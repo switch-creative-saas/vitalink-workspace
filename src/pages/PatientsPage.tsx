@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, Filter, Loader2, MoreHorizontal, Nfc, Plus, Search, Upload } from 'lucide-react';
+import { ChevronRight, Download, Filter, Loader2, Nfc, Plus, Search, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -315,7 +315,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
                       <td className="px-4 py-3 min-w-0"><Badge>{patient.status}</Badge></td>
                       <td className="px-4 py-3 text-sm truncate min-w-0">{patient.department ?? '--'}</td>
                       <td className="px-4 py-3 text-right min-w-0">
-                        <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0"><MoreHorizontal className="w-4 h-4" /></button>
+                        <button type="button" aria-label={`Open ${patient.firstName} ${patient.lastName}’s record`} title="Open record" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 shrink-0"><ChevronRight className="w-4 h-4" /></button>
                       </td>
                     </tr>
                   ))}

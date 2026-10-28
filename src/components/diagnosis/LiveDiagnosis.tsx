@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { BrainCircuit, ExternalLink, FileImage, History, Radio, ShieldCheck, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
-import { getModelStats, listActiveOutbreaks, type DxModelStats, type DxPatientMatch, type OutbreakSignal } from '@/lib/supabase/diagnosis';
+import { getModelStats, listActiveOutbreaks, searchPatients, type DxModelStats, type DxPatientMatch, type OutbreakSignal } from '@/lib/supabase/diagnosis';
+import { DIAGNOSIS_HANDOFF_KEY } from '@/lib/handoffs';
 import { PatientPicker } from './PatientPicker';
 import { SymptomEngine } from './SymptomEngine';
 import { HistoryAnalysis } from './HistoryAnalysis';
@@ -24,6 +25,20 @@ export function LiveDiagnosis() {
   const [stats, setStats] = useState<DxModelStats | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [outbreaks, setOutbreaks] = useState<OutbreakSignal[]>([]);
+  // Sent from the EMR note editor: the complaint to analyse and the patient it belongs to.
+  const [handoff] = useState<{ switchId: string; symptoms: string } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem(DIAGNOSIS_HANDOFF_KEY);
+      sessionStorage.removeItem(DIAGNOSIS_HANDOFF_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+  });
+  useEffect(() => {
+    if (!handoff?.switchId) return;
+    searchPatients(organization.id, handoff.switchId)
+      .then((matches) => { const match = matches.find((m) => m.switchId === handoff.switchId); if (match) setPatient(match); })
+      .catch(() => undefined);
+  }, [handoff, organization.id]);
   const isDoctor = DOCTOR_ROLES.includes(currentRole);
 
   const loadStats = useCallback(() => { getModelStats(organization.id).then(setStats).catch(() => setStats(null)); }, [organization.id]);
@@ -89,6 +104,7 @@ export function LiveDiagnosis() {
           organizationId={organization.id}
           patient={patient}
           canConfirm={isDoctor}
+          initialText={handoff?.symptoms}
           onSaved={() => { loadStats(); setRefreshKey((k) => k + 1); }}
         />
       )}

@@ -1,8 +1,9 @@
 // First-run setup for a new workspace, before the dashboard: confirm the facility's details, add
-// its departments and (optionally) invite the team. Uses the same backend as Administration and
-// Staff (facility_save, department_save, staff invitations), so it works on every plan.
+// its departments, (optionally) invite the team and choose whether to join the VitaLink Network.
+// Uses the same backend as Administration, Staff and Network settings (facility_save,
+// department_save, staff invitations, network_save_settings), so it works on every plan.
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ArrowRight, Building2, Check, CheckCircle2, Copy, Layers, Loader2, Mail, Plus, Sparkles, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, Check, CheckCircle2, Copy, Layers, Loader2, Mail, Network, Plus, Sparkles, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
@@ -10,6 +11,8 @@ import { useGuidedTour } from '@/contexts/GuidedTourContext';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { getAdministrationOverview, saveDepartment, saveFacility, type AdminDepartment, type FacilityInput, type WorkingDay } from '@/lib/supabase/administration';
 import { createInvitation, inviteLink, roleLabel, sendInvitationEmail } from '@/lib/supabase/staff';
+import { saveSettings as saveNetworkSettings, type NetworkSettings } from '@/lib/supabase/network';
+import { BRAND } from '@/config/brand';
 import { roleOptionsForOrganizationType } from '@/lib/workspace/roles';
 
 const STATES = ['Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno', 'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'FCT',
@@ -26,13 +29,22 @@ const codeFrom = (name: string) => {
 };
 const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
-type Step = 'facility' | 'departments' | 'team' | 'done';
+type Step = 'facility' | 'departments' | 'team' | 'network' | 'done';
 const STEPS: Array<{ id: Step; title: string; hint: string; icon: typeof Building2 }> = [
   { id: 'facility', title: 'Your facility', hint: 'Name, address and contact details', icon: Building2 },
   { id: 'departments', title: 'Departments', hint: 'How your facility is organised', icon: Layers },
   { id: 'team', title: 'Your team', hint: 'Invite the people you work with', icon: Users },
+  { id: 'network', title: 'VitaLink Network', hint: 'Referrals and transfers with other facilities', icon: Network },
   { id: 'done', title: 'Ready to go', hint: 'A quick look around', icon: Sparkles },
 ];
+
+const FACILITY_TYPES = ['Hospital', 'Clinic', 'Primary Health Centre', 'Specialist Centre', 'Diagnostic Centre', 'Maternity Home', 'Dental Clinic', 'Eye Clinic'];
+const SUGGESTED_SERVICES = ['Outpatient', 'Inpatient', 'Emergency', 'Surgery', 'Maternity', 'Paediatrics', 'Laboratory', 'Radiology', 'Pharmacy', 'Dialysis', 'Physiotherapy', 'Antenatal'];
+const CAPABILITIES: Array<{ key: 'emergency' | 'laboratory' | 'imaging' | 'pharmacy' | 'telemedicine'; label: string }> = [
+  { key: 'emergency', label: 'Emergency care' }, { key: 'laboratory', label: 'Laboratory' }, { key: 'imaging', label: 'Imaging / X-ray' },
+  { key: 'pharmacy', label: 'Pharmacy' }, { key: 'telemedicine', label: 'Video visits' },
+];
+const splitList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
 
 const input = 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1E4ED8] focus:ring-2 focus:ring-[#1E4ED8]/15 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-50';
 const primary = 'inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#1E4ED8] px-6 text-sm font-semibold text-white shadow-[0_10px_24px_-12px_rgba(30,78,216,0.7)] transition hover:bg-[#1A43BD] disabled:opacity-50';
@@ -61,6 +73,13 @@ export function WorkspaceSetup() {
   const [custom, setCustom] = useState('');
   const [invites, setInvites] = useState<InviteRow[]>([{ email: '', role: roleOptions[0] ?? 'doctor', department: '' }]);
   const [sent, setSent] = useState<SentInvite[]>([]);
+  const [network, setNetwork] = useState<NetworkSettings>({
+    joined: true, visibleInDirectory: true, facilityType: '', city: '', state: organization.state ?? '', description: '',
+    specialties: [], services: [], emergency: false, laboratory: false, imaging: false, pharmacy: false, telemedicine: false,
+    acceptingReferrals: true, acceptingTransfers: true, capacity: 'not_reported', referralEmail: organization.contactEmail ?? '',
+    referralPhone: organization.contactPhone ?? '', verified: false,
+  });
+  const [specialtiesText, setSpecialtiesText] = useState('');
 
   const load = useCallback(() => {
     if (!isSupabaseConfigured) return;
@@ -90,6 +109,12 @@ export function WorkspaceSetup() {
     try {
       if (isSupabaseConfigured) await saveFacility(organization.id, { ...facility, name: facility.name.trim() });
       if (facility.name.trim() !== organization.name) setActiveOrganization({ ...organization, name: facility.name.trim() });
+      // The network listing starts from the facility's details.
+      setNetwork((n) => ({
+        ...n, state: n.state || facility.state, emergency: n.emergency || facility.emergency24x7,
+        referralEmail: n.referralEmail || facility.contactEmail, referralPhone: n.referralPhone || facility.contactPhone,
+        city: n.city || facility.address.split(',').map((part) => part.trim()).filter(Boolean).pop() || '',
+      }));
       setStep('departments');
     } catch (error) {
       toast.error(errorText(error, 'Could not save your facility'));
@@ -116,6 +141,12 @@ export function WorkspaceSetup() {
         }
       }
       if (names.length) toast.success(`${names.length} department${names.length === 1 ? '' : 's'} added`);
+      const all = [...departments.map((d) => d.name), ...names].map((name) => name.toLowerCase());
+      setNetwork((n) => ({
+        ...n, laboratory: n.laboratory || all.includes('laboratory'), pharmacy: n.pharmacy || all.includes('pharmacy'),
+        imaging: n.imaging || all.includes('radiology'), emergency: n.emergency || all.includes('emergency'),
+        services: n.services.length ? n.services : SUGGESTED_SERVICES.filter((service) => all.some((name) => name.includes(service.toLowerCase()))),
+      }));
       setPicked([]);
       setCustom('');
       load();
@@ -132,7 +163,7 @@ export function WorkspaceSetup() {
     const rows = invites.filter((row) => row.email.trim());
     const bad = rows.find((row) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email.trim()));
     if (bad) { toast.error(`${bad.email} isn't a valid email`); return; }
-    if (!rows.length) { setStep('done'); return; }
+    if (!rows.length) { setStep('network'); return; }
     setBusy(true);
     const results: SentInvite[] = [];
     for (const row of rows) {
@@ -149,6 +180,22 @@ export function WorkspaceSetup() {
     setSent((current) => [...current, ...results]);
     setInvites([{ email: '', role: roleOptions[0] ?? 'doctor', department: '' }]);
     if (results.length) toast.success(`${results.length} invitation${results.length === 1 ? '' : 's'} created`);
+  };
+
+  const saveNetworkStep = async () => {
+    if (network.joined && !network.facilityType) { toast.error('Choose your facility type'); return; }
+    if (network.joined && !network.state) { toast.error('Choose the state your facility is in'); return; }
+    setBusy(true);
+    try {
+      if (isSupabaseConfigured) await saveNetworkSettings(organization.id, { ...network, specialties: splitList(specialtiesText) });
+      setActiveOrganization({ ...organization, joinedNetwork: network.joined });
+      if (network.joined) toast.success(`Joined the ${BRAND.network}`);
+      setStep('done');
+    } catch (error) {
+      toast.error(errorText(error, 'Could not save your network settings'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const copy = (text: string) => { void navigator.clipboard?.writeText(text).then(() => toast.success('Invite link copied')); };
@@ -179,7 +226,7 @@ export function WorkspaceSetup() {
               );
             })}
           </ol>
-          <p className="relative mt-auto text-xs text-white/45">You can change all of this later in Administration and Staff.</p>
+          <p className="relative mt-auto text-xs text-white/45">You can change all of this later in Administration, Staff and Network settings.</p>
         </div>
       </aside>
 
@@ -287,8 +334,92 @@ export function WorkspaceSetup() {
                   <div className="flex gap-2">
                     {invites.some((row) => row.email.trim())
                       ? <button type="button" className={primary} disabled={busy} onClick={() => void sendInvites()}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Send invitations</button>
-                      : <button type="button" className={primary} onClick={() => setStep('done')}>{sent.length ? 'Continue' : 'Skip for now'}<ArrowRight className="h-4 w-4" /></button>}
+                      : <button type="button" className={primary} onClick={() => setStep('network')}>{sent.length ? 'Continue' : 'Skip for now'}<ArrowRight className="h-4 w-4" /></button>}
                   </div>
+                </div>
+              </section>
+            )}
+
+            {step === 'network' && (
+              <section data-tour-id="setup-network" className="animate-[auth-form-slide-up_0.4s_ease-out_both]">
+                <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">Join the {BRAND.network}?</h1>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Connected facilities refer and transfer patients to each other and, with the patient’s consent, share records securely. Only what you enter here is listed; patient data is never public.</p>
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {([true, false] as const).map((value) => (
+                    <button key={String(value)} type="button" onClick={() => setNetwork((n) => ({ ...n, joined: value }))}
+                      className={cn('rounded-2xl border p-4 text-left transition', network.joined === value ? 'border-[#1E4ED8] bg-[#1E4ED8]/5 ring-2 ring-[#1E4ED8]/15' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700')}>
+                      <span className="block text-sm font-semibold text-slate-900 dark:text-white">{value ? 'Yes, join the network' : 'Not now'}</span>
+                      <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">{value ? 'Receive referrals and transfers; appear in the facility directory.' : 'You can join any time from VitaLink Network settings.'}</span>
+                    </button>
+                  ))}
+                </div>
+                {network.joined && (
+                  <div className="mt-6 space-y-5">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Facility type">
+                        <select className={input} value={network.facilityType} onChange={(e) => setNetwork({ ...network, facilityType: e.target.value })}>
+                          <option value="">Choose one</option>
+                          {FACILITY_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Current capacity">
+                        <select className={input} value={network.capacity} onChange={(e) => setNetwork({ ...network, capacity: e.target.value as NetworkSettings['capacity'] })}>
+                          <option value="available">Taking patients</option>
+                          <option value="limited">Limited space</option>
+                          <option value="unavailable">Full right now</option>
+                          <option value="not_reported">Don’t show</option>
+                        </select>
+                      </Field>
+                      <Field label="City / town"><input className={input} value={network.city} onChange={(e) => setNetwork({ ...network, city: e.target.value })} placeholder="e.g. Ikeja" /></Field>
+                      <Field label="State">
+                        <select className={input} value={network.state} onChange={(e) => setNetwork({ ...network, state: e.target.value })}>
+                          <option value="">Choose a state</option>
+                          {[...new Set([...STATES, ...(network.state && !STATES.includes(network.state) ? [network.state] : [])])].map((s) => <option key={s} value={s}>{s}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="About your facility (optional)" className="sm:col-span-2">
+                        <textarea className={cn(input, 'h-20 py-2.5')} value={network.description} maxLength={400} onChange={(e) => setNetwork({ ...network, description: e.target.value })} placeholder="What you’re known for, who you serve" />
+                      </Field>
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-medium text-slate-700 dark:text-slate-300">Services</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {SUGGESTED_SERVICES.map((service) => {
+                          const on = network.services.includes(service);
+                          return <button key={service} type="button" onClick={() => setNetwork((n) => ({ ...n, services: on ? n.services.filter((x) => x !== service) : [...n.services, service] }))}
+                            className={cn('inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition', on ? 'border-[#1E4ED8] bg-[#1E4ED8] text-white' : 'border-slate-200 text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:text-slate-200')}>
+                            {on ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}{service}
+                          </button>;
+                        })}
+                      </div>
+                    </div>
+                    <Field label="Specialties (comma separated, optional)"><input className={input} value={specialtiesText} onChange={(e) => setSpecialtiesText(e.target.value)} placeholder="e.g. Cardiology, Obstetrics" /></Field>
+                    <div className="grid gap-2 sm:grid-cols-3">
+                      {CAPABILITIES.map((c) => (
+                        <label key={c.key} className="flex items-center gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                          <input type="checkbox" className="h-4 w-4 accent-[#1E4ED8]" checked={network[c.key]} onChange={(e) => setNetwork({ ...network, [c.key]: e.target.checked })} />{c.label}
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                        <input type="checkbox" className="h-4 w-4 accent-[#1E4ED8]" checked={network.acceptingReferrals} onChange={(e) => setNetwork({ ...network, acceptingReferrals: e.target.checked })} />Accepting referrals
+                      </label>
+                      <label className="flex items-center gap-2.5 rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                        <input type="checkbox" className="h-4 w-4 accent-[#1E4ED8]" checked={network.acceptingTransfers} onChange={(e) => setNetwork({ ...network, acceptingTransfers: e.target.checked })} />Accepting transfers
+                      </label>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Referral email"><input className={input} type="email" value={network.referralEmail} onChange={(e) => setNetwork({ ...network, referralEmail: e.target.value })} placeholder="referrals@hospital.com" /></Field>
+                      <Field label="Referral phone"><input className={input} type="tel" value={network.referralPhone} onChange={(e) => setNetwork({ ...network, referralPhone: e.target.value })} placeholder="0803 000 0000" /></Field>
+                    </div>
+                    <label className="flex items-start gap-3 rounded-xl bg-slate-50 px-3.5 py-3 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#1E4ED8]" checked={network.visibleInDirectory} onChange={(e) => setNetwork({ ...network, visibleInDirectory: e.target.checked })} />
+                      <span><span className="block font-medium">List us in the facility directory</span><span className="text-xs text-slate-500">Other facilities can find you and send referrals. Turn off to only receive referrals from facilities you already work with.</span></span>
+                    </label>
+                  </div>
+                )}
+                <div className="mt-10 flex justify-between">
+                  <button type="button" className={secondary} onClick={() => setStep('team')}><ArrowLeft className="h-4 w-4" />Back</button>
+                  <button type="button" className={primary} disabled={busy} onClick={() => void saveNetworkStep()}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{network.joined ? 'Join and continue' : 'Continue'}<ArrowRight className="h-4 w-4" /></button>
                 </div>
               </section>
             )}

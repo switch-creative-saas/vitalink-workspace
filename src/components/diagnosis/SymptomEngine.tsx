@@ -25,13 +25,13 @@ const RISK = {
 } as const;
 const SOURCE = { text: 'from your description', vitals: 'from latest vitals', record: 'from patient record' } as const;
 
-export function SymptomEngine({ organizationId, patient, canConfirm, onSaved }: {
-  organizationId: string; patient: DxPatientMatch | null; canConfirm: boolean; onSaved: () => void;
+export function SymptomEngine({ organizationId, patient, canConfirm, onSaved, initialText }: {
+  organizationId: string; patient: DxPatientMatch | null; canConfirm: boolean; onSaved: () => void; initialText?: string;
 }) {
   const [findings, setFindings] = useState<DxFinding[]>([]);
   const [conditionsList, setConditionsList] = useState<Array<{ id: string; name: string; icd10: string }>>([]);
   const [marks, setMarks] = useState<Record<string, Mark>>({});
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initialText ?? '');
   const [age, setAge] = useState('');
   const [sex, setSex] = useState('');
   const [filter, setFilter] = useState('');

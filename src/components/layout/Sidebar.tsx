@@ -1,7 +1,7 @@
-import { useState, type ElementType } from 'react';
+import { useEffect, useState, type ElementType } from 'react';
 import { toast } from 'sonner';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
-import { openWorkspaceSentinel } from '@/lib/supabase/plans';
+import { getEntitlements, openWorkspaceSentinel, type SentinelAccess } from '@/lib/supabase/plans';
 import {
   LayoutDashboard,
   CreditCard,
@@ -200,18 +200,32 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
   const { organization, currentRole } = useAuth();
   const canOpenSentinel = SENTINEL_OPENER_ROLES.includes(currentRole);
   const [openingSentinel, setOpeningSentinel] = useState(false);
+  const { plan } = usePlan();
+  // What this workspace may do in Sentinel, known before the click so an unpaid workspace goes
+  // straight to the add-on checkout instead of a new tab.
+  const [sentinelAccess, setSentinelAccess] = useState<SentinelAccess | null>(isSupabaseConfigured ? null : 'full');
+  useEffect(() => {
+    if (!isSupabaseConfigured || !canOpenSentinel) return;
+    let cancelled = false;
+    getEntitlements(organization.id).then((e) => { if (!cancelled) setSentinelAccess(e.sentinelAccess); }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [organization.id, canOpenSentinel, plan?.tierId, plan?.sentinelAddon]);
+
+  const goToSentinelCheckout = () => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { path: '/subscription?addon=sentinel' } }));
 
   // Sentinel is its own app. Growth (read-only), Enterprise and the add-on open it; other plans go to the add-on checkout.
   const openSentinel = async () => {
     const sentinelUrl = import.meta.env.VITE_SENTINEL_WORKSPACE_URL ?? 'http://127.0.0.1:5173/';
     if (!isSupabaseConfigured) { window.open(sentinelUrl, '_blank', 'noopener'); return; }
+    if (sentinelAccess !== 'read_only' && sentinelAccess !== 'full') { goToSentinelCheckout(); return; }
     const tab = window.open('', '_blank'); // opened now so the browser doesn't block it after the check
     setOpeningSentinel(true);
     try {
       const result = await openWorkspaceSentinel(organization.id);
       if (result.access === 'none') {
         tab?.close();
-        window.dispatchEvent(new CustomEvent('app:navigate', { detail: { path: '/subscription?addon=sentinel' } }));
+        setSentinelAccess('none');
+        goToSentinelCheckout();
         return;
       }
       if (result.needsAdmin) {
@@ -301,7 +315,7 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
             disabled={openingSentinel}
             className="block w-full py-2 px-3 rounded-lg bg-white/15 hover:bg-white/25 text-center text-white text-xs font-medium transition-all duration-200 disabled:opacity-60"
           >
-            {openingSentinel ? 'Opening…' : 'Open Sentinel'}
+            {openingSentinel ? 'Opening…' : sentinelAccess === 'full' ? 'Open Sentinel' : sentinelAccess === 'read_only' ? 'Open Sentinel (read-only)' : 'Get Sentinel'}
           </button>
         </div>
       )}

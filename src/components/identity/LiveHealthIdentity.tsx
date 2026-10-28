@@ -1,10 +1,11 @@
 // Digital Health Identity for a live (Supabase) workspace: identify patients by
 // VitaCard (Web NFC or a USB reader that types the card number), QR code or
-// search; show their identity summary; link VitaCards; print ID cards.
+// search; show their identity summary; link VitaCards; print ID cards. Free workspaces see a basic
+// profile and can't set up cards (the 'nfc-scanning' entitlement on paid plans; the database enforces linking).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import {
-  AlertTriangle, CalendarDays, Clock, CreditCard, Droplets, FileText, Link2, Nfc, Plus, Printer, QrCode,
+  AlertTriangle, ArrowUpRight, CalendarDays, Clock, CreditCard, Droplets, FileText, Link2, Nfc, Plus, Printer, QrCode,
   Search, Shield, Smartphone, Unlink, User, Wifi, WifiOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { PatientOnboardingWizard } from '@/components/patients/PatientOnboardingWizard';
 import { LiveBookAppointmentDialog } from '@/components/dashboard/LiveQuickActions';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlan } from '@/hooks/usePlan';
 import { findPatientBySwitchId, queryPatients, type RegistryPatient } from '@/lib/patientRegistry';
 import {
   findPatientByCode, getLastVisit, listIdentityScans, logIdentityScan, setPatientCard,
@@ -91,7 +93,10 @@ export function LiveHealthIdentity() {
   const [scanning, setScanning] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canLink = canEdit('Patients');
+  const { hasModule } = usePlan();
+  const fullProfile = hasModule('nfc-scanning');
+  const canLink = canEdit('Patients') && fullProfile;
+  const upgrade = () => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'subscription' } }));
 
   useEffect(() => {
     const up = () => setIsOnline(true);
@@ -405,7 +410,12 @@ export function LiveHealthIdentity() {
                   <p className="text-xs text-gray-500 truncate">Card {unlinkedCard} isn't linked to anyone in this workspace.</p>
                 </div>
               </div>
-              {canLink ? (
+              {!fullProfile ? (
+                <div className="rounded-xl bg-royal-50 p-4 text-sm text-royal-900 dark:bg-royal-500/10 dark:text-royal-100">
+                  <p>Setting up VitaCards for patients is on Starter and above. Your workspace can still order cards and find patients by QR code or search.</p>
+                  <Button size="sm" className="mt-3" onClick={upgrade}><ArrowUpRight className="mr-1 h-4 w-4" />See plans</Button>
+                </div>
+              ) : canLink ? (
                 <>
                   <Input value={linkSearch} onChange={(e) => setLinkSearch(e.target.value)} placeholder="Find the patient to link it to..." autoFocus />
                   <div className="space-y-1">
@@ -446,10 +456,10 @@ export function LiveHealthIdentity() {
                       </div>
                     </div>
                   </div>
-                  <div className={cn('px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1 shrink-0',
+                  {fullProfile && <div className={cn('px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1 shrink-0',
                     insurance.tone === 'ok' ? 'bg-green-500/30 text-green-100' : insurance.tone === 'bad' ? 'bg-red-500/30 text-red-100' : 'bg-white/20 text-white/90')}>
                     <Shield className="w-3 h-3" />{insurance.label}
-                  </div>
+                  </div>}
                 </div>
               </div>
 
@@ -489,7 +499,7 @@ export function LiveHealthIdentity() {
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-slate-900/50 min-w-0">
+                  {fullProfile && <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-slate-900/50 min-w-0">
                     <Clock className="w-5 h-5 text-gray-400 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm text-gray-500">Last visit</p>
@@ -497,7 +507,7 @@ export function LiveHealthIdentity() {
                         {lastVisit ? `${new Date(lastVisit.at).toLocaleDateString()} · ${lastVisit.type}` : 'No visits yet'}
                       </p>
                     </div>
-                  </div>
+                  </div>}
                   <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 dark:bg-slate-900/50 min-w-0">
                     <User className="w-5 h-5 text-gray-400 shrink-0" />
                     <div className="min-w-0">
@@ -509,13 +519,20 @@ export function LiveHealthIdentity() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 p-4 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
+                {!fullProfile && (
+                  <div className="flex flex-col gap-3 rounded-xl bg-royal-50 p-4 text-sm text-royal-900 sm:flex-row sm:items-center sm:justify-between dark:bg-royal-500/10 dark:text-royal-100">
+                    <p>This is the basic profile on the Free plan. Upgrade for the full record on scan: visits, insurance, VitaCard setup, ID card printing and the EMR.</p>
+                    <Button size="sm" className="shrink-0" onClick={upgrade}><ArrowUpRight className="mr-1 h-4 w-4" />Upgrade</Button>
+                  </div>
+                )}
+
+                {fullProfile && <div className="flex items-center gap-4 p-4 rounded-xl border border-dashed border-gray-200 dark:border-slate-700">
                   {qr && <img src={qr} alt={`QR code for ${patient.switchId}`} className="w-24 h-24 rounded-lg bg-white p-1 shrink-0" />}
                   <div className="min-w-0 space-y-2">
                     <p className="text-xs text-slate-500">The QR holds only the VitaLink ID. Scanning it opens this profile.</p>
                     <Button size="sm" variant="outline" onClick={() => void printIdCard(patient, organization.name)}><Printer className="w-4 h-4 mr-2" />Print ID card</Button>
                   </div>
-                </div>
+                </div>}
 
                 {canLink && (
                   <div className="space-y-2">
@@ -535,12 +552,18 @@ export function LiveHealthIdentity() {
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    className="bg-gradient-to-r from-royal-500 to-royal-700 text-white py-5 min-w-0"
-                    onClick={() => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { switchId: patient.switchId } }))}
-                  >
-                    <FileText className="w-4 h-4 mr-2" />View Full Record
-                  </Button>
+                  {fullProfile ? (
+                    <Button
+                      className="bg-gradient-to-r from-royal-500 to-royal-700 text-white py-5 min-w-0"
+                      onClick={() => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { switchId: patient.switchId } }))}
+                    >
+                      <FileText className="w-4 h-4 mr-2" />View Full Record
+                    </Button>
+                  ) : (
+                    <Button className="bg-gradient-to-r from-royal-500 to-royal-700 text-white py-5 min-w-0" onClick={upgrade}>
+                      <ArrowUpRight className="w-4 h-4 mr-2" />Unlock full record
+                    </Button>
+                  )}
                   <Button variant="outline" className="border-royal-200 text-royal-600 hover:bg-royal-50 py-5 min-w-0" onClick={() => setBookOpen(true)}>
                     <CalendarDays className="w-4 h-4 mr-2" />Book Appointment
                   </Button>

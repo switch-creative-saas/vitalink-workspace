@@ -96,6 +96,7 @@ export function LiveSubscription() {
   const status = STATUS[ent.status] ?? STATUS.active;
   const sentinel = addons.find((a) => a.id === 'sentinel');
   const sentinelEligible = sentinel?.eligiblePlans.includes(ent.effectivePlanId) ?? false;
+  const sentinelUpgrades = plans.filter((p) => sentinel?.eligiblePlans.includes(p.id));
   const pendingPlan = ent.status === 'pending_payment' && ent.planId !== ent.effectivePlanId ? plans.find((p) => p.id === ent.planId) : null;
 
   return (
@@ -203,7 +204,19 @@ export function LiveSubscription() {
                   {ent.sentinelAddon?.status === 'past_due' && <p className="mt-2 text-xs text-red-600">Your last Sentinel renewal didn’t go through.</p>}
                 </>
               ) : (
-                <p className="max-w-xs text-sm text-slate-600 dark:text-slate-400">Available on Starter and Growth. Upgrade your plan first, then add Sentinel for {naira(sentinel.monthlyPrice)}/month.</p>
+                <div className="max-w-xs">
+                  <p className="text-sm text-slate-600 dark:text-slate-400">Sentinel is added to Starter or Growth. Upgrade first (Growth already includes a read-only view), then add full access here for {naira(sentinel.monthlyPrice)}/month.</p>
+                  {sentinelUpgrades.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2 lg:justify-end">
+                      {sentinelUpgrades.map((p) => (
+                        <button key={p.id} type="button" disabled={!isAdmin || busy !== null} onClick={() => void choosePlan(p)}
+                          className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:opacity-50">
+                          {busy === p.id && <Loader2 className="h-4 w-4 animate-spin" />}Upgrade to {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>

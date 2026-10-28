@@ -1,3 +1,6 @@
+// Billing: invoices, payments, HMO claims and the price list. Visits, lab tests and dispensed drugs
+// bill themselves onto the patient's running bill (an invoice in status 'draft') through database
+// triggers; billing staff finalize it, take payment, or build a one-off invoice.
 import { requireSupabase } from './client';
 
 // Stored in kobo; the Billing page works in naira.
@@ -14,7 +17,7 @@ function friendly(error: { code?: string; message: string }, action: string): Er
   return new Error(error.message);
 }
 
-export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'void' | 'refunded';
+export type InvoiceStatus = 'draft' | 'unpaid' | 'partial' | 'paid' | 'void' | 'refunded';
 export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'pos' | 'hmo' | 'nhis' | 'waiver' | 'paystack';
 export type ClaimStatus = 'pending' | 'submitted' | 'approved' | 'rejected';
 export type LineCategory = 'consultation' | 'lab' | 'pharmacy' | 'procedure' | 'room' | 'imaging' | 'supplies' | 'other';
@@ -27,6 +30,7 @@ export interface InvoiceLine {
   unitPrice: number;
   total: number;
   sourceType: 'appointment' | 'lab_result' | 'prescription' | 'manual';
+  sourceId: string | null;
 }
 
 export interface BillingInvoice {
@@ -43,6 +47,8 @@ export interface BillingInvoice {
   balance: number;
   status: InvoiceStatus;
   overdue: boolean;
+  appointmentId: string | null;
+  updatedAt: string;
   paymentMethod: PaymentMethod | null;
   dueDate: string | null;
   createdAt: string;
@@ -62,6 +68,8 @@ interface InvoiceRow {
   amount_paid_kobo: number;
   discount_kobo: number;
   status: InvoiceStatus;
+  appointment_id: string | null;
+  updated_at: string;
   payment_method: PaymentMethod | null;
   due_date: string | null;
   created_at: string;
@@ -72,12 +80,12 @@ interface InvoiceRow {
   hmo_micro_fee_kobo: number | null;
   hmo_claim_status: ClaimStatus | null;
   patient: { first_name: string; last_name: string; switch_id: string } | null;
-  lines: Array<{ id: string; description: string; category: LineCategory | null; quantity: number; unit_price_kobo: number; total_kobo: number; source_type: InvoiceLine['sourceType'] }>;
+  lines: Array<{ id: string; description: string; category: LineCategory | null; quantity: number; unit_price_kobo: number; total_kobo: number; source_type: InvoiceLine['sourceType']; source_id: string | null }>;
 }
 
 const INVOICE_SELECT = `*,
   patient:patients!invoices_patient_same_org_fkey(first_name, last_name, switch_id),
-  lines:invoice_line_items(id, description, category, quantity, unit_price_kobo, total_kobo, source_type)`;
+  lines:invoice_line_items(id, description, category, quantity, unit_price_kobo, total_kobo, source_type, source_id, created_at)`;
 
 function invoiceFromRow(row: InvoiceRow): BillingInvoice {
   const lines = (row.lines ?? []).map((line) => ({
@@ -88,6 +96,7 @@ function invoiceFromRow(row: InvoiceRow): BillingInvoice {
     unitPrice: toNaira(line.unit_price_kobo),
     total: toNaira(line.total_kobo),
     sourceType: line.source_type,
+    sourceId: line.source_id,
   }));
   const total = toNaira(row.total_amount_kobo);
   const paid = toNaira(row.amount_paid_kobo);
@@ -106,7 +115,9 @@ function invoiceFromRow(row: InvoiceRow): BillingInvoice {
     paid,
     balance,
     status: row.status,
-    overdue: balance > 0 && row.status !== 'void' && Boolean(row.due_date && row.due_date < today),
+    overdue: balance > 0 && row.status !== 'void' && row.status !== 'draft' && Boolean(row.due_date && row.due_date < today),
+    appointmentId: row.appointment_id,
+    updatedAt: row.updated_at,
     paymentMethod: row.payment_method,
     dueDate: row.due_date,
     createdAt: row.created_at,
@@ -180,6 +191,37 @@ export async function buildInvoice(
   });
   if (error) throw friendly(error, 'create invoices');
   return (data as { invoice_number: string }).invoice_number;
+}
+
+/** Closes a running bill (draft → unpaid) so it can be chased and claimed like any invoice. */
+export async function finalizeInvoice(invoiceId: string, dueDays = 7) {
+  const { error } = await requireSupabase().rpc('billing_finalize_invoice', { p_invoice_id: invoiceId, p_due_days: dueDays });
+  if (error) throw friendly(error, 'finalize bills');
+}
+
+export async function addManualLine(invoiceId: string, line: ExtraLine) {
+  const { error } = await requireSupabase().from('invoice_line_items').insert({
+    invoice_id: invoiceId, description: line.description.trim(), category: line.category,
+    quantity: Math.max(1, Math.round(line.quantity)), unit_price_kobo: toKobo(line.unitPrice), source_type: 'manual',
+  });
+  if (error) throw friendly(error, 'add charges');
+}
+
+export async function removeLine(lineId: string) {
+  const { error, count } = await requireSupabase().from('invoice_line_items').delete({ count: 'exact' }).eq('id', lineId);
+  if (error) throw friendly(error, 'remove charges');
+  if (!count) throw new Error('Only billing managers can remove charges.');
+}
+
+/** Re-runs onChange whenever an invoice changes (new charges, payments and finalizing all touch the invoice). */
+export function subscribeToBilling(organizationId: string, onChange: () => void) {
+  const db = requireSupabase();
+  const channel = db
+    .channel(`billing-${organizationId}-${crypto.randomUUID()}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `organization_id=eq.${organizationId}` }, onChange)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'invoice_payments', filter: `organization_id=eq.${organizationId}` }, onChange)
+    .subscribe();
+  return () => { void db.removeChannel(channel); };
 }
 
 export async function setInvoiceDiscount(invoiceId: string, discount: number) {
@@ -273,40 +315,121 @@ export async function resolveClaim(invoiceId: string, approved: boolean, approve
 
 // ---------- price list ----------
 
+export type PriceCategory = Exclude<LineCategory, 'pharmacy'>;
+
 export interface ServicePrice {
   id: string;
-  category: Exclude<LineCategory, 'pharmacy'>;
+  category: PriceCategory;
   name: string;
+  code: string;
+  unit: string;
   price: number;
+  isActive: boolean;
 }
 
 export async function listPrices(organizationId: string): Promise<ServicePrice[]> {
   const { data, error } = await requireSupabase()
     .from('service_prices')
-    .select('id, category, name, price_kobo')
+    .select('id, category, name, code, unit, price_kobo, is_active')
     .eq('organization_id', organizationId)
-    .eq('is_active', true)
     .order('category')
     .order('name');
   if (error) throw friendly(error, 'view prices');
-  return (data as Array<{ id: string; category: ServicePrice['category']; name: string; price_kobo: number }>).map((row) => ({
-    id: row.id, category: row.category, name: row.name, price: toNaira(row.price_kobo),
+  return (data as Array<{ id: string; category: PriceCategory; name: string; code: string | null; unit: string | null; price_kobo: number; is_active: boolean }>).map((row) => ({
+    id: row.id, category: row.category, name: row.name, code: row.code ?? '', unit: row.unit ?? 'each', price: toNaira(row.price_kobo), isActive: row.is_active,
   }));
 }
 
-export async function savePrice(organizationId: string, price: Omit<ServicePrice, 'id'> & { id?: string }) {
+export type PriceInput = Omit<ServicePrice, 'id' | 'isActive'> & { id?: string; isActive?: boolean };
+
+export async function savePrice(organizationId: string, price: PriceInput) {
   const db = requireSupabase();
-  const fields = { category: price.category, name: price.name.trim(), price_kobo: toKobo(price.price) };
+  const fields = {
+    category: price.category, name: price.name.trim(), price_kobo: toKobo(price.price),
+    code: price.code.trim().toUpperCase() || null, unit: price.unit.trim() || 'each',
+    ...(price.isActive === undefined ? {} : { is_active: price.isActive }),
+  };
   const { error } = price.id
     ? await db.from('service_prices').update(fields).eq('id', price.id).select('id').single()
     : await db.from('service_prices').insert({ ...fields, organization_id: organizationId });
   if (error) {
-    if (error.code === '23505') throw new Error(`There is already a ${price.category} price called "${price.name}".`);
+    if (error.code === '23505') throw new Error(`"${price.code || price.name}" is already on your price list.`);
     throw friendly(error, 'manage prices');
   }
+}
+
+export async function setPriceActive(id: string, isActive: boolean) {
+  const { error } = await requireSupabase().from('service_prices').update({ is_active: isActive }).eq('id', id).select('id').single();
+  if (error) throw friendly(error, 'manage prices');
 }
 
 export async function deletePrice(id: string) {
   const { error } = await requireSupabase().from('service_prices').delete().eq('id', id);
   if (error) throw friendly(error, 'manage prices');
+}
+
+/** CSV rows (code, name, category, price, unit) → added / updated / skipped. Matches on code, else category + name. */
+export async function importPrices(organizationId: string, rows: Array<Omit<PriceInput, 'id'>>, existing: ServicePrice[]) {
+  const result = { added: 0, updated: 0, skipped: [] as string[] };
+  for (const row of rows) {
+    const match = existing.find((p) => (row.code && p.code && p.code.toUpperCase() === row.code.trim().toUpperCase())
+      || (p.category === row.category && p.name.toLowerCase() === row.name.trim().toLowerCase()));
+    try {
+      await savePrice(organizationId, { ...row, id: match?.id, isActive: true });
+      if (match) result.updated += 1; else result.added += 1;
+    } catch (error) {
+      result.skipped.push(`${row.name}: ${error instanceof Error ? error.message : 'could not save'}`);
+    }
+  }
+  return result;
+}
+
+export interface DrugPrice { id: string; name: string; strength: string; unit: string; inStock: number; price: number }
+
+/** Drug selling prices live on pharmacy stock (drug_inventory.unit_price_kobo). */
+export async function listDrugPrices(organizationId: string): Promise<DrugPrice[]> {
+  const { data, error } = await requireSupabase()
+    .from('drug_inventory')
+    .select('id, drug_name, strength, unit_of_measure, quantity_in_stock, unit_price_kobo')
+    .eq('organization_id', organizationId)
+    .eq('is_active', true)
+    .order('drug_name');
+  if (error) throw friendly(error, 'view drug prices');
+  return (data as Array<{ id: string; drug_name: string; strength: string | null; unit_of_measure: string | null; quantity_in_stock: number; unit_price_kobo: number | null }>).map((row) => ({
+    id: row.id, name: row.drug_name, strength: row.strength ?? '', unit: row.unit_of_measure ?? 'unit', inStock: row.quantity_in_stock, price: toNaira(row.unit_price_kobo),
+  }));
+}
+
+export async function saveDrugPrice(id: string, price: number) {
+  const { error } = await requireSupabase().from('drug_inventory').update({ unit_price_kobo: toKobo(price) }).eq('id', id).select('id').single();
+  if (error) throw friendly(error, 'change drug prices');
+}
+
+export interface UnpricedItem { description: string; category: LineCategory; count: number; lastBilled: string }
+
+/** Charges billed at ₦0 in the last `days` days, so the price list gaps can be filled. */
+export async function listUnpriced(organizationId: string, days = 30): Promise<UnpricedItem[]> {
+  const since = new Date(Date.now() - days * 86_400_000).toISOString();
+  const { data, error } = await requireSupabase()
+    .from('invoice_line_items')
+    .select('description, category, created_at, invoice:invoices!inner(organization_id)')
+    .eq('invoice.organization_id', organizationId)
+    .eq('unit_price_kobo', 0)
+    .neq('source_type', 'manual')
+    .gte('created_at', since)
+    .limit(500);
+  if (error) throw friendly(error, 'view prices');
+  const grouped = new Map<string, UnpricedItem>();
+  for (const row of data as Array<{ description: string; category: LineCategory | null; created_at: string }>) {
+    // "Malaria RDT (no price set)" and "Consultation — OPD" → the name the price list matches on.
+    // Invoices built by hand also carry the date: "Lipid Panel (17 Oct 2026)".
+    const description = row.description.replace(/ \(no price set\)$/, '').replace(/ \(\d{1,2} [A-Za-z]{3} \d{4}\)$/, '')
+      .replace(/ — .*$/, '').replace(/ · batch .*$/, '');
+    const category = row.category ?? 'other';
+    const key = `${category}:${description.toLowerCase()}`;
+    const item = grouped.get(key);
+    if (item) { item.count += 1; if (row.created_at > item.lastBilled) item.lastBilled = row.created_at; }
+    else grouped.set(key, { description, category, count: 1, lastBilled: row.created_at });
+  }
+  return [...grouped.values()].sort((a, b) => b.count - a.count);
 }

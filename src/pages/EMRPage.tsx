@@ -27,6 +27,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlan } from '@/hooks/usePlan';
+import { DIAGNOSIS_HANDOFF_KEY } from '@/lib/handoffs';
+import { printDocument } from '@/lib/printDocument';
 import { toast } from 'sonner';
 import { findPatientBySwitchId, type RegistryPatient } from '@/lib/patientRegistry';
 import { SENTINEL_CLINICAL_EVENT, type SentinelClinicalPayload } from '@/lib/sentinel/events';
@@ -116,6 +119,14 @@ const defaultDocs: DocumentItem[] = [
   { id: 'doc_2', name: 'Consent Form - Procedure', category: 'Consent forms', size: '420 KB', version: 1, uploadedBy: 'Nurse Amina', uploadedAt: '2026-04-15', tags: ['consent'] },
 ];
 
+interface SpeechRecognitionLike {
+  lang: string; continuous: boolean; interimResults: boolean;
+  onresult: ((event: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void; stop: () => void;
+}
+
 const blankSoap = {
   chiefComplaint: '',
   hpi: '',
@@ -165,6 +176,9 @@ interface EMRPageProps {
 
 export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   const { currentRole, canView, canCreate, canEdit, userName, organization } = useAuth();
+  const { hasModule } = usePlan();
+  const [dictating, setDictating] = useState(false);
+  const recognition = useRef<{ stop: () => void } | null>(null);
   const [activeTab, setActiveTab] = useState<EmrTab>('overview');
   const [editorOpen, setEditorOpen] = useState(false);
   const [timeSpent, setTimeSpent] = useState(0);
@@ -271,6 +285,70 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   const canEditClinical = currentRole === 'doctor' && canEdit('EMR');
   const canUploadLab = currentRole === 'lab-scientist' || currentRole === 'doctor';
   const canEditLab = currentRole === 'doctor' || currentRole === 'lab-scientist';
+
+  const patientLine = () => (patient ? `${patient.firstName} ${patient.lastName} · ${patient.switchId}${patient.dateOfBirth ? ` · born ${patient.dateOfBirth}` : ''}` : 'No patient selected');
+
+  /** The note as it stands, through the browser's print dialog ("Save as PDF" works too). */
+  const printNote = () => printDocument({
+    title: 'Clinical note (SOAP)',
+    facility: organization.name,
+    subtitle: patientLine(),
+    sections: [
+      { heading: 'Subjective', rows: [['Chief complaint', soap.chiefComplaint], ['History of present illness', soap.hpi], ['Review of systems', soap.reviewSystems], ['Patient narrative', soap.patientNarrative]] },
+      { heading: 'Objective', rows: [['Vital signs', soap.vitalSigns], ['Examination', soap.physicalExam], ['Lab references', soap.labRefs], ['Imaging', soap.imagingRef], ['Measurements', soap.measurements]] },
+      { heading: 'Assessment', rows: [['Primary diagnosis', soap.primaryDiagnosis], ['Secondary diagnosis', soap.secondaryDiagnosis], ['Differential', soap.differentialDiagnosis], ['Risk', soap.riskLevel]] },
+      { heading: 'Plan', rows: [['Prescriptions', soap.prescriptions], ['Lab orders', soap.labOrders], ['Imaging orders', soap.imagingOrders], ['Referral', soap.referralNotes], ['Follow-up', soap.followUp], ['Addendum', soap.addendum]] },
+    ],
+    footer: `${signed ? 'Signed' : 'Draft, not signed'} · ${userName} · printed ${new Date().toLocaleString()}`,
+  });
+
+  const printLabReport = (lab: LabResultItem) => printDocument({
+    title: `Lab report: ${lab.testName}`,
+    facility: organization.name,
+    subtitle: patientLine(),
+    sections: [{ heading: 'Result', rows: [
+      ['Test', `${lab.testName}${lab.testType ? ` (${lab.testType})` : ''}`], ['Status', lab.status], ['Result', lab.patientValue], ['Flag', lab.flag],
+      ['Reference range', lab.referenceRange], ['Interpretation', lab.interpretation ?? ''], ['Ordered by', lab.orderingDoctor], ['Technician', lab.technician],
+      ['Ordered', lab.orderedAt ? new Date(lab.orderedAt).toLocaleString() : lab.date], ['Resulted', lab.resultedAt ? new Date(lab.resultedAt).toLocaleString() : ''],
+    ] }],
+  });
+
+  // Dictation with the browser's speech recognition (Chrome, Edge, Safari); text is appended to the HPI.
+  const SpeechRecognitionImpl = typeof window === 'undefined' ? undefined
+    : ((window as unknown as { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecognitionLike }).webkitSpeechRecognition);
+  const speechSupported = Boolean(SpeechRecognitionImpl);
+  const toggleDictation = () => {
+    if (dictating) { recognition.current?.stop(); return; }
+    if (!SpeechRecognitionImpl) return;
+    const rec = new SpeechRecognitionImpl();
+    rec.lang = 'en-NG';
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.onresult = (event) => {
+      const text = Array.from(event.results).slice(event.resultIndex).filter((r) => r.isFinal).map((r) => r[0].transcript.trim()).join(' ');
+      if (text) setSoap((p) => ({ ...p, hpi: p.hpi ? `${p.hpi.trimEnd()} ${text}` : text }));
+    };
+    rec.onerror = (event) => { toast.error(event.error === 'not-allowed' ? 'Allow microphone access to dictate.' : 'Dictation stopped'); };
+    rec.onend = () => { setDictating(false); recognition.current = null; };
+    recognition.current = rec;
+    rec.start();
+    setDictating(true);
+  };
+  useEffect(() => () => recognition.current?.stop(), []);
+
+  /** Sends the complaint to VitaMind Dx (AI Clinical Intelligence) with this patient selected. */
+  const analyseWithVitaMind = () => {
+    if (!hasModule('ai-clinical-intelligence')) {
+      toast.info('VitaMind Dx is on the Growth plan.');
+      window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'subscription' } }));
+      return;
+    }
+    const symptoms = [soap.chiefComplaint, soap.hpi, soap.reviewSystems].map((s) => s.trim()).filter(Boolean).join('. ');
+    if (!symptoms) { toast.error('Write the chief complaint or history first'); return; }
+    sessionStorage.setItem(DIAGNOSIS_HANDOFF_KEY, JSON.stringify({ switchId: patient?.switchId ?? '', symptoms }));
+    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'ai-clinical-intelligence' } }));
+  };
   const canUploadDocuments = currentRole !== 'receptionist';
   const canReadOnlyAdmin = currentRole === 'hospital-admin';
   const canRecordVitals = currentRole === 'doctor' || currentRole === 'nurse';
@@ -703,9 +781,9 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={copyPrevious}>Copy Previous Note</Button>
               <Button variant="outline" onClick={saveDraft}>Autosave</Button>
-              <Button variant="outline" onClick={() => toast.success('Clinical PDF generated.')}>
+              <Button variant="outline" onClick={printNote}>
                 <Download className="w-4 h-4 mr-2" />
-                Export PDF
+                Print / PDF
               </Button>
             </div>
           </div>
@@ -718,8 +796,12 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                 <textarea className="min-h-24 rounded-md border border-input p-3 text-sm md:col-span-2 w-full min-w-0" placeholder="History of Present Illness" value={soap.hpi} onChange={(e) => setSoap((p) => ({ ...p, hpi: e.target.value }))} />
                 <textarea className="min-h-20 rounded-md border border-input p-3 text-sm md:col-span-2 w-full min-w-0" placeholder="Review of Systems" value={soap.reviewSystems} onChange={(e) => setSoap((p) => ({ ...p, reviewSystems: e.target.value }))} />
                 <textarea className="min-h-20 rounded-md border border-input p-3 text-sm md:col-span-2 w-full min-w-0" placeholder="Patient narrative" value={soap.patientNarrative} onChange={(e) => setSoap((p) => ({ ...p, patientNarrative: e.target.value }))} />
-                <Button variant="outline" className="justify-start min-w-0"><Mic className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">Voice-to-text input</span></Button>
-                <Button variant="outline" className="justify-start min-w-0"><Bot className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">AI symptom summary</span></Button>
+                <Button variant="outline" className={cn('justify-start min-w-0', dictating && 'border-red-300 bg-red-50 text-red-700')} disabled={!speechSupported} title={speechSupported ? 'Dictate into History of Present Illness' : 'This browser does not support dictation (try Chrome or Edge)'} onClick={toggleDictation}>
+                  <Mic className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">{dictating ? 'Stop dictation' : 'Dictate HPI'}</span>
+                </Button>
+                <Button variant="outline" className="justify-start min-w-0" onClick={analyseWithVitaMind}>
+                  <Bot className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">Analyse with VitaMind Dx</span>
+                </Button>
               </div>
             </section>
 
@@ -992,9 +1074,12 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
                       </div>
                     )}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      <Button variant="outline"><FileDigit className="w-4 h-4 mr-2" />Export PDF</Button>
-                      <Button variant="outline"><Share2 className="w-4 h-4 mr-2" />Share referral hospital</Button>
-                      <Button variant="outline" disabled={!canEditLab}>Digital verification signature</Button>
+                      <Button variant="outline" onClick={() => printLabReport(selectedLab)}><FileDigit className="w-4 h-4 mr-2" />Print / PDF</Button>
+                      {isSupabaseConfigured && hasModule('switch-network') && (
+                        <Button variant="outline" onClick={() => window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'switch-network' } }))}>
+                          <Share2 className="w-4 h-4 mr-2" />Refer via VitaLink Network
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}
