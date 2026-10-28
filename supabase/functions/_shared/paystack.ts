@@ -179,3 +179,86 @@ export async function markNfcOrderPaid(db: SupabaseClient, tx: PaystackTransacti
   if (error) throw new HttpError(500, error.message);
   return { outcome: 'paid' as const, organizationId: order.organization_id };
 }
+
+// ---------------------------------------------------------------------------
+// Add-ons (VitaLink Sentinel full access): billed monthly on their own Paystack subscription.
+
+export interface AddonRow {
+  id: string;
+  name: string;
+  monthly_price_kobo: number;
+  eligible_plans: string[];
+  paystack_plan_monthly: string | null;
+}
+
+/** Returns the Paystack plan code for an add-on, creating it in Paystack on first use. */
+export async function ensureAddonPaystackPlan(db: SupabaseClient, addon: AddonRow): Promise<string> {
+  if (addon.paystack_plan_monthly) return addon.paystack_plan_monthly;
+  const created = await paystack<{ plan_code: string }>('/plan', {
+    method: 'POST',
+    body: { name: `VitaLink ${addon.name} (monthly)`, interval: 'monthly', amount: addon.monthly_price_kobo, currency: 'NGN' },
+  });
+  await db.from('plan_addons').update({ paystack_plan_monthly: created.plan_code }).eq('id', addon.id);
+  return created.plan_code;
+}
+
+/** Idempotently activates an add-on from its first verified payment and schedules monthly renewal. */
+export async function activateAddonFromTransaction(db: SupabaseClient, tx: PaystackTransaction) {
+  const { data: payment } = await db.from('payments').select('*').eq('reference', tx.reference).maybeSingle();
+  if (!payment) return { outcome: 'unknown_reference' as const };
+  if (payment.status === 'success') return { outcome: 'already_applied' as const, organizationId: payment.organization_id, kind: 'addon' as const };
+
+  const amountMatches = Number(tx.amount) === Number(payment.amount_kobo) && tx.currency === 'NGN';
+  if (tx.status !== 'success' || !amountMatches) {
+    await db.from('payments').update({ status: tx.status === 'abandoned' ? 'abandoned' : 'failed', paystack_payload: tx }).eq('id', payment.id);
+    return { outcome: 'not_successful' as const, organizationId: payment.organization_id, kind: 'addon' as const };
+  }
+  await db.from('payments').update({ status: 'success', paid_at: new Date().toISOString(), paystack_payload: tx }).eq('id', payment.id);
+
+  const periodEnd = addPeriod(new Date(), 'monthly');
+  const { data: addon } = await db.from('plan_addons').select('*').eq('id', payment.addon_id).single();
+  const { data: current } = await db.from('subscription_addons').select('*')
+    .eq('organization_id', payment.organization_id).eq('addon_id', payment.addon_id).maybeSingle();
+  if (current?.paystack_subscription_code && current?.paystack_email_token) {
+    await paystack('/subscription/disable', { method: 'POST', body: { code: current.paystack_subscription_code, token: current.paystack_email_token } })
+      .catch((error) => console.error('disable old add-on subscription failed', error));
+  }
+
+  let subscriptionCode: string | null = null;
+  let emailToken: string | null = null;
+  if (tx.authorization?.reusable && addon) {
+    try {
+      const planCode = await ensureAddonPaystackPlan(db, addon as AddonRow);
+      const sub = await paystack<{ subscription_code: string; email_token: string }>('/subscription', {
+        method: 'POST',
+        body: { customer: tx.customer.customer_code, plan: planCode, authorization: tx.authorization.authorization_code, start_date: periodEnd.toISOString() },
+      });
+      subscriptionCode = sub.subscription_code;
+      emailToken = sub.email_token;
+    } catch (error) {
+      console.error('creating add-on renewal failed', error);
+    }
+  }
+
+  await db.from('subscription_addons').upsert({
+    organization_id: payment.organization_id,
+    addon_id: payment.addon_id,
+    status: 'active',
+    current_period_end: periodEnd.toISOString(),
+    paystack_customer_code: tx.customer?.customer_code ?? null,
+    paystack_subscription_code: subscriptionCode,
+    paystack_email_token: emailToken,
+    comped_by: null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'organization_id,addon_id' });
+
+  return { outcome: 'activated' as const, organizationId: payment.organization_id, kind: 'addon' as const };
+}
+
+/** Applies a verified first payment, whether it is for a plan or an add-on. */
+export async function applyTransaction(db: SupabaseClient, tx: PaystackTransaction) {
+  const { data: payment } = await db.from('payments').select('kind').eq('reference', tx.reference).maybeSingle();
+  if (payment?.kind === 'addon') return activateAddonFromTransaction(db, tx);
+  const result = await activateFromTransaction(db, tx);
+  return { ...result, kind: 'plan' as const };
+}

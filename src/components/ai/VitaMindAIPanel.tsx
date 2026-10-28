@@ -1,15 +1,20 @@
-import { useState } from 'react';
-import { X, Sparkles, AlertTriangle, TrendingUp, Brain, Users, Clock, CheckCircle, AlertCircle, ArrowRight, Filter } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { X, Sparkles, AlertTriangle, TrendingUp, Brain, Users, Clock, CheckCircle, AlertCircle, ArrowRight, RefreshCw, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import type { VitaMindAIInsight } from '@/types';
+import type { PageType, VitaMindAIInsight } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePlan } from '@/hooks/usePlan';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { listInsights, markInsights, patientSwitchId } from '@/lib/supabase/insights';
 
 interface VitaMindAIPanelProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+// Offline demo only; live workspaces read public.vitamind_insights.
 const mockInsights: VitaMindAIInsight[] = [
   {
     id: '1',
@@ -76,193 +81,178 @@ const typeConfig = {
   'prediction': { label: 'Prediction', icon: Clock },
 };
 
+const SEVERITIES = ['all', 'critical', 'high', 'medium', 'low'] as const;
+const PAGE_LABEL: Partial<Record<PageType, string>> = { emr: 'Open EMR', laboratory: 'Open Laboratory', pharmacy: 'Open Pharmacy', billing: 'Open Billing', appointments: 'Open Appointments', patients: 'Open Patients' };
+const goTo = (detail: { page?: PageType; switchId?: string }) => window.dispatchEvent(new CustomEvent('app:navigate', { detail }));
+
 export function VitaMindAIPanel({ isOpen, onClose }: VitaMindAIPanelProps) {
+  const { organization } = useAuth();
+  const { hasModule } = usePlan();
+  const [insights, setInsights] = useState<Array<VitaMindAIInsight & { page?: PageType }> | null>(isSupabaseConfigured ? null : mockInsights);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
-  const [selectedInsight, setSelectedInsight] = useState<VitaMindAIInsight | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const [severity, setSeverity] = useState<(typeof SEVERITIES)[number]>('all');
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const filteredInsights = activeTab === 'unread' 
-    ? mockInsights.filter(i => !i.isRead)
-    : mockInsights;
+  const load = useCallback(() => {
+    if (!isSupabaseConfigured) return;
+    setLoading(true);
+    listInsights(organization.id)
+      .then(setInsights)
+      .catch((error) => { toast.error(error instanceof Error ? error.message : 'Could not load insights'); setInsights([]); })
+      .finally(() => setLoading(false));
+  }, [organization.id]);
 
-  const unreadCount = mockInsights.filter(i => !i.isRead).length;
+  useEffect(() => {
+    if (!isOpen || !isSupabaseConfigured) return;
+    const first = window.setTimeout(load, 0);
+    const timer = window.setInterval(load, 60_000);
+    return () => { window.clearTimeout(first); window.clearInterval(timer); };
+  }, [isOpen, load]);
 
-  const handleViewAllInsights = () => {
-    toast.info('Opening full VitaMind Insights dashboard...');
+  const all = insights ?? [];
+  const unreadCount = all.filter((i) => !i.isRead).length;
+  const urgentCount = all.filter((i) => i.severity === 'critical' || i.severity === 'high').length;
+  const filtered = all.filter((i) => (activeTab === 'all' || !i.isRead) && (severity === 'all' || i.severity === severity));
+
+  const mark = (ids: string[], action: 'read' | 'dismiss') => {
+    setInsights((list) => (list ?? []).flatMap((i) => (ids.includes(i.id) ? (action === 'dismiss' ? [] : [{ ...i, isRead: true }]) : [i])));
+    if (isSupabaseConfigured) markInsights(organization.id, ids, action).catch(() => load());
+  };
+
+  const select = (insight: VitaMindAIInsight) => {
+    setSelectedId(selectedId === insight.id ? null : insight.id);
+    if (!insight.isRead) mark([insight.id], 'read');
+  };
+
+  const open = async (insight: VitaMindAIInsight & { page?: PageType }) => {
+    if (insight.page === 'emr' && insight.patientId && isSupabaseConfigured) {
+      const switchId = await patientSwitchId(insight.patientId);
+      if (switchId) { goTo({ switchId }); onClose(); return; }
+    }
+    goTo({ page: insight.page ?? 'dashboard' });
     onClose();
   };
 
   if (!isOpen) return null;
+  const diagnosis = hasModule('ai-clinical-intelligence');
 
   return (
-    <div className="fixed inset-y-0 right-0 w-full sm:w-96 z-50 animate-in slide-in-from-right duration-300">
-      <div className="h-full bg-white/90 backdrop-blur-2xl border-l border-white/60 shadow-2xl flex flex-col">
-        <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 z-50 flex justify-end animate-in slide-in-from-right duration-300 sm:left-auto sm:w-[26rem]">
+      <button type="button" aria-label="Close VitaMind" className="absolute inset-0 bg-slate-950/30 sm:hidden" onClick={onClose} />
+      <div className="relative flex h-full w-full flex-col border-l border-white/60 bg-white/95 shadow-2xl backdrop-blur-2xl dark:border-slate-700 dark:bg-slate-900/95">
+        <div className="border-b border-gray-100 p-4 sm:p-5 dark:border-slate-800">
+          <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-vitamind flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-vitamind">
+                <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900">VitaMind AI</h2>
-                <p className="text-xs text-gray-500">Clinical Intelligence for Better Healthcare</p>
+                <h2 className="font-semibold text-gray-900 dark:text-slate-50">VitaMind AI</h2>
+                <p className="text-xs text-gray-500">Signals from your workspace’s records</p>
               </div>
             </div>
-            <button 
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="p-3 rounded-xl bg-vitalink-50 border border-vitalink-100">
-              <p className="text-2xl font-bold text-vitalink-600">{mockInsights.length}</p>
-              <p className="text-[10px] text-vitalink-600/70 uppercase tracking-wider">Insights</p>
-            </div>
-            <div className="p-3 rounded-xl bg-vitamind-50 border border-vitamind-100">
-              <p className="text-2xl font-bold text-vitamind-600">{unreadCount}</p>
-              <p className="text-[10px] text-vitamind-600/70 uppercase tracking-wider">New</p>
-            </div>
-            <div className="p-3 rounded-xl bg-green-50 border border-green-100">
-              <p className="text-2xl font-bold text-green-600">94%</p>
-              <p className="text-[10px] text-green-600/70 uppercase tracking-wider">Accuracy</p>
+            <div className="flex items-center gap-1">
+              {isSupabaseConfigured && (
+                <button type="button" onClick={load} aria-label="Refresh insights" className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-800">
+                  <RefreshCw className={cn('h-4 w-4', loading && 'animate-spin')} />
+                </button>
+              )}
+              <button type="button" onClick={onClose} aria-label="Close" className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-slate-800">
+                <X className="h-5 w-5" />
+              </button>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 mt-4">
-            <button
-              onClick={() => setActiveTab('all')}
-              className={cn(
-                "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200",
-                activeTab === 'all'
-                  ? "bg-vitalink-50 text-vitalink-700"
-                  : "text-gray-500 hover:bg-gray-100"
-              )}
-            >
-              All Insights
-            </button>
-            <button
-              onClick={() => setActiveTab('unread')}
-              className={cn(
-                "flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2",
-                activeTab === 'unread'
-                  ? "bg-vitalink-50 text-vitalink-700"
-                  : "text-gray-500 hover:bg-gray-100"
-              )}
-            >
-              Unread
-              {unreadCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-vitamind-500 text-white text-xs flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={cn(
-                "p-2 rounded-lg transition-all",
-                showFilters ? "bg-vitalink-50 text-vitalink-700" : "text-gray-400 hover:bg-gray-100"
-              )}
-            >
-              <Filter className="w-4 h-4" />
-            </button>
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
+            {[
+              { label: 'Insights', value: all.length, tone: 'bg-vitalink-50 border-vitalink-100 text-vitalink-600' },
+              { label: 'New', value: unreadCount, tone: 'bg-vitamind-50 border-vitamind-100 text-vitamind-600' },
+              { label: 'Urgent', value: urgentCount, tone: 'bg-red-50 border-red-100 text-red-600' },
+            ].map((stat) => (
+              <div key={stat.label} className={cn('rounded-xl border p-3', stat.tone)}>
+                <p className="text-2xl font-bold">{insights === null ? '–' : stat.value}</p>
+                <p className="text-[10px] uppercase tracking-wider opacity-70">{stat.label}</p>
+              </div>
+            ))}
           </div>
 
-          {showFilters && (
-            <div className="mt-3 p-3 rounded-xl bg-gray-50 space-y-2 animate-in slide-in-from-top-2 duration-200">
-              <div className="flex flex-wrap gap-2">
-                <span className="text-xs text-gray-500 font-medium">Risk:</span>
-                {['all', 'critical', 'high', 'medium', 'low'].map((level) => (
-                  <button key={level} type="button" className="px-2 py-1 rounded-lg text-xs bg-white border border-gray-200 hover:border-vitalink-500 text-gray-600 capitalize transition-colors">
-                    {level}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <span className="text-xs text-gray-500 font-medium">Dept:</span>
-                {['All', 'General', 'Cardiology', 'Pediatrics', 'Lab'].map((dept) => (
-                  <button key={dept} type="button" className="px-2 py-1 rounded-lg text-xs bg-white border border-gray-200 hover:border-vitalink-500 text-gray-600 transition-colors">
-                    {dept}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="mt-4 flex items-center gap-2">
+            {(['all', 'unread'] as const).map((tab) => (
+              <button key={tab} type="button" onClick={() => setActiveTab(tab)}
+                className={cn('flex flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200', activeTab === tab ? 'bg-vitalink-50 text-vitalink-700' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800')}>
+                {tab === 'all' ? 'All insights' : 'Unread'}
+                {tab === 'unread' && unreadCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-vitamind-500 px-1 text-xs text-white">{unreadCount}</span>}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 flex gap-1.5 overflow-x-auto pb-1">
+            {SEVERITIES.map((level) => (
+              <button key={level} type="button" onClick={() => setSeverity(level)}
+                className={cn('whitespace-nowrap rounded-full border px-2.5 py-1 text-xs capitalize transition-colors', severity === level ? 'border-vitalink-500 bg-vitalink-50 text-vitalink-700' : 'border-gray-200 bg-white text-gray-600 hover:border-vitalink-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300')}>
+                {level}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {filteredInsights.map((insight) => {
-            const severity = severityConfig[insight.severity];
+        <div className="flex-1 space-y-3 overflow-y-auto p-4">
+          {insights === null && <p className="py-10 text-center text-sm text-gray-500">Reading your workspace…</p>}
+          {insights !== null && filtered.length === 0 && (
+            <div className="py-10 text-center text-sm text-gray-500">
+              <CheckCircle className="mx-auto mb-2 h-8 w-8 text-emerald-400" />
+              {all.length === 0 ? 'Nothing needs your attention right now.' : 'Nothing in this view.'}
+            </div>
+          )}
+          {filtered.map((insight) => {
+            const sev = severityConfig[insight.severity];
             const type = typeConfig[insight.type];
-            const Icon = severity.icon;
-            
+            const Icon = sev.icon;
+            const selected = selectedId === insight.id;
             return (
-              <div
-                key={insight.id}
-                onClick={() => setSelectedInsight(insight)}
-                className={cn(
-                  "p-4 rounded-xl border cursor-pointer transition-all duration-200",
-                  severity.bg,
-                  severity.border,
-                  !insight.isRead && "ring-2 ring-vitamind-200 ring-offset-1",
-                  selectedInsight?.id === insight.id 
-                    ? "shadow-lg scale-[1.02]" 
-                    : "hover:shadow-md"
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0", severity.color)}>
-                    <Icon className="w-4 h-4 text-white" />
+              <div key={insight.id} className={cn('rounded-xl border transition-all duration-200', sev.bg, sev.border, !insight.isRead && 'ring-2 ring-vitamind-200 ring-offset-1', selected ? 'shadow-lg' : 'hover:shadow-md')}>
+                <button type="button" onClick={() => select(insight)} className="flex w-full items-start gap-3 p-4 text-left">
+                  <div className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg', sev.color)}>
+                    <Icon className="h-4 w-4 text-white" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">
-                        {type.label}
-                      </span>
-                      {!insight.isRead && (
-                        <span className="w-2 h-2 rounded-full bg-vitamind-500" />
-                      )}
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 flex items-center gap-2">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-gray-500">{type.label}</span>
+                      {!insight.isRead && <span className="h-2 w-2 rounded-full bg-vitamind-500" />}
+                      <span className="ml-auto text-[10px] capitalize text-gray-400">{insight.severity}</span>
                     </div>
-                    <h3 className="font-semibold text-sm text-gray-900 mb-1 truncate">{insight.title}</h3>
-                    {insight.patientName && (
-                      <p className="text-xs text-gray-500 mb-1 truncate">{insight.patientName}</p>
-                    )}
-                    <p className="text-xs text-gray-600 line-clamp-2">{insight.description}</p>
-                    
-                    {insight.confidence && (
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="flex-1 h-1.5 rounded-full bg-white/50 overflow-hidden">
-                          <div 
-                            className={cn("h-full rounded-full", severity.color)}
-                            style={{ width: `${insight.confidence * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-[10px] text-gray-500">
-                          {Math.round(insight.confidence * 100)}%
-                        </span>
-                      </div>
-                    )}
+                    <h3 className={cn('mb-1 text-sm font-semibold text-gray-900', !selected && 'truncate')}>{insight.title}</h3>
+                    {insight.patientName && <p className="mb-1 truncate text-xs text-gray-500">{insight.patientName}</p>}
+                    <p className={cn('text-xs text-gray-600', !selected && 'line-clamp-2')}>{insight.description}</p>
                   </div>
-                </div>
+                </button>
+                {selected && (
+                  <div className="space-y-2 px-4 pb-4">
+                    {insight.recommendedAction && <p className="rounded-lg bg-white/70 p-2 text-xs text-gray-700"><span className="font-semibold">Suggested: </span>{insight.recommendedAction}</p>}
+                    <div className="flex flex-wrap gap-2">
+                      {insight.page && <Button size="sm" onClick={() => void open(insight)}>{PAGE_LABEL[insight.page] ?? 'Open'}<ArrowRight className="ml-1 h-3.5 w-3.5" /></Button>}
+                      <Button size="sm" variant="outline" onClick={() => mark([insight.id], 'dismiss')}><EyeOff className="mr-1 h-3.5 w-3.5" />Dismiss</Button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
 
-        <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-          <Button 
-            onClick={handleViewAllInsights}
-            className="w-full bg-gradient-vitamind text-white hover:shadow-lg hover:shadow-vitamind-500/25 transition-all duration-200"
+        <div className="space-y-2 border-t border-gray-100 bg-gray-50/50 p-4 dark:border-slate-800 dark:bg-slate-900">
+          {unreadCount > 0 && (
+            <Button variant="outline" className="w-full" onClick={() => mark(all.filter((i) => !i.isRead).map((i) => i.id), 'read')}>Mark all read</Button>
+          )}
+          <Button
+            onClick={() => { goTo({ page: diagnosis ? 'ai-clinical-intelligence' : 'subscription' }); onClose(); }}
+            className="w-full bg-gradient-vitamind text-white transition-all duration-200 hover:shadow-lg hover:shadow-vitamind-500/25"
           >
-            <Sparkles className="w-4 h-4 mr-2" />
-            View All Insights
-            <ArrowRight className="w-4 h-4 ml-2" />
+            <Sparkles className="mr-2 h-4 w-4" />
+            {diagnosis ? 'Open VitaMind diagnosis' : 'VitaMind diagnosis is on Growth'}
+            <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
-          <p className="text-center text-[10px] text-gray-400 mt-2">
-            VitaMind AI provides clinical decision support, not medical advice
-          </p>
+          <p className="text-center text-[10px] text-gray-400">VitaMind provides decision support, not medical advice</p>
         </div>
       </div>
     </div>

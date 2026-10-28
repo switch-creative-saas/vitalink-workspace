@@ -1,4 +1,7 @@
-import { type ElementType } from 'react';
+import { useState, type ElementType } from 'react';
+import { toast } from 'sonner';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { openWorkspaceSentinel } from '@/lib/supabase/plans';
 import {
   LayoutDashboard,
   CreditCard,
@@ -38,6 +41,7 @@ import {
   type NavigationIconKey,
 } from '@/lib/workspace/navigation';
 import { workspaceLabel } from '@/lib/workspace/organizationTypes';
+import { SENTINEL_OPENER_ROLES } from '@/lib/workspace/roles';
 import vitalinkLogo from '@/assets/vitalink-logo.png';
 
 interface SidebarProps {
@@ -193,6 +197,36 @@ interface SidebarContentProps {
 }
 
 function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomNavItems, onToggle, workspaceName, showConsole }: SidebarContentProps) {
+  const { organization, currentRole } = useAuth();
+  const canOpenSentinel = SENTINEL_OPENER_ROLES.includes(currentRole);
+  const [openingSentinel, setOpeningSentinel] = useState(false);
+
+  // Sentinel is its own app. Growth (read-only), Enterprise and the add-on open it; other plans go to the add-on checkout.
+  const openSentinel = async () => {
+    const sentinelUrl = import.meta.env.VITE_SENTINEL_WORKSPACE_URL ?? 'http://127.0.0.1:5173/';
+    if (!isSupabaseConfigured) { window.open(sentinelUrl, '_blank', 'noopener'); return; }
+    const tab = window.open('', '_blank'); // opened now so the browser doesn't block it after the check
+    setOpeningSentinel(true);
+    try {
+      const result = await openWorkspaceSentinel(organization.id);
+      if (result.access === 'none') {
+        tab?.close();
+        window.dispatchEvent(new CustomEvent('app:navigate', { detail: { path: '/subscription?addon=sentinel' } }));
+        return;
+      }
+      if (result.needsAdmin) {
+        tab?.close();
+        toast.info('A workspace admin needs to open Sentinel once to set it up for your facility.');
+        return;
+      }
+      if (tab) { tab.opener = null; tab.location.href = sentinelUrl; } else window.open(sentinelUrl, '_blank', 'noopener');
+    } catch (error) {
+      tab?.close();
+      toast.error(error instanceof Error ? error.message : 'Could not open Sentinel');
+    } finally {
+      setOpeningSentinel(false);
+    }
+  };
   return (
     <>
       {/* Logo */}
@@ -254,21 +288,21 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
       </nav>
 
       {/* VitaLink Sentinel: the disease-surveillance dashboard is its own app (vitalink-sentinel). */}
-      {expanded && (
+      {expanded && canOpenSentinel && (
         <div className="mx-4 mb-4 p-4 rounded-2xl bg-gradient-to-br from-[#6D28D9]/30 to-[#4C1D95]/20 border border-[#6D28D9]/35">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="w-4 h-4 text-violet-200" />
             <span className="text-xs font-semibold text-violet-100">VitaLink Sentinel</span>
           </div>
           <p className="text-[10px] text-white/70 mb-3 leading-snug">Disease surveillance and outbreak intelligence</p>
-          <a
-            href={import.meta.env.VITE_SENTINEL_WORKSPACE_URL ?? 'http://127.0.0.1:5173/'}
-            target="_blank"
-            rel="noreferrer"
-            className="block w-full py-2 px-3 rounded-lg bg-white/15 hover:bg-white/25 text-center text-white text-xs font-medium transition-all duration-200"
+          <button
+            type="button"
+            onClick={() => void openSentinel()}
+            disabled={openingSentinel}
+            className="block w-full py-2 px-3 rounded-lg bg-white/15 hover:bg-white/25 text-center text-white text-xs font-medium transition-all duration-200 disabled:opacity-60"
           >
-            Open Sentinel
-          </a>
+            {openingSentinel ? 'Opening…' : 'Open Sentinel'}
+          </button>
         </div>
       )}
 

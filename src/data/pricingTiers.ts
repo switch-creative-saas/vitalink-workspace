@@ -22,79 +22,69 @@ export interface PricingTier {
   ctaLabel: string;
 }
 
-const CORE_MODULES = ['dashboard', 'patients', 'health-identity', 'patient-identity', 'appointments', 'emr', 'billing', 'subscription', 'settings', 'help', 'nfc-cards'];
-const GROWTH_MODULES = ['telemedicine', 'laboratory', 'pharmacy', 'human-resources', 'analytics', 'ai-clinical-intelligence', 'vitalink-network', 'switch-network'];
+// Keep in sync with public.plans (the server is the source of truth for prices, modules and limits).
+const FREE_MODULES = ['dashboard', 'patients', 'health-identity', 'patient-identity', 'appointments', 'emr', 'human-resources', 'subscription', 'settings', 'help'];
+const STARTER_MODULES = [...FREE_MODULES, 'billing', 'pharmacy', 'analytics', 'nfc-cards'];
+const GROWTH_MODULES = [...STARTER_MODULES, 'telemedicine', 'laboratory', 'ai-clinical-intelligence', 'vitalink-network', 'switch-network'];
 
 export const PRICING_TIERS: PricingTier[] = [
   {
-    id: 'starter', name: 'Starter Node', tagline: 'For small clinics & primary care',
-    targetCustomer: 'Outpatient centers, maternity homes, single-doctor clinics (1-10 beds)',
-    hardwareFee: 250000, hardwareFeeUSD: 160, hardwareIncludes: ['1 Edge Gateway', '50 NFC VitaCards included', 'On-site LAN Setup'],
-    monthlyPrice: 45000, annualPrice: 459000, monthlyEffective: 38250, encountersPerMonth: 1500,
+    id: 'starter', name: 'Starter', tagline: 'For small private clinics, 1–2 doctors',
+    targetCustomer: 'Small private clinics with 1–2 doctors',
+    hardwareFee: 0, hardwareFeeUSD: 0, hardwareIncludes: [],
+    monthlyPrice: 45000, annualPrice: 450000, monthlyEffective: 37500, encountersPerMonth: null,
     nfcCardPrice: 2500, nfcCardMinimumPack: 100, hmoMicroFeePercent: 1.5, sentinelIncluded: false,
-    highlighted: false, ctaLabel: 'Get Started', modules: CORE_MODULES,
+    highlighted: false, ctaLabel: 'Choose Starter', modules: STARTER_MODULES,
     features: [
-      { name: 'Patient Registry', included: true }, { name: 'Health Identity (NFC VitaCard)', included: true },
-      { name: 'EMR - Core Records', included: true }, { name: 'Appointments', included: true },
-      { name: 'Basic Billing', included: true }, { name: 'Offline-First Operation', included: true },
-      { name: 'Active Offline Encounters', included: true, limit: '1,500 / month' }, { name: 'Telemedicine', included: false },
-      { name: 'Laboratory Module', included: false }, { name: 'Pharmacy Module', included: false },
-      { name: 'Human Resources', included: false }, { name: 'VitaMind AI', included: false },
-      { name: 'Analytics & Reports', included: false }, { name: 'HMO Claim Sync', included: true, limit: '1.5% micro-fee' },
-      { name: 'VitaLink Network Access', included: false }, { name: 'Sentinel Surveillance', included: false },
-      { name: 'Multi-site Support', included: false }, { name: 'Custom API Integrations', included: false }, { name: 'Dedicated Support SLA', included: false },
+      { name: 'Up to 5 staff accounts', included: true }, { name: 'Up to 500 patient records', included: true },
+      { name: 'Appointment reminders (SMS)', included: true }, { name: 'Basic invoicing and receipts', included: true },
+      { name: 'Pharmacy stock tracking', included: true, limit: 'up to 100 drug SKUs' }, { name: 'Basic monthly reports', included: true },
+      { name: '10 NFC cards included', included: true, limit: 'more at ₦2,500/card' }, { name: 'Email support', included: true },
+      { name: 'HMO billing and claims', included: false }, { name: 'Sentinel surveillance', included: false, limit: 'add-on ₦50,000/month' },
     ],
   },
   {
-    id: 'growth', name: 'Growth Corridor', tagline: 'For mid-sized hospitals',
-    targetCustomer: 'Private general hospitals, specialist centers, diagnostic corridors (11-50 beds)',
-    hardwareFee: 650000, hardwareFeeUSD: 420, hardwareIncludes: ['2 High-Capacity Edge Gateways', '200 NFC VitaCards included', 'On-site LAN / Staff Onboarding'],
-    monthlyPrice: 120000, annualPrice: 1224000, monthlyEffective: 102000, encountersPerMonth: 6000,
+    id: 'growth', name: 'Growth', tagline: 'For mid-tier private hospitals, 3–15 doctors',
+    targetCustomer: 'Private hospitals with 3–15 doctors',
+    hardwareFee: 0, hardwareFeeUSD: 0, hardwareIncludes: [],
+    monthlyPrice: 120000, annualPrice: 1200000, monthlyEffective: 100000, encountersPerMonth: null,
     nfcCardPrice: 2500, nfcCardMinimumPack: 100, hmoMicroFeePercent: 1, sentinelIncluded: false,
-    highlighted: true, ctaLabel: 'Start Growing', modules: [...CORE_MODULES, ...GROWTH_MODULES],
+    highlighted: true, ctaLabel: 'Choose Growth', modules: GROWTH_MODULES,
     features: [
-      { name: 'Patient Registry', included: true }, { name: 'Health Identity (NFC VitaCard)', included: true },
-      { name: 'EMR - Full Records', included: true }, { name: 'Appointments', included: true },
-      { name: 'Full Billing & Invoicing', included: true }, { name: 'Offline-First Operation', included: true },
-      { name: 'Active Offline Encounters', included: true, limit: '6,000 / month' }, { name: 'Telemedicine', included: true },
-      { name: 'Laboratory Module', included: true }, { name: 'Pharmacy Module', included: true },
-      { name: 'Human Resources', included: true }, { name: 'VitaMind AI', included: true },
-      { name: 'Analytics & Reports', included: true }, { name: 'HMO Claim Sync', included: true, limit: '1.0% micro-fee' },
-      { name: 'VitaLink Network Access', included: true }, { name: 'Sentinel Surveillance', included: false },
-      { name: 'Multi-site Support', included: false }, { name: 'Custom API Integrations', included: false }, { name: 'Dedicated Support SLA', included: false },
+      { name: 'Up to 20 staff accounts', included: true }, { name: 'Unlimited patient records', included: true },
+      { name: 'Full EMR with clinical note templates', included: true }, { name: 'Prescription management', included: true },
+      { name: 'Full pharmacy (unlimited SKUs, low-stock alerts)', included: true }, { name: 'HMO/insurance billing and claims', included: true },
+      { name: 'Advanced analytics dashboard', included: true }, { name: 'Staff roles and permissions', included: true },
+      { name: 'Sentinel surveillance (read-only)', included: true, limit: 'full access ₦50,000/month' }, { name: '25 NFC cards included', included: true },
+      { name: 'VitaMind AI clinical decision support', included: true }, { name: 'Priority email + WhatsApp support', included: true },
     ],
   },
   {
-    id: 'enterprise', name: 'Enterprise & NGO Corridor', tagline: 'For networks, tertiary hospitals & NGOs',
-    targetCustomer: 'Multi-site hospital networks, state health boards, NGO partners',
-    hardwareFee: 1800000, hardwareFeeUSD: 1150, hardwareIncludes: ['Multi-gateway cluster', 'Server redundancy', 'Custom NFC card deployment', 'Full on-site implementation team'],
-    monthlyPrice: 350000, annualPrice: null, monthlyEffective: null, encountersPerMonth: null,
+    id: 'enterprise', name: 'Enterprise', tagline: 'For hospital chains, state facilities, NGOs and government',
+    targetCustomer: 'Hospital chains, state facilities, NGOs and government',
+    hardwareFee: 0, hardwareFeeUSD: 0, hardwareIncludes: [],
+    monthlyPrice: null, annualPrice: 3000000, monthlyEffective: null, encountersPerMonth: null,
     nfcCardPrice: 2500, nfcCardMinimumPack: 100, hmoMicroFeePercent: 0.75, sentinelIncluded: true,
-    highlighted: false, ctaLabel: 'Contact Sales', modules: [...CORE_MODULES, ...GROWTH_MODULES, 'administration', 'audit-logs', 'sentinel'],
+    highlighted: false, ctaLabel: 'Contact Sales', modules: [...GROWTH_MODULES, 'administration', 'audit-logs', 'sentinel'],
     features: [
-      { name: 'Patient Registry', included: true }, { name: 'Health Identity (NFC VitaCard)', included: true },
-      { name: 'EMR - Full Records + Custom Fields', included: true }, { name: 'Appointments', included: true },
-      { name: 'Full Billing & Invoicing', included: true }, { name: 'Offline-First Operation', included: true },
-      { name: 'Active Offline Encounters', included: true, limit: 'Unlimited' }, { name: 'Telemedicine', included: true },
-      { name: 'Laboratory Module', included: true }, { name: 'Pharmacy Module', included: true }, { name: 'Human Resources', included: true },
-      { name: 'VitaMind AI', included: true }, { name: 'Analytics & Reports', included: true },
-      { name: 'HMO Claim Sync', included: true, limit: '0.75% negotiated micro-fee' }, { name: 'VitaLink Network Access', included: true },
-      { name: 'Sentinel Surveillance', included: true, limit: 'Included free' }, { name: 'Multi-site Support', included: true },
-      { name: 'Custom API Integrations (NHIA/SSHIA)', included: true }, { name: 'Dedicated Support SLA', included: true },
-      { name: 'Zero-Downtime Guarantee', included: true }, { name: 'NDPA 2023 Compliance Package', included: true },
+      { name: 'Unlimited staff accounts', included: true }, { name: 'Multi-branch / multi-facility management', included: true },
+      { name: 'Full Sentinel with outbreak alerts and public health reporting', included: true }, { name: 'Custom integrations (lab systems, NHIS, HMO APIs)', included: true },
+      { name: 'Dedicated onboarding and training', included: true }, { name: 'SLA and uptime commitments', included: true },
+      { name: 'White-label option', included: true }, { name: 'Quarterly business reviews', included: true },
+      { name: 'Custom NFC card design', included: true }, { name: 'Invoiced annually, from ₦3,000,000/year', included: true },
     ],
   },
 ];
 
 export const NFC_CARD_PRICING = { unitProductionCost: 1700, bulkWholesalePrice: 2500, directRetailPrice: 3000, minimumBulkOrder: 100, minimumEnterpriseOrder: 100 };
-export const SENTINEL_ADDON = { monthlyPrice: 50000, annualPrice: 480000, annualSavings: 120000, description: 'Real-time disease surveillance, outbreak detection, and NCDC reporting powered by your EMR data.' };
+export const SENTINEL_ADDON = { monthlyPrice: 50000, description: 'Full Sentinel access: outbreak alerts, heatmaps and public health reporting powered by your EMR data. For Starter and Growth.' };
 // Permanent free tier; keep modules in sync with the `free` row in public.plans.
 export const FREE_PLAN = {
   id: 'free' as const,
   name: 'Free',
-  modules: ['dashboard', 'patients', 'health-identity', 'patient-identity', 'appointments', 'emr', 'subscription', 'settings', 'help'],
+  modules: FREE_MODULES,
   sentinelIncluded: false,
-  description: 'Patient registry, core EMR and appointments. Upgrade anytime.',
+  description: 'Up to 2 staff and 50 patients: registry, basic notes and appointments. Upgrade anytime.',
 };
 
 export const FREE_TRIAL = {
@@ -103,5 +93,5 @@ export const FREE_TRIAL = {
   durationDays: 14,
   modules: PRICING_TIERS.find((tier) => tier.id === 'growth')!.modules,
   sentinelIncluded: false,
-  description: 'Full Growth Corridor access for 14 days. No payment required.',
+  description: 'Full Growth access for 14 days. No payment required.',
 };

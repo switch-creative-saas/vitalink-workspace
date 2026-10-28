@@ -22,6 +22,9 @@ export const PUBLIC_HEALTH_ROLES: UserRole[] = [
 
 export const HEALTHCARE_ADMIN_ROLES: UserRole[] = ['super-admin', 'hospital-admin', 'it-officer'];
 
+/** Who sees "Open Sentinel" in a healthcare workspace (matches private.sentinel_roles in the database). */
+export const SENTINEL_OPENER_ROLES: UserRole[] = ['super-admin', 'hospital-admin', ...PUBLIC_HEALTH_ROLES];
+
 export const WORKSPACE_ROLE_PERMISSIONS: Partial<Record<UserRole, WorkspacePermission[]>> = {
   'ngo-admin': [
     'dashboard.view',
@@ -85,6 +88,7 @@ export function roleOptionsForOrganizationType(type: OrganizationType): UserRole
     'insurance-officer',
     'it-officer',
     'support-agent',
+    'public-health-officer',
   ];
 }
 

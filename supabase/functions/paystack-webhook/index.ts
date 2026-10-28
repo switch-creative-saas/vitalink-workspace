@@ -1,9 +1,9 @@
-// Paystack webhook: confirms first payments and VitaCard order payments,
+// Paystack webhook: confirms first payments (plans, add-ons) and VitaCard order payments,
 // extends periods on renewals, and downgrades on failed/cancelled subscriptions. Authenticated by Paystack's
 // HMAC-SHA512 signature, so it is deployed with JWT verification off.
 import {
-  activateFromTransaction,
   addPeriod,
+  applyTransaction,
   markNfcOrderPaid,
   paystack,
   secretKey,
@@ -41,15 +41,32 @@ Deno.serve(async (req) => {
           await markNfcOrderPaid(db, tx);
           break;
         }
-        if (data.metadata?.vitalink === 'initial') {
+        if (data.metadata?.vitalink === 'initial' || data.metadata?.vitalink === 'addon') {
           // Re-fetch from Paystack rather than trusting the payload.
           const tx = await paystack(`/transaction/verify/${encodeURIComponent(data.reference)}`);
-          await activateFromTransaction(db, tx);
+          await applyTransaction(db, tx);
           break;
         }
         // Recurring charge created by a Paystack subscription.
         const customerCode = data.customer?.customer_code;
         if (!customerCode || !data.plan?.plan_code) break;
+        const { data: addon } = await db.from('plan_addons').select('id').eq('paystack_plan_monthly', data.plan.plan_code).maybeSingle();
+        if (addon) {
+          const { data: addonSub } = await db.from('subscription_addons').select('*')
+            .eq('addon_id', addon.id).eq('paystack_customer_code', customerCode).maybeSingle();
+          if (!addonSub) break;
+          const { data: seen } = await db.from('payments').select('id').eq('reference', data.reference).maybeSingle();
+          if (seen) break;
+          const { data: orgSub } = await db.from('subscriptions').select('plan_id').eq('organization_id', addonSub.organization_id).maybeSingle();
+          const base = addonSub.current_period_end && new Date(addonSub.current_period_end) > new Date() ? new Date(addonSub.current_period_end) : new Date();
+          await db.from('payments').insert({
+            organization_id: addonSub.organization_id, reference: data.reference, kind: 'addon_renewal', addon_id: addon.id, plan_id: orgSub?.plan_id ?? 'free',
+            billing_cycle: 'monthly', amount_kobo: data.amount, setup_fee_kobo: 0, status: 'success', paid_at: new Date().toISOString(), paystack_payload: data,
+          });
+          await db.from('subscription_addons').update({ status: 'active', current_period_end: addPeriod(base, 'monthly').toISOString(), updated_at: new Date().toISOString() })
+            .eq('organization_id', addonSub.organization_id).eq('addon_id', addon.id);
+          break;
+        }
         const { data: sub } = await db.from('subscriptions').select('*').eq('paystack_customer_code', customerCode).maybeSingle();
         if (!sub) break;
         const { data: existing } = await db.from('payments').select('id').eq('reference', data.reference).maybeSingle();
@@ -66,9 +83,18 @@ Deno.serve(async (req) => {
       }
       case 'subscription.create': {
         if (data.subscription_code && data.customer?.customer_code) {
-          await db.from('subscriptions')
-            .update({ paystack_subscription_code: data.subscription_code, paystack_email_token: data.email_token })
-            .eq('paystack_customer_code', data.customer.customer_code).is('paystack_subscription_code', null);
+          const { data: addon } = data.plan?.plan_code
+            ? await db.from('plan_addons').select('id').eq('paystack_plan_monthly', data.plan.plan_code).maybeSingle()
+            : { data: null };
+          if (addon) {
+            await db.from('subscription_addons')
+              .update({ paystack_subscription_code: data.subscription_code, paystack_email_token: data.email_token })
+              .eq('addon_id', addon.id).eq('paystack_customer_code', data.customer.customer_code).is('paystack_subscription_code', null);
+          } else {
+            await db.from('subscriptions')
+              .update({ paystack_subscription_code: data.subscription_code, paystack_email_token: data.email_token })
+              .eq('paystack_customer_code', data.customer.customer_code).is('paystack_subscription_code', null);
+          }
         }
         break;
       }
@@ -76,12 +102,16 @@ Deno.serve(async (req) => {
         if (data.subscription?.subscription_code) {
           await db.from('subscriptions').update({ status: 'past_due' })
             .eq('paystack_subscription_code', data.subscription.subscription_code).neq('status', 'comped');
+          await db.from('subscription_addons').update({ status: 'past_due', updated_at: new Date().toISOString() })
+            .eq('paystack_subscription_code', data.subscription.subscription_code).neq('status', 'comped');
         }
         break;
       }
       case 'subscription.disable': {
         if (data.subscription_code) {
           await db.from('subscriptions').update({ status: 'cancelled' })
+            .eq('paystack_subscription_code', data.subscription_code).neq('status', 'comped');
+          await db.from('subscription_addons').update({ status: 'cancelled', updated_at: new Date().toISOString() })
             .eq('paystack_subscription_code', data.subscription_code).neq('status', 'comped');
         }
         break;

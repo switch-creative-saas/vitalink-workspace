@@ -34,7 +34,8 @@ import { PatientVisitPage } from '@/pages/PatientVisitPage';
 import { resetPlatformAdminCheck } from '@/hooks/usePlatformAdmin';
 import { Toaster } from '@/components/ui/sonner';
 import type { PageType } from '@/types';
-import { GuidedTourProvider } from '@/contexts/GuidedTourContext';
+import { GuidedTourProvider, useGuidedTour } from '@/contexts/GuidedTourContext';
+import { WorkspaceSetup } from '@/components/onboarding/WorkspaceSetup';
 import { useAuth } from '@/contexts/AuthContext';
 import { SecurityAuditProvider } from '@/contexts/SecurityAuditContext';
 import { AppointmentProvider } from '@/contexts/AppointmentContext';
@@ -398,6 +399,7 @@ function AppShell() {
       ) : (
         <GuidedTourProvider currentPage={currentPage} currentRole={currentRole} userName={userName} onNavigate={navigateToPage}>
           <AppointmentProvider>
+          <SetupGate />
           <AppLayout>
             {isSupabaseConfigured && organization.id && <SessionGuard organizationId={organization.id} onSignOut={handleForcedSignOut} />}
             {isSupabaseConfigured && <ProfileSync />}
@@ -446,6 +448,12 @@ function AppShell() {
       <Toaster position="top-right" offset={88} />
     </SecurityAuditProvider>
   );
+}
+
+// New workspaces: facility setup covers the app until it's finished or put off.
+function SetupGate() {
+  const { setupOpen } = useGuidedTour();
+  return setupOpen ? <WorkspaceSetup /> : null;
 }
 
 export default App;

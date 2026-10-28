@@ -234,17 +234,17 @@ export function AppointmentsPage() {
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Appointments</h1>
             <p className="text-sm text-slate-600 dark:text-slate-400">Responsive hospital scheduling with role-based workflows.</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative w-full sm:w-auto">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <Input className="pl-9 w-56" placeholder="Search patient, doctor, type" value={filters.query} onChange={(e) => setFilters({ query: e.target.value })} />
+              <Input className="pl-9 w-full sm:w-56" placeholder="Search patient, doctor, type" value={filters.query} onChange={(e) => setFilters({ query: e.target.value })} />
             </div>
             <div className="relative">
               <Button variant="outline" size="icon" onClick={() => setShowNotifications((v) => !v)}>
                 <Bell className="w-4 h-4" />
               </Button>
               {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 rounded-xl border border-gray-100 bg-white shadow-lg p-3 z-20 dark:border-slate-700 dark:bg-slate-800">
+                <div className="absolute left-0 sm:left-auto sm:right-0 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl border border-gray-100 bg-white shadow-lg p-3 z-20 dark:border-slate-700 dark:bg-slate-800">
                   <p className="font-semibold text-sm text-slate-900 dark:text-slate-50 mb-2">Appointment Alerts</p>
                   <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                     {notifications.map((notice) => <p key={notice} className="rounded-lg bg-gray-50 p-2 dark:bg-slate-900/50">{notice}</p>)}

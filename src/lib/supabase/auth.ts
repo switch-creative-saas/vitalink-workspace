@@ -226,5 +226,5 @@ export function startCheckout(organizationId: string, planId: string, billingCyc
 }
 
 export function verifyPayment(reference: string) {
-  return invokeCheckout<{ outcome: 'activated' | 'already_applied' | 'not_successful' | 'unknown_reference' }>({ action: 'verify', reference });
+  return invokeCheckout<{ outcome: 'activated' | 'already_applied' | 'not_successful' | 'unknown_reference'; kind?: 'plan' | 'addon' }>({ action: 'verify', reference });
 }

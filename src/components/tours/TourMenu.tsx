@@ -1,11 +1,12 @@
 // The question-mark button in the header: tour this page, the getting-started tour, or every tour.
-import { CheckCircle2, CircleHelp, Compass, ListChecks, Route } from 'lucide-react';
+import { Building2, CheckCircle2, CircleHelp, Compass, ListChecks, Route } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useGuidedTour } from '@/contexts/GuidedTourContext';
 import { WELCOME_TOUR_ID } from '@/lib/tours/workspaceTours';
+import { SETUP_TOUR_ID } from '@/lib/workspace/setup';
 
 export function TourMenu({ onOpenHelp }: { onOpenHelp: () => void }) {
-  const { tours, progress, startTour, currentPageTour } = useGuidedTour();
+  const { tours, progress, startTour, currentPageTour, canSetUp, openSetup } = useGuidedTour();
   const journey = tours.find((tour) => tour.id === 'patient-journey');
   const done = (id: string) => progress[id] === 'completed';
 
@@ -24,6 +25,12 @@ export function TourMenu({ onOpenHelp }: { onOpenHelp: () => void }) {
             <Compass className="w-4 h-4 mr-2 text-royal-600" />
             <span className="flex-1">Tour this page</span>
             {done(currentPageTour.id) && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+          </DropdownMenuItem>
+        )}
+        {canSetUp && progress[SETUP_TOUR_ID] === 'dismissed' && (
+          <DropdownMenuItem onClick={openSetup}>
+            <Building2 className="w-4 h-4 mr-2 text-royal-600" />
+            <span className="flex-1">Finish setting up your facility</span>
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => startTour(WELCOME_TOUR_ID)}>

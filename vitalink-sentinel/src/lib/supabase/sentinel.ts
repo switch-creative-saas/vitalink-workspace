@@ -75,7 +75,7 @@ export async function getMe(): Promise<SentinelMe | null> {
   return (data as SentinelMe | null) ?? null;
 }
 
-export type SentinelOrgType = 'NGO' | 'Government' | 'Ministry' | 'International' | 'Research' | 'Academic';
+export type SentinelOrgType = 'NGO' | 'Government' | 'Ministry' | 'International' | 'Research' | 'Academic' | 'Hospital';
 
 export async function createOrganization(input: {
   name: string; type: SentinelOrgType; state: string; contactEmail?: string; contactPhone?: string; focusDiseases: string[];

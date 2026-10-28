@@ -30,7 +30,7 @@ export function TopBar() {
 
   return <>
     <header className="sticky top-0 z-40 bg-[#e8ebf1]/75 px-4 backdrop-blur-xl dark:bg-[#0d0e14]/75 lg:px-6">
-      <div className="flex h-[76px] items-center gap-4">
+      <div className="flex h-[76px] items-center gap-2 sm:gap-4">
         <button type="button" onClick={() => setMenuOpen(true)} className={cn(iconButtonClass, 'lg:hidden')} aria-label="Open menu"><Menu className="h-[18px] w-[18px]" /></button>
         <button type="button" onClick={() => navigate('dashboard')} aria-label="Sentinel dashboard" className="flex shrink-0 items-center gap-2.5 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 dark:focus-visible:ring-white/40">
           <img src="/sentinel-logo.svg" alt="" className="h-9 w-9 rounded-xl bg-white p-0.5 shadow-sm" />
@@ -44,9 +44,9 @@ export function TopBar() {
           </button>)}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2 lg:ml-0">
+        <div className="ml-auto flex items-center gap-1.5 sm:gap-2 lg:ml-0">
           <button type="button" data-tour-id="search" onClick={() => setSearchOpen(true)} className={iconButtonClass} aria-label="Search" title="Search (Ctrl K)"><Search className="h-[18px] w-[18px]" /></button>
-          <TourMenu />
+          <div className="hidden sm:block"><TourMenu /></div>
           <InboxMenu live={live} />
           <AlertsMenu live={live} />
           <ProfileMenu />

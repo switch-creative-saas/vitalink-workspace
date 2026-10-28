@@ -278,7 +278,7 @@ function DemoHumanResourcesPage() {
 
   return (
     <div className="space-y-4 md:space-y-6 page-transition">
-      <div className="sticky top-0 z-20 -mx-4 px-4 py-3 md:mx-0 md:px-0 bg-background/90 backdrop-blur-md border-b border-white/40 md:border-0">
+      <div className="sticky top-0 z-20 -mx-[var(--page-padding)] px-[var(--page-padding)] py-3 md:mx-0 md:px-0 bg-background/90 backdrop-blur-md border-b border-white/40 md:border-0">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-[#1E4ED8]">Human Resources</h1>

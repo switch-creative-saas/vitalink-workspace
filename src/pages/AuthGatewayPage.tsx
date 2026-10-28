@@ -7,6 +7,7 @@ import {
 } from '@/components/auth/SocialButtons';
 import { AuthField, AuthPrimaryButton, TrustIndicator } from '@/components/auth/AuthForm';
 import { LegalLink } from '@/components/auth/LegalLink';
+import { markWorkspaceSetupPending } from '@/lib/workspace/setup';
 import { FooterLinks } from '@/components/auth/FooterLinks';
 import { EnterpriseSubscription } from '@/components/auth/EnterpriseSubscription';
 import { ProvisioningScreen } from '@/components/auth/ProvisioningScreen';
@@ -37,7 +38,7 @@ import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { saveSettings as saveNetworkSettings } from '@/lib/supabase/network';
 import * as backend from '@/lib/supabase/auth';
 import { acceptInvitation, getInvitation, roleLabel, type InvitationPreview } from '@/lib/supabase/staff';
-import { saveWorkspacePlan } from '@/hooks/usePlan';
+import { syncWorkspacePlan } from '@/lib/workspace/planSync';
 
 type Stage =
   | 'checking-session'
@@ -140,24 +141,6 @@ function membershipToAuthUser(sessionUser: backend.SessionUser, membership: back
   };
 }
 
-/** Mirrors the server-side subscription into the local plan store the UI gates modules on. */
-async function syncWorkspacePlan(organizationId: string) {
-  const sub = await backend.getSubscription(organizationId);
-  if (!sub) return null;
-  const trialActive = sub.status === 'trialing' && sub.effectivePlanId !== 'free';
-  saveWorkspacePlan({
-    tierId: trialActive ? 'trial' : sub.effectivePlanId as 'free' | 'starter' | 'growth' | 'enterprise',
-    tierName: trialActive ? '14-Day Free Trial' : sub.planName,
-    billingCycle: trialActive ? 'trial' : sub.billingCycle,
-    price: null,
-    modules: sub.modules,
-    sentinelIncluded: sub.effectivePlanId === 'enterprise',
-    status: sub.status,
-    isTrialActive: trialActive,
-    trialEndDate: trialActive ? sub.currentPeriodEnd ?? undefined : undefined,
-  });
-  return sub;
-}
 
 function backendErrorMessage(error: unknown, fallback: string): string {
   const message = error instanceof Error ? error.message : '';
@@ -388,9 +371,13 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             window.history.replaceState({}, '', '/');
             if (reference) {
               try {
-                const { outcome } = await backend.verifyPayment(reference);
-                if (outcome === 'activated' || outcome === 'already_applied') toast.success('Payment received. Your plan is active.');
-                else toast.error('Payment was not completed. Your workspace stays on the Free plan until it is.');
+                const { outcome, kind } = await backend.verifyPayment(reference);
+                const paid = outcome === 'activated' || outcome === 'already_applied';
+                if (kind === 'addon') {
+                  if (paid) toast.success('Payment received. VitaLink Sentinel is now active for your workspace.');
+                  else toast.error('Payment was not completed, so Sentinel has not been added.');
+                } else if (paid) toast.success('Payment received. Your plan is active.');
+                else toast.error('Payment was not completed. Your plan has not changed.');
               } catch (error) {
                 toast.error(backendErrorMessage(error, 'Could not confirm the payment yet.'));
               }
@@ -824,6 +811,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         const createdUser = membershipToAuthUser(sessionUser, { role: WORKSPACE_OWNER_ROLE, organization: org });
         localStorage.setItem('vitalink-active-organization', JSON.stringify(organizationForUser(createdUser)));
         localStorage.setItem('vitalink-last-workspace', org.slug);
+        // First sign-in goes through facility setup before the dashboard.
+        markWorkspaceSetupPending(org.id);
         localStorage.removeItem('vitalink-pending-slug');
         const sub = await syncWorkspacePlan(org.id);
         if (sub?.status === 'pending_payment') {
@@ -871,6 +860,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     };
 
     setUsers([createdUser, ...getUsers()]);
+    markWorkspaceSetupPending(tenantId);
     const organizationProfile = createOrganizationProfile({
       id: tenantId,
       name: orgForm.name,

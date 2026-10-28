@@ -31,6 +31,10 @@ export function usePlan() {
     (moduleId: string) => (liveModules ?? (isTrialActive ? FREE_TRIAL.modules : isFree ? FREE_PLAN.modules : tier.modules)).includes(moduleId),
     [liveModules, isTrialActive, isFree, tier.modules],
   );
-  const hasSentinel = useCallback(() => (!isFree && tier.sentinelIncluded) || plan?.sentinelAddon === true, [isFree, plan?.sentinelAddon, tier.sentinelIncluded]);
+  // Full Sentinel access: Enterprise, or the add-on (both synced from the server when Supabase is on).
+  const hasSentinel = useCallback(
+    () => (isSupabaseConfigured ? plan?.sentinelIncluded === true : !isFree && tier.sentinelIncluded) || plan?.sentinelAddon === true,
+    [isFree, plan?.sentinelAddon, plan?.sentinelIncluded, tier.sentinelIncluded],
+  );
   return { tier, plan, hasModule, hasSentinel, encounterLimit: tier.encountersPerMonth, isTrialActive };
 }

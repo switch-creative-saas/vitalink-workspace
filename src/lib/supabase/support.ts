@@ -1,11 +1,13 @@
-// Help & Support tickets. Customers use the workspace Help page; VitaLink staff
-// answer from the console inbox (console_* functions, platform admins only).
+// Help & Support tickets. Staff send help requests to their workspace admins (audience 'internal');
+// workspace admins answer those and talk to VitaLink (audience 'vitalink'), whose staff answer from
+// the console inbox (console_* functions, platform admins only).
 import { requireSupabase } from './client';
 
 export type TicketKind = 'support' | 'bug' | 'feedback' | 'feature' | 'chat';
 export type TicketStatus = 'open' | 'pending' | 'resolved' | 'closed';
 export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent';
-export type AuthorKind = 'customer' | 'staff' | 'system';
+export type AuthorKind = 'customer' | 'staff' | 'admin' | 'system';
+export type TicketAudience = 'vitalink' | 'internal';
 
 export const TICKET_CATEGORIES = ['general', 'account', 'billing', 'appointments', 'emr', 'laboratory', 'pharmacy', 'telemedicine', 'vitacards', 'other'] as const;
 
@@ -25,6 +27,10 @@ export interface SupportTicket {
   category: string;
   priority: TicketPriority;
   status: TicketStatus;
+  audience: TicketAudience;
+  assignedTo: string | null;
+  staffUnread: boolean;
+  escalatedAt: string | null;
   subject: string;
   createdBy: string | null;
   createdByName: string;
@@ -84,35 +90,41 @@ export async function attachmentLink(path: string): Promise<string> {
 type TicketRow = {
   id: string; number: string; kind: TicketKind; category: string; priority: TicketPriority; status: TicketStatus;
   subject: string; created_by: string | null; customer_unread: boolean; last_message_at: string; created_at: string;
+  audience: TicketAudience; assigned_to: string | null; staff_unread: boolean; escalated_at: string | null;
   creator: { full_name: string; email: string } | null;
 };
 
 export async function listMyTickets(organizationId: string): Promise<SupportTicket[]> {
   const { data, error } = await requireSupabase()
     .from('support_tickets')
-    .select('id, number, kind, category, priority, status, subject, created_by, customer_unread, last_message_at, created_at, creator:profiles!support_tickets_created_by_fkey(full_name, email)')
+    .select('id, number, kind, category, priority, status, subject, created_by, customer_unread, last_message_at, created_at, audience, assigned_to, staff_unread, escalated_at, creator:profiles!support_tickets_created_by_fkey(full_name, email)')
     .eq('organization_id', organizationId)
     .order('last_message_at', { ascending: false })
     .limit(200);
   if (error) fail(error);
   return (data as unknown as TicketRow[]).map((row) => ({
     id: row.id, number: row.number, kind: row.kind, category: row.category, priority: row.priority, status: row.status,
+    audience: row.audience, assignedTo: row.assigned_to, staffUnread: row.staff_unread, escalatedAt: row.escalated_at,
     subject: row.subject, createdBy: row.created_by, createdByName: row.creator?.full_name || row.creator?.email || 'Former colleague',
     customerUnread: row.customer_unread, lastMessageAt: row.last_message_at, createdAt: row.created_at,
   }));
 }
 
-export async function listMessages(ticketId: string): Promise<SupportMessage[]> {
+/**
+ * Messages on a ticket. RLS hides VitaLink's internal notes from workspaces and workspace admins'
+ * notes from staff; `withAdminNotes` keeps workspace admins' own notes (VitaLink notes stay hidden
+ * for VitaLink admins who happen to be members of the workspace).
+ */
+export async function listMessages(ticketId: string, withAdminNotes = false): Promise<SupportMessage[]> {
   const { data, error } = await requireSupabase()
     .from('support_messages')
     .select('id, author_id, author_kind, body, internal, attachments, created_at, author:profiles!support_messages_author_id_fkey(full_name, email)')
     .eq('ticket_id', ticketId)
-    // RLS already hides internal notes from customers; this also hides them for
-    // VitaLink admins who happen to be members of the workspace.
-    .eq('internal', false)
     .order('created_at');
   if (error) fail(error);
-  return (data as unknown as Array<{
+  const rows = (data as unknown as Array<{ internal: boolean; author_kind: AuthorKind }>)
+    .filter((row) => !row.internal || (withAdminNotes && row.author_kind === 'admin'));
+  return (rows as unknown as Array<{
     id: string; author_id: string | null; author_kind: AuthorKind; body: string; internal: boolean; attachments: Attachment[]; created_at: string;
     author: { full_name: string; email: string } | null;
   }>).map((row) => ({
@@ -123,8 +135,9 @@ export async function listMessages(ticketId: string): Promise<SupportMessage[]> 
   }));
 }
 
+/** Staff requests always go to the workspace admins; only admins can address VitaLink (the server enforces this). */
 export async function createTicket(input: {
-  organizationId: string; kind: TicketKind; subject: string; body: string; category?: string; priority?: TicketPriority; files?: File[];
+  organizationId: string; kind: TicketKind; subject: string; body: string; category?: string; priority?: TicketPriority; files?: File[]; audience?: TicketAudience;
 }): Promise<string> {
   const attachments = input.files?.length ? await uploadAttachments(input.organizationId, input.files) : [];
   const { data, error } = await requireSupabase().rpc('support_create_ticket', {
@@ -135,27 +148,35 @@ export async function createTicket(input: {
     p_category: input.category ?? 'general',
     p_priority: input.priority ?? 'normal',
     p_attachments: attachments,
+    p_audience: input.audience ?? null,
   });
   if (error) fail(error);
   return data as string;
 }
 
-export async function reply(ticketId: string, organizationId: string, body: string, options: { files?: File[]; internal?: boolean; asStaff?: boolean } = {}) {
+export async function reply(ticketId: string, organizationId: string, body: string, options: { files?: File[]; internal?: boolean; asStaff?: boolean; asAdmin?: boolean } = {}) {
   const attachments = options.files?.length ? await uploadAttachments(organizationId, options.files) : [];
   const { error } = await requireSupabase().rpc('support_reply', {
-    p_ticket_id: ticketId, p_body: body.trim(), p_internal: Boolean(options.internal), p_attachments: attachments, p_as_staff: Boolean(options.asStaff),
+    p_ticket_id: ticketId, p_body: body.trim(), p_internal: Boolean(options.internal), p_attachments: attachments, p_as_staff: Boolean(options.asStaff), p_as_admin: Boolean(options.asAdmin),
   });
   if (error) fail(error);
 }
 
-export async function updateTicket(ticketId: string, changes: { status?: TicketStatus; priority?: TicketPriority; assignedTo?: string }, asStaff = false) {
+export async function updateTicket(ticketId: string, changes: { status?: TicketStatus; priority?: TicketPriority; assignedTo?: string }, asStaff = false, asAdmin = false) {
   const { error } = await requireSupabase().rpc('support_update_ticket', {
     p_ticket_id: ticketId,
     p_status: changes.status ?? null,
     p_priority: changes.priority ?? null,
     p_assigned_to: changes.assignedTo ?? null,
     p_as_staff: asStaff,
+    p_as_admin: asAdmin,
   });
+  if (error) fail(error);
+}
+
+/** A workspace admin hands a staff help request to VitaLink Support. */
+export async function escalateTicket(ticketId: string, note?: string) {
+  const { error } = await requireSupabase().rpc('support_escalate', { p_ticket_id: ticketId, p_note: note?.trim() || null });
   if (error) fail(error);
 }
 

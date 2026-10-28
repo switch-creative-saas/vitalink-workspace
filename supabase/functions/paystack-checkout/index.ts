@@ -1,16 +1,17 @@
-// Starts a Paystack checkout for a workspace plan or a VitaCard order, or
-// verifies one after the redirect back. Platform admins skip plan payment:
-// their request comps the plan.
+// Starts a Paystack checkout for a workspace plan, an add-on (VitaLink Sentinel) or a VitaCard
+// order, or verifies one after the redirect back. Platform admins skip payment (their request comps
+// the plan or add-on) unless they send pay: true to test the real checkout.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
   HttpError,
-  activateFromTransaction,
+  applyTransaction,
   corsHeaders,
   json,
   markNfcOrderPaid,
   paystack,
   priceFor,
   serviceClient,
+  type AddonRow,
   type BillingCycle,
   type PlanRow,
 } from '../_shared/paystack.ts';
@@ -34,6 +35,14 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const db = serviceClient();
+
+    // ---- Platform admins: is Paystack configured, and in which mode? (never returns the key) ----
+    if (body.action === 'status') {
+      const { data: isPlatformAdmin } = await asUser.rpc('am_i_platform_admin');
+      if (!isPlatformAdmin) throw new HttpError(403, 'Platform admins only.');
+      const key = Deno.env.get('PAYSTACK_SECRET_KEY') ?? '';
+      return json({ configured: Boolean(key), mode: key.startsWith('sk_test_') ? 'test' : key.startsWith('sk_live_') ? 'live' : key ? 'unknown' : null });
+    }
 
     // ---- VitaCard orders ----
     if (body.action === 'nfc-order') {
@@ -90,8 +99,68 @@ Deno.serve(async (req) => {
         .eq('organization_id', payment.organization_id).eq('user_id', user.id).eq('status', 'active').maybeSingle();
       if (!member) throw new HttpError(403, 'Not a member of this workspace.');
       const tx = await paystack(`/transaction/verify/${encodeURIComponent(reference)}`);
-      const result = await activateFromTransaction(db, tx);
+      const result = await applyTransaction(db, tx);
       return json(result);
+    }
+
+    // ---- Add-ons (VitaLink Sentinel full access) ----
+    if (body.action === 'addon') {
+      const organizationId = String(body.organizationId ?? '');
+      const addonId = String(body.addonId ?? '');
+      const callbackUrl = String(body.callbackUrl ?? '');
+      if (!ALLOWED_ORIGINS.some((origin) => callbackUrl.startsWith(`${origin}/`))) {
+        throw new HttpError(400, 'Callback URL is not an allowed VitaLink origin.');
+      }
+      const { data: member } = await db.from('memberships').select('role')
+        .eq('organization_id', organizationId).eq('user_id', user.id).eq('status', 'active').maybeSingle();
+      if (!member || !ADMIN_ROLES.includes(member.role)) throw new HttpError(403, 'Only workspace admins can add Sentinel.');
+      const { data: addon } = await db.from('plan_addons').select('*').eq('id', addonId).maybeSingle<AddonRow>();
+      if (!addon) throw new HttpError(400, 'Unknown add-on.');
+
+      const { data: entitlements, error: entError } = await asUser.rpc('workspace_entitlements', { p_organization_id: organizationId });
+      if (entError) throw new HttpError(400, entError.message);
+      const effectivePlan = String(entitlements?.effectivePlanId ?? 'free');
+      if (addon.id === 'sentinel' && entitlements?.sentinelAccess === 'full') throw new HttpError(400, 'This workspace already has full Sentinel access.');
+      if (!addon.eligible_plans.includes(effectivePlan)) {
+        throw new HttpError(400, effectivePlan === 'free'
+          ? `${addon.name} is available on Starter and Growth. Upgrade your plan first.`
+          : `${addon.name} isn't available on your plan.`);
+      }
+
+      const { data: isPlatformAdmin } = await asUser.rpc('am_i_platform_admin');
+      if (isPlatformAdmin && !body.pay) {
+        const { error } = await db.from('subscription_addons').upsert({
+          organization_id: organizationId, addon_id: addon.id, status: 'comped', current_period_end: null, comped_by: user.id, updated_at: new Date().toISOString(),
+        }, { onConflict: 'organization_id,addon_id' });
+        if (error) throw new HttpError(500, error.message);
+        return json({ comped: true });
+      }
+
+      const reference = `vladd_${organizationId.slice(0, 8)}_${Date.now()}`;
+      const { error: insertError } = await db.from('payments').insert({
+        organization_id: organizationId, reference, kind: 'addon', addon_id: addon.id, plan_id: effectivePlan, billing_cycle: 'monthly',
+        amount_kobo: addon.monthly_price_kobo, setup_fee_kobo: 0, created_by: user.id,
+      });
+      if (insertError) throw new HttpError(500, insertError.message);
+      const checkout = await paystack<{ authorization_url: string }>('/transaction/initialize', {
+        method: 'POST',
+        body: {
+          email: user.email,
+          amount: addon.monthly_price_kobo,
+          currency: 'NGN',
+          reference,
+          callback_url: callbackUrl,
+          metadata: {
+            vitalink: 'addon',
+            organization_id: organizationId,
+            addon_id: addon.id,
+            custom_fields: [{ display_name: 'Add-on', variable_name: 'addon', value: `${addon.name} (monthly)` }],
+          },
+        },
+      });
+      await db.from('subscription_addons').upsert({ organization_id: organizationId, addon_id: addon.id, status: 'pending_payment', updated_at: new Date().toISOString() },
+        { onConflict: 'organization_id,addon_id', ignoreDuplicates: true });
+      return json({ authorizationUrl: checkout.authorization_url, reference, amountKobo: addon.monthly_price_kobo });
     }
 
     // action: 'initialize'
@@ -111,7 +180,7 @@ Deno.serve(async (req) => {
     if (!plan) throw new HttpError(400, 'Unknown plan.');
 
     const { data: isPlatformAdmin } = await asUser.rpc('am_i_platform_admin');
-    if (isPlatformAdmin) {
+    if (isPlatformAdmin && !body.pay) {
       const { error } = await asUser.rpc('comp_subscription', {
         p_organization_id: organizationId, p_plan_id: plan.id, p_billing_cycle: cycle,
       });
@@ -150,7 +219,7 @@ Deno.serve(async (req) => {
           billing_cycle: cycle,
           custom_fields: [
             { display_name: 'Plan', variable_name: 'plan', value: `${plan.name} (${cycle})` },
-            { display_name: 'Setup fee (NGN)', variable_name: 'setup_fee', value: String(setupFee / 100) },
+            ...(setupFee ? [{ display_name: 'Setup fee (NGN)', variable_name: 'setup_fee', value: String(setupFee / 100) }] : []),
           ],
         },
       },

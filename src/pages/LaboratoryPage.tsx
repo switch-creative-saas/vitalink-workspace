@@ -906,7 +906,7 @@ export function LaboratoryPage() {
   return (
     <div className="space-y-4 md:space-y-6 page-transition pb-24 md:pb-8">
       <div
-        className="sticky top-0 z-30 -mx-4 px-4 pt-2 pb-3 md:mx-0 md:px-0 bg-[hsl(var(--background))]/90 backdrop-blur-md border-b border-white/40 md:border-0 md:bg-transparent md:backdrop-blur-none"
+        className="sticky top-0 z-30 -mx-[var(--page-padding)] px-[var(--page-padding)] pt-2 pb-3 md:mx-0 md:px-0 bg-[hsl(var(--background))]/90 backdrop-blur-md border-b border-white/40 md:border-0 md:bg-transparent md:backdrop-blur-none"
         ref={tabBarRef}
         onTouchStart={(e) => {
           touchStart.current = e.targetTouches[0].clientX;

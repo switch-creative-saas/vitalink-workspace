@@ -142,3 +142,6 @@ textarea {
 /* Focus: a soft ring that follows rounded corners, only for keyboard focus. */
 .sentinel-app :is(button, a, [role='button']):focus { outline: none; }
 .sentinel-app :is(button, a, [role='button']):focus-visible { outline: 2px solid rgba(99, 102, 241, 0.55); outline-offset: 2px; }
+
+/* Grid children shrink to the track instead of growing it (wide tables scroll inside their card on phones). */
+.sentinel-app :where(.grid) > * { min-width: 0; }

@@ -1,6 +1,7 @@
 // Guided tours for the workspace: which tours this person can take (by role and plan), what they
-// have finished, the welcome tour on first sign-in, and a gentle offer the first time they open
-// a page that has a tour. The tours themselves live in lib/tours/workspaceTours.ts.
+// have finished, first-run facility setup for new workspaces, the welcome tour on first sign-in,
+// and a gentle offer the first time they open a page that has a tour. The tours themselves live in
+// lib/tours/workspaceTours.ts; the setup screens in components/onboarding/WorkspaceSetup.tsx.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
@@ -9,6 +10,7 @@ import type { PageType } from '@/types';
 import { loadTourProgress, resetTourProgress, saveTourStatus, type TourProgress, type TourStatus } from '@/lib/tours/progress';
 import { isTourRunning, runTour, type TourStep } from '@/lib/tours/runTour';
 import { pageTourId, WELCOME_TOUR_ID, WORKSPACE_TOURS, type WorkspaceTour } from '@/lib/tours/workspaceTours';
+import { clearWorkspaceSetupPending, isWorkspaceSetupPending, SETUP_ROLES, SETUP_TOUR_ID } from '@/lib/workspace/setup';
 
 interface GuidedTourContextType {
   /** Tours this person can take, with steps for pages they can't open already removed. */
@@ -21,6 +23,13 @@ interface GuidedTourContextType {
   offerPageTours: boolean;
   setOfferPageTours: (on: boolean) => void;
   resetProgress: () => Promise<void>;
+  /** First-run facility setup is on screen. */
+  setupOpen: boolean;
+  /** This person can run facility setup (workspace admins). */
+  canSetUp: boolean;
+  openSetup: () => void;
+  /** Leave setup (finished or "do it later"): go to the dashboard and start the welcome tour. */
+  finishSetup: (completed: boolean) => void;
 }
 
 const GuidedTourContext = createContext<GuidedTourContextType | null>(null);
@@ -49,11 +58,13 @@ export function GuidedTourProvider({ currentPage, currentRole, userName, onNavig
   onNavigate: (page: PageType) => void;
   children: ReactNode;
 }) {
-  const { canAccessPage } = useAuth();
+  const { canAccessPage, organization } = useAuth();
   const { hasModule } = usePlan();
   const [progress, setProgress] = useState<TourProgress>({});
   const [loaded, setLoaded] = useState(false);
   const [offerPageTours, setOfferState] = useState(readOfferSetting);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const canSetUp = SETUP_ROLES.includes(currentRole);
   const pageRef = useRef(currentPage);
   const offeredThisSession = useRef(new Set<string>());
   useEffect(() => { pageRef.current = currentPage; }, [currentPage]);
@@ -96,22 +107,39 @@ export function GuidedTourProvider({ currentPage, currentRole, userName, onNavig
     });
   }, [onNavigate, record, tours]);
 
-  // First sign-in: the welcome tour, once the workspace setup wizard (if any) is out of the way.
+  // A workspace that was just created: facility setup comes first.
+  const setupPending = loaded && canSetUp && !progress[SETUP_TOUR_ID] && isWorkspaceSetupPending(organization.id);
   useEffect(() => {
-    if (!loaded || progress[WELCOME_TOUR_ID]) return;
+    if (!setupPending) return;
+    const timer = window.setTimeout(() => setSetupOpen(true), 0);
+    return () => window.clearTimeout(timer);
+  }, [setupPending]);
+
+  const finishSetup = useCallback((completed: boolean) => {
+    record(SETUP_TOUR_ID, completed ? 'completed' : 'dismissed');
+    clearWorkspaceSetupPending();
+    setSetupOpen(false);
+    onNavigate('dashboard');
+  }, [onNavigate, record]);
+
+  const openSetup = useCallback(() => setSetupOpen(true), []);
+
+  // First sign-in: the welcome tour, once setup (and any patient wizard) is out of the way.
+  useEffect(() => {
+    if (!loaded || progress[WELCOME_TOUR_ID] || setupOpen || setupPending) return;
     const timer = window.setTimeout(() => {
       const guard = (window as Window & { __vitalinkOnboardingRouteGuard?: () => boolean }).__vitalinkOnboardingRouteGuard;
       if (guard && !guard()) return;
       if (!isTourRunning()) startTour(WELCOME_TOUR_ID);
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [loaded, progress, startTour]);
+  }, [loaded, progress, setupOpen, setupPending, startTour]);
 
   const currentPageTour = useMemo(() => tours.find((tour) => tour.id === pageTourId(currentPage)) ?? null, [tours, currentPage]);
 
   // First visit to a page: offer its tour (once per session, never again after "Not now").
   useEffect(() => {
-    if (!loaded || !offerPageTours || !progress[WELCOME_TOUR_ID] || !currentPageTour) return;
+    if (!loaded || !offerPageTours || setupOpen || !progress[WELCOME_TOUR_ID] || !currentPageTour) return;
     const id = currentPageTour.id;
     if (progress[id] || offeredThisSession.current.has(id)) return;
     const timer = window.setTimeout(() => {
@@ -126,7 +154,7 @@ export function GuidedTourProvider({ currentPage, currentRole, userName, onNavig
       });
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [currentPageTour, loaded, offerPageTours, progress, record, startTour]);
+  }, [currentPageTour, loaded, offerPageTours, progress, record, setupOpen, startTour]);
 
   const setOfferPageTours = useCallback((on: boolean) => {
     setOfferState(on);
@@ -139,8 +167,8 @@ export function GuidedTourProvider({ currentPage, currentRole, userName, onNavig
     setProgress({});
   }, []);
 
-  const value = useMemo(() => ({ tours, progress, startTour, currentPageTour, offerPageTours, setOfferPageTours, resetProgress }),
-    [tours, progress, startTour, currentPageTour, offerPageTours, setOfferPageTours, resetProgress]);
+  const value = useMemo(() => ({ tours, progress, startTour, currentPageTour, offerPageTours, setOfferPageTours, resetProgress, setupOpen, canSetUp, openSetup, finishSetup }),
+    [tours, progress, startTour, currentPageTour, offerPageTours, setOfferPageTours, resetProgress, setupOpen, canSetUp, openSetup, finishSetup]);
 
   return <GuidedTourContext.Provider value={value}>{children}</GuidedTourContext.Provider>;
 }
