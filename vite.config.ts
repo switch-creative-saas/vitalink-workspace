@@ -28,6 +28,7 @@ function offlineShell(): Plugin {
         core.add(file);
         if (chunk.type !== 'chunk') return;
         chunk.viteMetadata?.importedCss.forEach((css) => core.add(css));
+        chunk.viteMetadata?.importedAssets.forEach((asset) => core.add(asset));
         chunk.imports.forEach(visit);
       };
       Object.entries(bundle).forEach(([file, chunk]) => { if (chunk.type === 'chunk' && chunk.isEntry) visit(file); });

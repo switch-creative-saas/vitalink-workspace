@@ -43,7 +43,6 @@ import {
 } from '@/lib/workspace/navigation';
 import { workspaceLabel } from '@/lib/workspace/organizationTypes';
 import { SENTINEL_OPENER_ROLES } from '@/lib/workspace/roles';
-import vitalinkLogo from '@/assets/vitalink-logo.png';
 
 interface SidebarProps {
   currentPage: PageType;
@@ -263,8 +262,11 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
       {/* Logo */}
       <div className={cn('h-20 flex items-center flex-shrink-0', expanded ? 'px-5 justify-between' : 'px-2 justify-center')}>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/95 flex items-center justify-center flex-shrink-0 border border-white/30 shadow-sm overflow-hidden">
-            <img src={vitalinkLogo} alt={`${BRAND.name} logo`} className="h-8 w-8 object-contain" />
+          <div className="relative w-10 h-10 rounded-xl bg-white/95 flex items-center justify-center flex-shrink-0 border border-white/30 shadow-sm overflow-hidden">
+            {/* Same stored file as the sign-in page (kept by the offline cache from the first visit); a
+                mark shows instead if it ever can't load, so the box is never empty. */}
+            <span aria-hidden className="absolute text-lg font-bold text-[#1E3A8A]">V</span>
+            <img src="/vitalink-icon.png" alt={`${BRAND.name} logo`} className="relative h-8 w-8 object-contain bg-white" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
           </div>
           
           {expanded && (
