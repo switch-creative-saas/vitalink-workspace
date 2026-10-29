@@ -251,8 +251,8 @@ function DemoHelpSupportPage() {
     <div className="space-y-4 md:space-y-6 page-transition" data-tour-id="help-dashboard">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E4ED8]">Help & Support</h1>
-          <p className="text-sm text-gray-500 mt-1">AI + Human support desk with diagnostics and knowledge base for VitaLink.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Help & Support</h1>
+          <p className="text-sm text-gray-500 mt-1">Get help from the VitaLink team and browse guides.</p>
         </div>
         <div className="rounded-xl px-3 py-2 bg-green-50 text-green-700 text-xs flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4" />
@@ -302,7 +302,7 @@ function DemoHelpSupportPage() {
             </div>
             {!planSupportsTickets && (
               <div className="mt-3 text-sm rounded-xl border border-amber-100 bg-amber-50 p-3 text-amber-800">
-                Free plan includes chatbot support only. Upgrade to Pro for full ticket support.
+                The Free plan includes guides and chat. Upgrade for ticket support.
               </div>
             )}
           </div>

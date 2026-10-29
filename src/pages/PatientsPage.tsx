@@ -140,7 +140,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
 
   const exportRows = async (mode: 'filtered' | 'selected' | 'all', format: 'csv' | 'xlsx' | 'pdf') => {
     if (!canExport('Patients')) {
-      toast.error('RBAC policy prevents export for your role.');
+      toast.error('Your role cannot export patient lists.');
       return;
     }
     const outputRows = mode === 'all' ? await listTenantPatients(tenantId) : pageRows;
@@ -161,7 +161,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
   };
 
   if (!canView('Patients')) {
-    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Access denied by RBAC policy.</div>;
+    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Your role does not have access to the patient registry.</div>;
   }
 
   return (
@@ -179,7 +179,7 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
       />
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900 truncate">Patient Registry</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 truncate">Patient Registry</h1>
           <p className="text-sm text-gray-500">Register, find and manage your patients.</p>
         </div>
         <div className="flex flex-wrap gap-2 min-w-0">

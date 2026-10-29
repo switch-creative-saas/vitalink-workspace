@@ -58,6 +58,30 @@ supabase secrets set VITAMIND_AI_URL=https://your-service.example.com VITAMIND_S
 
 Optional: `VITAMIND_DAILY_LIMIT` (analyses per workspace per day, default 300).
 
+## Spend protection
+
+Paid calls are limited at two layers, so a leaked token or a runaway client can't run up a big bill:
+
+| Where | Limit | Default |
+| --- | --- | --- |
+| Edge function `vitamind-diagnose` | per user | 3 a minute, 30 an hour |
+| | per workspace | `VITAMIND_DAILY_LIMIT` a day (300) |
+| | whole platform | `VITAMIND_GLOBAL_DAILY_LIMIT` a day (1000) |
+| This service | all requests | `VITAMIND_MAX_REQUESTS_PER_MINUTE` (30) |
+| | Claude, per day (UTC) | `VITAMIND_DAILY_LLM_REQUESTS` (1500) and `VITAMIND_DAILY_LLM_TOKENS` (3,000,000) |
+| | OpenAI embeddings, per day | `VITAMIND_DAILY_EMBED_REQUESTS` (5000) and `VITAMIND_DAILY_EMBED_TOKENS` (5,000,000) |
+| | size | complaint 2,000 characters, EMR fields 20 KB each, request body 1 MB, `max_tokens` capped at 4000 |
+
+Token budgets are counted from the usage Anthropic and OpenAI report, in `public.ai_usage_daily`.
+If the count can't be read, the service refuses rather than spending.
+
+**Also set limits at the providers**, so even a stolen API key has a ceiling:
+
+- Anthropic Console: Settings → Limits → monthly spend limit.
+- OpenAI: Settings → Limits → budget, and use a project key restricted to embeddings.
+- Keep these keys only in the service's environment, never in the apps.
+
+
 ## Plan
 
 Workspaces get VitaMind AI when their plan includes the `vitamind-ai` module

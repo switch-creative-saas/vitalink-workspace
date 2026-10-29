@@ -304,7 +304,7 @@ function DemoBillingPage() {
     return (
       <div className="premium-card p-8 text-center page-transition">
         <h1 className="text-xl font-semibold text-gray-900">Billing</h1>
-        <p className="text-sm text-gray-500 mt-2">Billing is locked on your plan. Upgrade to Pro.</p>
+        <p className="text-sm text-gray-500 mt-2">Billing is not included in your plan. Upgrade from Subscription to use it.</p>
       </div>
     );
   }
@@ -315,9 +315,9 @@ function DemoBillingPage() {
       <div className="sticky top-0 z-20 -mx-[var(--page-padding)] px-[var(--page-padding)] py-3 md:mx-0 md:px-0 bg-background/90 backdrop-blur-md border-b border-white/40 md:border-0">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E4ED8]">Billing & Insurance</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Billing & Insurance</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Enterprise financial engine for invoices, payments, claims, and reporting
+            Invoices, payments, insurance claims and reports
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -377,7 +377,7 @@ function DemoBillingPage() {
           { label: 'Overdue Payments', value: metrics.overdue, color: 'bg-red-500', onClick: () => { setActiveTab('invoices'); setFilterStatus('overdue'); setCriticalOnlyOverdue(true); } },
           { label: 'Insurance Claims', value: metrics.claimCount, color: 'bg-blue-500', onClick: () => setActiveTab('claims') },
         ].map((stat) => (
-          <button key={stat.label} type="button" className="premium-card glass-panel p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={stat.onClick}>
+          <button key={stat.label} type="button" className="premium-card glass-panel p-4 text-left transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={stat.onClick}>
             <div className="flex items-center justify-between mb-1">
               <div className={cn("w-3 h-3 rounded-full flex-shrink-0", stat.color)} />
             </div>
@@ -625,7 +625,7 @@ function DemoBillingPage() {
       )}
 
       <div className="premium-card glass-panel p-4 border border-white/60">
-        <h3 className="font-semibold text-[#1E4ED8] mb-2">Automations, integrations, and advanced features</h3>
+        <h3 className="font-semibold text-slate-900 dark:text-slate-50 mb-2">Automations, integrations, and advanced features</h3>
         <div className="grid md:grid-cols-2 gap-2 text-sm text-gray-600">
           <p className="flex items-center gap-2"><FileText className="w-4 h-4 text-blue-500" /> EMR + Lab + Pharmacy + Appointments auto-billing mapping enabled.</p>
           <p className="flex items-center gap-2"><CreditCard className="w-4 h-4 text-emerald-500" /> Paystack/Flutterwave payment-link workflow stubs included.</p>

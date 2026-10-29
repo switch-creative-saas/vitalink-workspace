@@ -42,7 +42,7 @@ export function LiveSecurityAudit() {
   return (
     <div className="space-y-6 page-transition">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-[#1E4ED8]">Security & Audit</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Security & Audit</h1>
         <p className="text-sm text-gray-500">
           {isSecurityStaff ? `Everything that changes in ${organization.name}, who did it and from where, plus sign-in sessions and security policy.` : 'Your own activity and sign-in sessions in this workspace.'}
         </p>

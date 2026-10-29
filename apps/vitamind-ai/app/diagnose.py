@@ -47,7 +47,7 @@ def keep_real_citations(citations: list[Citation], chunks: list[KnowledgeChunk])
     return kept
 
 
-def call_model(anthropic_client, user_message: str) -> tuple[DiagnoseOutput, str]:
+def call_model(anthropic_client, user_message: str, usage=None) -> tuple[DiagnoseOutput, str]:
     settings = get_settings()
     messages = [{"role": "user", "content": user_message}]
     last_error: Exception | None = None
@@ -60,6 +60,8 @@ def call_model(anthropic_client, user_message: str) -> tuple[DiagnoseOutput, str
             system=SYSTEM_PROMPT,
             messages=messages,
         )
+        if usage is not None:
+            usage.add_llm(response)
         raw = "".join(block.text for block in response.content if getattr(block, "type", "text") == "text")
         try:
             return DiagnoseOutput.model_validate(extract_json(raw)), raw
@@ -69,16 +71,16 @@ def call_model(anthropic_client, user_message: str) -> tuple[DiagnoseOutput, str
     raise ModelOutputError(f"VitaMind could not produce a valid answer: {last_error}") from last_error
 
 
-def run(req: DiagnoseRequest, *, supabase, openai_client, anthropic_client) -> DiagnoseResponse:
+def run(req: DiagnoseRequest, *, supabase, openai_client, anthropic_client, usage=None) -> DiagnoseResponse:
     started = time.monotonic()
     query = req.chief_complaint
     history = req.emr_snapshot.history
     if isinstance(history, dict) and history.get("chronic_conditions"):
         query = f"{query}. Known conditions: {history['chronic_conditions']}"
-    chunks = knowledge.search(supabase, openai_client, query, top_k=5)
+    chunks = knowledge.search(supabase, openai_client, query, top_k=5, usage=usage)
 
     user_message = build_user_message(req, chunks)
-    output, raw = call_model(anthropic_client, user_message)
+    output, raw = call_model(anthropic_client, user_message, usage)
     output.citations = keep_real_citations(output.citations, chunks)
     output.disclaimer = DISCLAIMER
     latency_ms = int((time.monotonic() - started) * 1000)

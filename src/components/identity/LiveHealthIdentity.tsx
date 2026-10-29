@@ -260,7 +260,7 @@ export function LiveHealthIdentity() {
 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50 truncate">Digital Health Identity</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 truncate">Digital Health Identity</h1>
           <p className="text-sm text-gray-500 mt-1 truncate">Identify patients by VitaCard, QR code or search</p>
         </div>
         <div className="flex flex-wrap items-center gap-3 min-w-0">

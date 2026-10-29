@@ -16,6 +16,7 @@ import {
   type ConsoleLogEntry, type ConsoleOverview, type ConsolePayment, type ConsoleWorkspace, type PlatformAdmin,
   type SubscriptionAction, type WorkspaceCrm, type WorkspaceDetail,
 } from '@/lib/supabase/console';
+import { resetMfaByEmail } from '@/lib/supabase/mfa';
 import { timeAgo } from '@/lib/timeAgo';
 import { date, errorText, naira } from './consoleFormat';
 
@@ -487,6 +488,31 @@ export function AdminsTab() {
           </div>
         ))}
       </div>
+      <ResetTwoStep />
+    </div>
+  );
+}
+
+/** Lost-phone recovery for any VitaLink account (customers' staff or platform admins). */
+function ResetTwoStep() {
+  const [target, setTarget] = useState('');
+  const reset = async () => {
+    const email = target.trim().toLowerCase();
+    if (!window.confirm(`Reset two-step verification for ${email}? Only after verifying who is asking (call back on a number on file). They set it up again at their next sign-in.`)) return;
+    try {
+      const removed = await resetMfaByEmail(email);
+      toast.success(removed ? `Two-step verification reset for ${email}` : `${email} had no authenticator set up`);
+      setTarget('');
+    } catch (error) { toast.error(errorText(error, 'Could not reset two-step verification')); }
+  };
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+      <p className="text-sm font-semibold">Reset two-step verification</p>
+      <p className="mb-3 text-xs text-slate-500">For someone who lost their phone. Logged in the audit log.</p>
+      <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); void reset(); }}>
+        <Input type="email" value={target} onChange={(e) => setTarget(e.target.value)} placeholder="name@hospital.com" className="max-w-sm" />
+        <Button type="submit" variant="outline" disabled={!target.trim()}>Reset</Button>
+      </form>
     </div>
   );
 }

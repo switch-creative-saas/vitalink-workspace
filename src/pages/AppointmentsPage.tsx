@@ -144,7 +144,7 @@ export function AppointmentsPage() {
 
   const createAppointment = () => {
     if (!canCreateAppointment) {
-      toast.error('RBAC: You cannot create appointments.');
+      toast.error('Your role cannot book appointments.');
       return;
     }
     // With Supabase the patient's name comes from their record, so only the VitaLink ID is needed.
@@ -232,7 +232,7 @@ export function AppointmentsPage() {
         <div className="flex flex-col lg:flex-row gap-2 lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Appointments</h1>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Responsive hospital scheduling with role-based workflows.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Book, check in and manage patient visits across departments.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="relative w-full sm:w-auto">

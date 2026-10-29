@@ -63,8 +63,11 @@ export function GuidedTourProvider({ currentPage, currentRole, userName, onNavig
   const [progress, setProgress] = useState<TourProgress>({});
   const [loaded, setLoaded] = useState(false);
   const [offerPageTours, setOfferState] = useState(readOfferSetting);
-  const [setupOpen, setSetupOpen] = useState(false);
   const canSetUp = SETUP_ROLES.includes(currentRole);
+  // A workspace that was just created opens straight into setup, on the very first render, so the
+  // dashboard never flashes behind it while tour progress loads.
+  const [setupOpen, setSetupOpen] = useState(() => canSetUp && isWorkspaceSetupPending(organization.id));
+  const openedOnArrival = useRef(setupOpen);
   const pageRef = useRef(currentPage);
   const offeredThisSession = useRef(new Set<string>());
   useEffect(() => { pageRef.current = currentPage; }, [currentPage]);
@@ -114,6 +117,17 @@ export function GuidedTourProvider({ currentPage, currentRole, userName, onNavig
     const timer = window.setTimeout(() => setSetupOpen(true), 0);
     return () => window.clearTimeout(timer);
   }, [setupPending]);
+
+  // Opened on arrival but already finished elsewhere (saved progress says so): close it again.
+  useEffect(() => {
+    if (!loaded || !openedOnArrival.current) return;
+    openedOnArrival.current = false;
+    if (progress[SETUP_TOUR_ID]) {
+      clearWorkspaceSetupPending();
+      const timer = window.setTimeout(() => setSetupOpen(false), 0);
+      return () => window.clearTimeout(timer);
+    }
+  }, [loaded, progress]);
 
   const finishSetup = useCallback((completed: boolean) => {
     record(SETUP_TOUR_ID, completed ? 'completed' : 'dismissed');

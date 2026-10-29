@@ -49,6 +49,7 @@ import { signOut } from '@/lib/supabase/auth';
 import { SessionGuard } from '@/components/security/SessionGuard';
 import { OfflineBanner } from '@/components/offline/OfflineStatus';
 import { ProfileSync } from '@/components/profile/ProfileSync';
+import { MfaGate } from '@/components/auth/MfaGate';
 
 // The VitaLink Console is its own app (own sign-in, own layout); only its code is downloaded at /console.
 const ConsoleApp = lazy(() => import('@/components/console/ConsoleApp'));
@@ -394,6 +395,7 @@ function AppShell() {
 
   return (
     <SecurityAuditProvider>
+      {isSupabaseConfigured && <MfaGate />}
       {!isAuthenticated ? (
         <AuthGatewayPage onAuthenticated={handleAuthenticated} defaultTheme={document.documentElement.classList.contains('dark-theme') ? 'dark' : 'light'} />
       ) : (

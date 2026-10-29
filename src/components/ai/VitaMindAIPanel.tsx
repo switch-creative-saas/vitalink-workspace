@@ -210,7 +210,7 @@ export function VitaMindAIPanel({ isOpen, onClose }: VitaMindAIPanelProps) {
             const Icon = sev.icon;
             const selected = selectedId === insight.id;
             return (
-              <div key={insight.id} className={cn('rounded-xl border transition-all duration-200', sev.bg, sev.border, !insight.isRead && 'ring-2 ring-vitamind-200 ring-offset-1', selected ? 'shadow-lg' : 'hover:shadow-md')}>
+              <div key={insight.id} className={cn('rounded-xl border transition-all duration-200', sev.bg, sev.border, !insight.isRead && 'ring-2 ring-vitamind-200 ring-offset-1', selected ? 'shadow-md' : 'hover:shadow-sm')}>
                 <button type="button" onClick={() => select(insight)} className="flex w-full items-start gap-3 p-4 text-left">
                   <div className={cn('flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg', sev.color)}>
                     <Icon className="h-4 w-4 text-white" />
@@ -246,7 +246,7 @@ export function VitaMindAIPanel({ isOpen, onClose }: VitaMindAIPanelProps) {
           )}
           <Button
             onClick={() => { goTo({ page: diagnosis ? 'ai-clinical-intelligence' : 'subscription' }); onClose(); }}
-            className="w-full bg-gradient-vitamind text-white transition-all duration-200 hover:shadow-lg hover:shadow-vitamind-500/25"
+            className="w-full bg-gradient-vitamind text-white transition-all duration-200 hover:brightness-105"
           >
             <Sparkles className="mr-2 h-4 w-4" />
             {diagnosis ? 'Open VitaMind diagnosis' : 'VitaMind diagnosis is on Growth'}

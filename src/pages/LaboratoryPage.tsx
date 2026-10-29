@@ -898,7 +898,7 @@ export function LaboratoryPage() {
     return (
       <div className="premium-card p-8 text-center text-gray-600 page-transition">
         <p className="font-medium text-gray-900">Laboratory</p>
-        <p className="text-sm mt-2">Laboratory is locked on your plan. Upgrade to Pro.</p>
+        <p className="text-sm mt-2">Laboratory is not included in your plan. Upgrade from Subscription to use it.</p>
       </div>
     );
   }
@@ -920,9 +920,9 @@ export function LaboratoryPage() {
       >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-[#1E4ED8]">Laboratory</h1>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Laboratory</h1>
             <p className="text-xs md:text-sm text-gray-500 mt-0.5">
-              VitaLink · Orders, results, templates — role-aware workflow
+              Test orders, sample collection and results for your patients.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -1658,7 +1658,7 @@ export function LaboratoryPage() {
                   perms.techLimited ||
                   perms.isReadOnlyResults) && (
                   <div className="rounded-2xl border border-white/60 bg-white/40 p-4 space-y-4 dark:border-slate-700 dark:bg-slate-800/60">
-                    <h4 className="text-sm font-semibold text-[#1E4ED8]">
+                    <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
                       {perms.isReadOnlyResults ? 'Results (read-only)' : 'Result entry'}
                     </h4>
                     {resultDraft.map((line, idx) => (

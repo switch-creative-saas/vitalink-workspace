@@ -29,6 +29,7 @@ import {
   Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useResponsive } from '@/contexts/ResponsiveContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlan } from '@/hooks/usePlan';
@@ -164,7 +165,8 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col transition-all duration-300 ease-out z-20 h-screen sticky top-0",
+        // Above the page header, so the collapse button on the edge isn't covered.
+        "relative flex flex-col transition-all duration-300 ease-out z-50 h-screen sticky top-0",
         sidebarCollapsed
           ? "w-16 md:w-14 lg:w-16 xl:w-16"
           : "w-[200px] md:w-[240px] lg:w-[260px] xl:w-[260px]"
@@ -177,10 +179,23 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
         expanded={!sidebarCollapsed}
         navItems={filteredNavItems}
         bottomNavItems={filteredBottomNav}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         workspaceName={workspaceLabel(organization.workspaceType)}
         showConsole={showConsole}
       />
+      {/* Sits on the sidebar's outer edge so it stays visible (and clickable) when collapsed. */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            className="absolute -right-3.5 top-[26px] z-30 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1E3A8A] shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+          >
+            {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}</TooltipContent>
+      </Tooltip>
     </aside>
   );
 }
@@ -191,7 +206,8 @@ interface SidebarContentProps {
   expanded: boolean;
   navItems: NavItem[];
   bottomNavItems: NavItem[];
-  onToggle: () => void;
+  /** Mobile drawer only: closes it. The desktop toggle sits on the sidebar edge. */
+  onToggle?: () => void;
   workspaceName: string;
   showConsole?: boolean;
 }
@@ -244,7 +260,7 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
   return (
     <>
       {/* Logo */}
-      <div className="h-20 px-5 flex items-center justify-between flex-shrink-0">
+      <div className={cn('h-20 flex items-center flex-shrink-0', expanded ? 'px-5 justify-between' : 'px-2 justify-center')}>
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white/95 flex items-center justify-center flex-shrink-0 border border-white/30 shadow-sm overflow-hidden">
             <img src={vitalinkLogo} alt={`${BRAND.name} logo`} className="h-8 w-8 object-contain" />
@@ -258,12 +274,17 @@ function SidebarContent({ currentPage, onPageChange, expanded, navItems, bottomN
           )}
         </div>
         
-        <button 
-          onClick={onToggle}
-          className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all duration-200"
-        >
-          {expanded ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        </button>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label="Close menu"
+            title="Close menu"
+            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-colors duration-200"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Divider */}

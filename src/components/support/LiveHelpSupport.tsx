@@ -175,7 +175,7 @@ export function LiveHelpSupport() {
     <div className="space-y-4 md:space-y-6 page-transition" data-tour-id="help-dashboard">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E4ED8]">Help & Support</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Help & Support</h1>
           <p className="mt-1 text-sm text-gray-500">
             {isWorkspaceAdmin
               ? 'Answer your team’s requests, talk to the VitaLink team and find quick how-tos.'
@@ -207,7 +207,7 @@ export function LiveHelpSupport() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {actions.map((a) => (
             <button key={a.kind} type="button" onClick={() => setNewKind(a.kind)}
-              className="premium-card flex items-start gap-3 p-3 text-left transition hover:shadow-md sm:p-4">
+              className="premium-card flex items-start gap-3 p-3 text-left transition sm:p-4">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-royal-50 text-royal-700"><a.icon className="h-4 w-4" /></span>
               <span className="min-w-0"><span className="block text-sm font-semibold text-gray-900">{a.label}</span><span className="text-xs text-gray-500">{a.hint}</span></span>
             </button>

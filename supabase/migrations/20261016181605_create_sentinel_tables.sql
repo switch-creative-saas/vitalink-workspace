@@ -1,4 +1,4 @@
--- Applied directly to the live project from Claude chat on 2026-10-16; copied here verbatim
+-- Applied directly to the live project on 2026-10-16; copied here verbatim
 -- from supabase_migrations.schema_migrations so the repo matches the database.
 
 -- ============================================================

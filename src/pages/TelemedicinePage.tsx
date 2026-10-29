@@ -52,7 +52,7 @@ function DemoTelemedicinePage() {
   );
 
   if (!canView('Appointments')) {
-    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Access denied by server RBAC policy.</div>;
+    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Your role does not have access to telemedicine.</div>;
   }
   if (!hasAccess('telemedicine')) {
     return <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-800">Telemedicine is locked on your current plan. Upgrade to Enterprise.</div>;
@@ -62,8 +62,8 @@ function DemoTelemedicinePage() {
     <div className="space-y-4 page-transition">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Telemedicine Suite</h1>
-          <p className="text-sm text-gray-500">Secure WebRTC architecture with encrypted virtual care and specialist conferencing.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Telemedicine Suite</h1>
+          <p className="text-sm text-gray-500">Video visits with patients and specialist conferences.</p>
         </div>
         <div className="rounded-xl px-3 py-2 bg-green-50 text-green-700 text-xs flex items-center gap-2">
           <ShieldCheck className="w-4 h-4" />

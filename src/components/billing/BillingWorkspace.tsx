@@ -2,7 +2,7 @@
 // themselves (database triggers); the desk watches open bills live, adds anything extra, takes
 // payment and finalizes. Also payments, HMO claims and the hospital's price list.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, Clock, Download, Pencil, Plus, Radio, RefreshCw, Search, Shield, Trash2, Upload, Wallet, XCircle, Zap } from 'lucide-react';
+import { CheckCircle2, Clock, Download, Pencil, Plus, Printer, Radio, RefreshCw, Search, Shield, Trash2, Upload, Wallet, XCircle, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -12,14 +12,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { findPatientBySwitchId, queryPatients, type RegistryPatient } from '@/lib/patientRegistry';
 import { BILLING_HANDOFF_KEY } from '@/lib/handoffs';
+import { printReceipt } from '@/lib/printDocument';
 import {
   addManualLine,
   buildInvoice,
   deleteInvoice,
   deletePrice,
   finalizeInvoice,
+  getPaymentReceipt,
   importPrices,
   listDrugPrices,
+  listInvoiceReceipts,
   listInvoices,
   listPayments,
   listPrices,
@@ -39,6 +42,7 @@ import {
   type DrugPrice,
   type ExtraLine,
   type InvoiceLine,
+  type PaymentReceipt,
   type LineCategory,
   type PaymentMethod,
   type PriceCategory,
@@ -89,6 +93,18 @@ function downloadCsv(filename: string, header: string[], rows: Array<Array<strin
   const link = Object.assign(document.createElement('a'), { href: url, download: filename });
   link.click();
   URL.revokeObjectURL(url);
+}
+
+const printPaymentReceipt = (receipt: PaymentReceipt) => printReceipt({ ...receipt, methodLabel: methodLabel(receipt.method) });
+
+async function printReceiptForPayment(paymentId: string) {
+  try {
+    const receipt = await getPaymentReceipt(paymentId);
+    if (!receipt) { toast.error('No receipt found for this payment.'); return; }
+    printPaymentReceipt(receipt);
+  } catch (error) {
+    toast.error(errorText(error, 'Could not open the receipt'));
+  }
 }
 
 function statusChip(invoice: BillingInvoice) {
@@ -226,8 +242,8 @@ export function BillingWorkspace() {
     <div className="space-y-4 md:space-y-6 page-transition">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E4ED8]">Billing & Insurance</h1>
-          <p className="mt-1 text-sm text-gray-500">Visits, lab tests and dispensed drugs bill themselves onto each patient’s running bill. Take payment, finalize and claim from here.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Billing & Insurance</h1>
+          <p className="mt-1 text-sm text-gray-500">Visits, lab tests and dispensed drugs are added to each patient’s bill automatically. Take payments, print receipts and submit insurance claims.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700" title="New charges appear without refreshing"><span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />Live</span>
@@ -240,7 +256,7 @@ export function BillingWorkspace() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         {metrics.map((metric) => (
-          <button key={metric.label} type="button" onClick={metric.onClick} className="premium-card glass-panel h-full min-w-0 overflow-hidden p-4 text-left transition-all hover:shadow-md">
+          <button key={metric.label} type="button" onClick={metric.onClick} className="premium-card glass-panel h-full min-w-0 overflow-hidden p-4 text-left transition-all">
             <div className={cn('mb-1 h-3 w-3 rounded-full', metric.tone)} />
             <p className="truncate text-xl font-bold tabular-nums text-gray-900">{metric.value}</p>
             <p className="truncate text-xs text-gray-500">{metric.label}</p>
@@ -367,11 +383,11 @@ export function BillingWorkspace() {
             <table className="w-full min-w-[720px]">
               <thead>
                 <tr className="whitespace-nowrap border-b border-gray-100 bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
-                  <th className="px-5 py-3">Date</th><th className="px-5 py-3">Invoice</th><th className="px-5 py-3">Patient</th><th className="px-5 py-3">Amount</th><th className="px-5 py-3">Method</th><th className="px-5 py-3">Reference</th><th className="px-5 py-3">Received by</th>
+                  <th className="px-5 py-3">Date</th><th className="px-5 py-3">Invoice</th><th className="px-5 py-3">Patient</th><th className="px-5 py-3">Amount</th><th className="px-5 py-3">Method</th><th className="px-5 py-3">Reference</th><th className="px-5 py-3">Received by</th><th className="px-5 py-3 text-right">Receipt</th>
                 </tr>
               </thead>
               <tbody>
-                {shownPayments.length === 0 && <tr><td colSpan={7} className="px-5 py-6 text-sm text-gray-500">{payments.length ? 'No payments in this date range.' : 'No payments recorded yet.'}</td></tr>}
+                {shownPayments.length === 0 && <tr><td colSpan={8} className="px-5 py-6 text-sm text-gray-500">{payments.length ? 'No payments in this date range.' : 'No payments recorded yet.'}</td></tr>}
                 {shownPayments.map((pay) => (
                   <tr key={pay.id} className="border-b border-gray-50 text-sm">
                     <td className="px-5 py-3 text-gray-600">{new Date(pay.receivedAt).toLocaleString()}</td>
@@ -381,6 +397,7 @@ export function BillingWorkspace() {
                     <td className="px-5 py-3 text-gray-700">{methodLabel(pay.method)}</td>
                     <td className="px-5 py-3 text-gray-500">{pay.reference || pay.note || '—'}</td>
                     <td className="px-5 py-3 text-gray-600">{pay.receivedBy}</td>
+                    <td className="px-5 py-3 text-right"><Button size="sm" variant="outline" className="gap-1" onClick={() => void printReceiptForPayment(pay.id)}><Printer className="h-3.5 w-3.5" />Print</Button></td>
                   </tr>
                 ))}
               </tbody>
@@ -486,6 +503,7 @@ export function BillingWorkspace() {
                 <div className="flex justify-between text-green-700"><span>Paid</span><span>{naira(detail.paid)}</span></div>
                 <div className="flex justify-between font-semibold text-red-600"><span>Balance</span><span>{naira(detail.balance)}</span></div>
               </div>
+              {detail.paid > 0 && <InvoiceReceipts invoiceId={detail.id} paid={detail.paid} />}
               {detail.hmoClaimStatus && (
                 <p className="rounded-lg bg-blue-50 p-2 text-xs text-blue-800">HMO claim {detail.hmoClaimStatus}: {detail.hmoProvider} · {detail.hmoCoveragePercent}% · {naira(detail.hmoClaimed)} claimed</p>
               )}
@@ -519,6 +537,29 @@ export function BillingWorkspace() {
       />
       <PaymentDialog invoice={payFor} onClose={() => setPayFor(null)} onSaved={() => { setPayFor(null); void reload(); }} />
       <ClaimDialog invoice={claimFor} onClose={() => setClaimFor(null)} onSaved={() => { setClaimFor(null); void reload(); }} />
+    </div>
+  );
+}
+
+function InvoiceReceipts({ invoiceId, paid }: { invoiceId: string; paid: number }) {
+  const [receipts, setReceipts] = useState<PaymentReceipt[] | null>(null);
+  useEffect(() => {
+    // `paid` changes when a payment lands, which also means a new receipt.
+    listInvoiceReceipts(invoiceId).then(setReceipts).catch(() => setReceipts([]));
+  }, [invoiceId, paid]);
+  if (!receipts?.length) return null;
+  return (
+    <div>
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Receipts</p>
+      <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+        {receipts.map((receipt) => (
+          <div key={receipt.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+            <span><span className="font-mono text-gray-800">{receipt.number}</span><span className="ml-2 text-xs text-gray-500">{new Date(receipt.issuedAt).toLocaleString()} · {methodLabel(receipt.method)}</span></span>
+            <span className="flex items-center gap-2"><span className="font-medium">{naira(receipt.amount)}</span>
+              <Button size="sm" variant="outline" className="gap-1" onClick={() => printPaymentReceipt(receipt)}><Printer className="h-3.5 w-3.5" />Print</Button></span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -718,8 +759,12 @@ function PaymentDialog({ invoice, onClose, onSaved }: { invoice: BillingInvoice 
     if (amount <= 0) return toast.error('Enter an amount above ₦0');
     setSaving(true);
     try {
-      await recordPayment(invoice.id, amount, method, reference);
-      toast.success(`${naira(amount)} received for ${invoice.number}`);
+      const paymentId = await recordPayment(invoice.id, amount, method, reference);
+      toast.success(`${naira(amount)} received for ${invoice.number}`, {
+        description: 'A receipt with your hospital’s name is ready.',
+        action: { label: 'Print receipt', onClick: () => void printReceiptForPayment(paymentId) },
+        duration: 15_000,
+      });
       onSaved();
     } catch (error) {
       toast.error(errorText(error, 'Could not record the payment'));

@@ -520,8 +520,8 @@ function DemoAdministrationPage() {
       <div className="sticky top-0 z-20 -mx-[var(--page-padding)] px-[var(--page-padding)] py-3 md:mx-0 md:px-0 bg-background/90 backdrop-blur-md border-b border-white/40 md:border-0">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-[#1E4ED8]">Administration</h1>
-            <p className="text-sm text-gray-500 mt-1">Department governance, facility controls, and multi-hospital operational structure</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Administration</h1>
+            <p className="text-sm text-gray-500 mt-1">Departments, facility settings and operating structure</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" className="gap-2 rounded-xl" onClick={() => setActiveTab('facility')}>

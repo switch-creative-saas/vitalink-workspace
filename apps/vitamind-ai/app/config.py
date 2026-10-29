@@ -20,6 +20,12 @@ class Settings:
     model: str
     embedding_model: str
     max_tokens: int
+    # Spend protection (see limits.py). Defaults keep a worst day to roughly tens of dollars.
+    max_requests_per_minute: int
+    daily_llm_requests: int
+    daily_llm_tokens: int
+    daily_embed_requests: int
+    daily_embed_tokens: int
 
 
 @lru_cache
@@ -32,5 +38,10 @@ def get_settings() -> Settings:
         service_token=os.environ.get("VITAMIND_SERVICE_TOKEN", ""),
         model=os.environ.get("VITAMIND_MODEL", "claude-sonnet-4-6"),
         embedding_model=os.environ.get("VITAMIND_EMBEDDING_MODEL", "text-embedding-3-small"),
-        max_tokens=int(os.environ.get("VITAMIND_MAX_TOKENS", "2000")),
+        max_tokens=min(int(os.environ.get("VITAMIND_MAX_TOKENS", "2000")), 4000),
+        max_requests_per_minute=int(os.environ.get("VITAMIND_MAX_REQUESTS_PER_MINUTE", "30")),
+        daily_llm_requests=int(os.environ.get("VITAMIND_DAILY_LLM_REQUESTS", "1500")),
+        daily_llm_tokens=int(os.environ.get("VITAMIND_DAILY_LLM_TOKENS", "3000000")),
+        daily_embed_requests=int(os.environ.get("VITAMIND_DAILY_EMBED_REQUESTS", "5000")),
+        daily_embed_tokens=int(os.environ.get("VITAMIND_DAILY_EMBED_TOKENS", "5000000")),
     )

@@ -1,7 +1,7 @@
 // Settings for live workspaces: your profile and photo, sign-in email and
 // password, appearance that follows you between devices, which notifications
 // you get, and your place in the workspace. Everything saves to Supabase.
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bell, Building2, Camera, Check, ChevronRight, KeyRound, Laptop, Loader2, LogOut, Mail, Moon, Monitor, Palette, Save, Send, Shield, Sun, Trash2, User,
 } from 'lucide-react';
@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { TotpSetup } from '@/components/auth/MfaGate';
+import { forgetTrustedDevice, getMfaStatus, listTotpFactors, listTrustedDevices, removeTotpFactor, type MfaStatus, type TotpFactor, type TrustedDevice } from '@/lib/supabase/mfa';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGuidedTour } from '@/contexts/GuidedTourContext';
 import { WELCOME_TOUR_ID } from '@/lib/tours/workspaceTours';
@@ -57,7 +59,7 @@ export function LiveSettings({ onLogout }: { onLogout: () => void }) {
   return (
     <div className="space-y-6 page-transition">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Settings</h1>
         <p className="mt-1 text-sm text-gray-500">Your profile, sign-in, appearance and notifications.</p>
       </div>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
@@ -207,6 +209,8 @@ function SecurityTab({ profile, onLogout }: { profile: MyProfile; onLogout: () =
         </div>
       </Section>
 
+      <TwoStepSection />
+
       <Section title="Sign-in email" description={`You sign in as ${profile.email}. We send a confirmation link to the new address; the change applies once you click it.`}>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input type="email" placeholder="New email address" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -239,6 +243,75 @@ const THEMES: Array<{ id: ThemeMode; label: string; icon: React.ElementType }> =
   { id: 'light', label: 'Light', icon: Sun }, { id: 'dark', label: 'Dark', icon: Moon }, { id: 'system', label: 'Match device', icon: Laptop },
 ];
 const SIZES = [{ value: 90, label: 'Small' }, { value: 100, label: 'Default' }, { value: 110, label: 'Large' }, { value: 120, label: 'Larger' }];
+
+/** Two-step verification: required for admin, clinical and VitaLink roles; optional for everyone else. */
+function TwoStepSection() {
+  const [status, setStatus] = useState<MfaStatus | null>(null);
+  const [factors, setFactors] = useState<TotpFactor[]>([]);
+  const [devices, setDevices] = useState<TrustedDevice[]>([]);
+  const [settingUp, setSettingUp] = useState(false);
+  const load = useCallback(() => {
+    Promise.all([getMfaStatus(), listTotpFactors(), listTrustedDevices().catch(() => [])])
+      .then(([s, f, d]) => { setStatus(s); setFactors(f); setDevices(d); })
+      .catch(() => setStatus(null));
+  }, []);
+  const forget = async (device: TrustedDevice) => {
+    try { await forgetTrustedDevice(device); toast.success(device.thisDevice ? 'This browser will ask for a code next sign-in' : `${device.label} forgotten`); load(); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Could not forget the device'); }
+  };
+  useEffect(() => { const t = window.setTimeout(load, 0); return () => window.clearTimeout(t); }, [load]);
+
+  const remove = async (factor: TotpFactor) => {
+    const last = factors.length === 1;
+    if (last && status?.required) { toast.error('Your role requires two-step verification. Set up a new authenticator first, then remove this one.'); return; }
+    if (!window.confirm(last ? 'Turn off two-step verification? Your account will be protected by your password only.' : `Remove ${factor.name}?`)) return;
+    try { await removeTotpFactor(factor.id); toast.success(last ? 'Two-step verification turned off' : 'Authenticator removed'); load(); }
+    catch (error) { toast.error(error instanceof Error ? error.message : 'Could not remove it'); }
+  };
+
+  return (
+    <Section title="Two-step verification" description={status?.required
+      ? 'Required for your role: signing in needs your password and a code from your authenticator app.'
+      : 'Adds a code from your phone to your password, so a stolen password alone can’t open your account.'}>
+      {status === null ? <p className="text-sm text-gray-500">Loading…</p> : settingUp ? (
+        <div className="space-y-3">
+          <TotpSetup onDone={() => { setSettingUp(false); load(); }} />
+          <Button variant="outline" size="sm" onClick={() => setSettingUp(false)}>Cancel</Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="flex items-center gap-2 text-sm">
+            <span className={cn('h-2.5 w-2.5 rounded-full', factors.length ? 'bg-emerald-500' : 'bg-amber-500')} />
+            {factors.length ? 'On' : 'Off'}{status.required && <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-xs text-indigo-700">Required for your role</span>}
+          </p>
+          {factors.map((f) => (
+            <div key={f.id} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+              <span>Authenticator app <span className="text-xs text-gray-500">· added {new Date(f.createdAt).toLocaleDateString()}</span></span>
+              <Button size="sm" variant="ghost" className="text-red-600" onClick={() => void remove(f)}>Remove</Button>
+            </div>
+          ))}
+          <Button variant="outline" size="sm" onClick={() => setSettingUp(true)}>{factors.length ? 'Add or replace authenticator' : 'Set up two-step verification'}</Button>
+          {factors.length > 0 && (
+            <div className="space-y-2 pt-2">
+              <p className="text-sm font-medium text-gray-900">Remembered devices</p>
+              <p className="text-xs text-gray-500">Signing in on these skips the code until the device goes 14 days unused (at most 30 days). Forget any you don’t recognise or no longer use.</p>
+              {devices.length === 0 && <p className="text-xs text-gray-500">None yet.</p>}
+              {devices.map((d) => (
+                <div key={d.id} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-sm">
+                  <span className="min-w-0">
+                    {d.label}{d.thisDevice && <span className="ml-1.5 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] text-emerald-700">this browser</span>}
+                    <span className="block text-xs text-gray-500">Last used {new Date(d.lastSeenAt).toLocaleDateString()} · code asked again after {new Date(d.expiresAt).toLocaleDateString()} if unused</span>
+                  </span>
+                  <Button size="sm" variant="ghost" onClick={() => void forget(d)}>Forget</Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Section>
+  );
+}
 
 function AppearanceTab({ profile }: { profile: MyProfile }) {
   const { offerPageTours, setOfferPageTours, startTour, resetProgress } = useGuidedTour();

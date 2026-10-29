@@ -1,15 +1,17 @@
 """Request and response models."""
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+import json
+
+from pydantic import BaseModel, Field, field_validator
 
 SourceType = Literal["pubmed", "guideline", "fmoh"]
 
 
 class EmbedRequest(BaseModel):
-    text: str = Field(min_length=20)
-    source_url: str = Field(min_length=4)
-    title: str = Field(min_length=2)
+    text: str = Field(min_length=20, max_length=200_000)
+    source_url: str = Field(min_length=4, max_length=500)
+    title: str = Field(min_length=2, max_length=300)
     source_type: SourceType
 
 
@@ -19,7 +21,7 @@ class EmbedResponse(BaseModel):
 
 
 class SearchRequest(BaseModel):
-    query: str = Field(min_length=2)
+    query: str = Field(min_length=2, max_length=500)
     top_k: int = Field(default=5, ge=1, le=20)
 
 
@@ -40,10 +42,18 @@ class EmrSnapshot(BaseModel):
     age: int | None = None
     sex: str | None = None
 
+    @field_validator("vitals", "history", "medications", "allergies")
+    @classmethod
+    def not_too_large(cls, value):
+        # Keeps prompts (and the bill) bounded even if a caller sends a huge record.
+        if value is not None and len(json.dumps(value, default=str)) > 20_000:
+            raise ValueError("EMR snapshot field is too large")
+        return value
+
 
 class DiagnoseRequest(BaseModel):
     session_id: str
-    chief_complaint: str = Field(min_length=3)
+    chief_complaint: str = Field(min_length=3, max_length=2000)
     emr_snapshot: EmrSnapshot = EmrSnapshot()
 
 

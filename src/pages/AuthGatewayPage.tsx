@@ -38,6 +38,7 @@ import { isSupabaseConfigured } from '@/lib/supabase/client';
 import * as backend from '@/lib/supabase/auth';
 import { acceptInvitation, getInvitation, roleLabel, type InvitationPreview } from '@/lib/supabase/staff';
 import { syncWorkspacePlan } from '@/lib/workspace/planSync';
+import { waitForMfa } from '@/lib/supabase/mfa';
 
 type Stage =
   | 'checking-session'
@@ -365,6 +366,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
           // Also covers returning from the email confirmation link, which lands with a fresh session.
           const sessionUser = await backend.getSessionUser();
           if (!sessionUser) throw new Error('no session');
+          // Two-step verification comes before any workspace data (the database requires it).
+          await waitForMfa();
           if (window.location.pathname.replace(/\/+$/, '') === '/payment-callback') {
             const reference = new URLSearchParams(window.location.search).get('reference');
             window.history.replaceState({}, '', '/');
@@ -556,6 +559,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
     if (isSupabaseConfigured) {
       try {
         const sessionUser = await backend.signIn(loginForm.email.trim(), loginForm.password);
+        await waitForMfa();
         logLoginAttempt('success', 'Password login');
         const memberships = await backend.listMemberships(sessionUser.id);
         if (memberships.length === 0) return resumeOnboarding(sessionUser);
@@ -567,6 +571,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
           authenticateSuccess(users[0]);
         }
       } catch (error) {
+        if (error instanceof Error && error.message === 'Signed out') return; // left the two-step screen
         setAuthError(backendErrorMessage(error, 'Login failed. Check your network.'));
         logLoginAttempt('failed', 'Invalid credentials');
       } finally {
@@ -783,6 +788,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
           planId: ['starter', 'growth', 'trial'].includes(orgForm.plan) ? orgForm.plan : 'free',
           billingCycle,
         });
+        // The owner is an admin, so two-step verification is set up before anything else.
+        await waitForMfa();
         const createdUser = membershipToAuthUser(sessionUser, { role: WORKSPACE_OWNER_ROLE, organization: org });
         localStorage.setItem('vitalink-active-organization', JSON.stringify(organizationForUser(createdUser)));
         localStorage.setItem('vitalink-last-workspace', org.slug);
@@ -1180,11 +1187,11 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             </div>
 
               <p className="text-[14px] text-[var(--auth-text-secondary)]">
-              Your {workspaceLabel(pendingUser.workspaceType ?? 'healthcare').toLowerCase()} is ready. You are signed in as the {pendingUser.role.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}.
+              Your {workspaceLabel(pendingUser.workspaceType ?? 'healthcare').toLowerCase()} is ready. You are signed in as the {pendingUser.role.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}. Next, a short setup of your facility, departments and team.
             </p>
 
             <AuthPrimaryButton
-              label="Enter Workspace"
+              label="Continue to setup"
               onClick={() => authenticateSuccess(pendingUser)}
             />
           </div>

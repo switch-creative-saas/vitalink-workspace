@@ -213,7 +213,7 @@ function DemoAnalyticsPage() {
     return (
       <div className="premium-card p-8 text-center page-transition">
         <h1 className="text-xl font-semibold text-gray-900">Analytics</h1>
-        <p className="text-sm text-gray-500 mt-2">Advanced analytics is locked on your plan. Upgrade to Pro.</p>
+        <p className="text-sm text-gray-500 mt-2">Analytics is included in the Growth and Enterprise plans.</p>
       </div>
     );
   }
@@ -223,8 +223,8 @@ function DemoAnalyticsPage() {
       <div className="sticky top-0 z-20 -mx-[var(--page-padding)] px-[var(--page-padding)] py-3 md:mx-0 md:px-0 bg-background/90 backdrop-blur-md border-b border-white/40 md:border-0">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-[#1E4ED8]">Healthcare Intelligence</h1>
-            <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">Unified real-time analytics across EMR, appointments, laboratory, pharmacy and billing.</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Healthcare Intelligence</h1>
+            <p className="text-sm text-gray-500 mt-1 dark:text-slate-400">Live figures across records, appointments, laboratory, pharmacy and billing.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex gap-1 p-1 bg-gray-100 rounded-lg dark:bg-slate-900/50">
@@ -295,7 +295,7 @@ function DemoAnalyticsPage() {
           { label: 'Retention %', value: `${retention}%`, icon: TrendingUp, action: () => openDetails('Retention') },
           { label: 'Claims', value: summary.insurance_claims, icon: Activity, action: () => openDetails('Insurance Claims') },
         ].map((card) => (
-          <button key={card.label} onClick={card.action} className="premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden">
+          <button key={card.label} onClick={card.action} className="premium-card p-4 text-left transition-all card-equal-height h-full min-w-0 overflow-hidden">
             <div className="flex items-center justify-between gap-2 min-w-0">
               <card.icon className="w-5 h-5 text-[#4F46E5] flex-shrink-0" />
               <Eye className="w-4 h-4 text-gray-400 flex-shrink-0 dark:text-slate-400" />

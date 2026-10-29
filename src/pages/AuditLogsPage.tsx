@@ -119,8 +119,8 @@ function DemoAuditLogsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-[#1E4ED8]">Security & Audit</h1>
-          <p className="text-sm text-gray-500 mt-1">Compliance-ready audit trails, session control, and role-aware security policies.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Security & Audit</h1>
+          <p className="text-sm text-gray-500 mt-1">Audit trail, sign-in sessions and security policies for your workspace.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" className="gap-2" disabled={!proAccess} onClick={() => exportLogs(filteredLogs, 'csv')}>
@@ -346,7 +346,7 @@ function DemoAuditLogsPage() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-medium text-[#1E4ED8]">{session.userName}</h3>
+                          <h3 className="font-medium text-slate-900 dark:text-slate-50">{session.userName}</h3>
                           {session.isCurrent && (
                             <Badge className="bg-[#1E4ED8] text-white text-xs">Current</Badge>
                           )}
@@ -422,7 +422,7 @@ function DemoAuditLogsPage() {
       <Dialog open={showTerminateDialog} onOpenChange={setShowTerminateDialog}>
         <DialogContent className="bg-white/90 backdrop-blur-xl">
           <DialogHeader>
-            <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
+            <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-amber-500" />
               Terminate Session
             </DialogTitle>
@@ -452,7 +452,7 @@ function DemoAuditLogsPage() {
           {selectedLog && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-[#1E4ED8]">Audit Event Details</DialogTitle>
+                <DialogTitle className="text-slate-900 dark:text-slate-50">Audit Event Details</DialogTitle>
                 <DialogDescription>Full compliance breakdown and risk analysis</DialogDescription>
               </DialogHeader>
               <div className="grid grid-cols-2 gap-2 text-sm">

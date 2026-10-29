@@ -310,8 +310,8 @@ function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div className="min-w-0">
           <div className="text-xs text-gray-500 mb-1 truncate">Home / Settings / {tabs.find((t) => t.id === activeTab)?.label}</div>
-          <h1 className="text-2xl font-bold text-gray-900 truncate">Settings</h1>
-          <p className="text-sm text-gray-500 mt-1 truncate">RBAC-controlled, SaaS-aware operational settings for VitaLink.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 truncate">Settings</h1>
+          <p className="text-sm text-gray-500 mt-1 truncate">Your profile, sign-in, appearance and notifications.</p>
         </div>
         <div className="w-full lg:w-[380px] min-w-0">
           <div className="relative min-w-0">
@@ -852,7 +852,7 @@ function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
             <div className="space-y-4">
               <div className="premium-card p-6">
                 <h2 className="text-lg font-semibold text-gray-900">Role Simulation</h2>
-                <p className="text-sm text-gray-500 mt-1">Admin-only view-as-role for RBAC QA and investor demos (read-only mode).</p>
+                <p className="text-sm text-gray-500 mt-1">Admins can preview the app as another role (read-only).</p>
                 {!isAdmin ? (
                   <div className="mt-4 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">Only Admin or Super Admin can run role simulation.</div>
                 ) : (

@@ -17,7 +17,12 @@ const json = (body: unknown, status = 200) =>
 
 const SERVICE_URL = (Deno.env.get('VITAMIND_AI_URL') ?? '').replace(/\/$/, '');
 const SERVICE_TOKEN = Deno.env.get('VITAMIND_SERVICE_TOKEN') ?? '';
-const DAILY_LIMIT = Number(Deno.env.get('VITAMIND_DAILY_LIMIT') ?? '300');
+// Spend protection (the service has its own token budgets too; see apps/vitamind-ai/README.md).
+const DAILY_LIMIT = Number(Deno.env.get('VITAMIND_DAILY_LIMIT') ?? '300'); // per workspace per day
+const GLOBAL_DAILY_LIMIT = Number(Deno.env.get('VITAMIND_GLOBAL_DAILY_LIMIT') ?? '1000'); // whole platform
+const USER_PER_MINUTE = 3;
+const USER_PER_HOUR = 30;
+const MAX_COMPLAINT = 2000;
 const CLINICAL = ['super-admin', 'hospital-admin', 'doctor', 'nurse', 'lab-scientist', 'lab-technician', 'pharmacist'];
 const DOCTORS = ['super-admin', 'hospital-admin', 'doctor'];
 
@@ -104,11 +109,20 @@ Deno.serve(async (req) => {
     if (body.action !== 'diagnose') return json({ error: 'Unknown action.' }, 400);
     const chiefComplaint = String(body.chiefComplaint ?? '').trim();
     if (chiefComplaint.length < 3) return json({ error: 'Describe the presenting complaint.' }, 400);
+    if (chiefComplaint.length > MAX_COMPLAINT) return json({ error: `Keep the complaint under ${MAX_COMPLAINT} characters.` }, 400);
 
-    const since = new Date(Date.now() - 86400000).toISOString();
-    const { count } = await admin.from('vitamind_sessions').select('id', { count: 'exact', head: true })
-      .eq('organization_id', organizationId).gte('created_at', since);
-    if ((count ?? 0) >= DAILY_LIMIT) return json({ error: `Daily VitaMind AI limit reached (${DAILY_LIMIT} analyses). Try again tomorrow.` }, 429);
+    const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+    const sessions = () => admin.from('vitamind_sessions').select('id', { count: 'exact', head: true });
+    const [{ count: lastMinute }, { count: lastHour }, { count: workspaceDay }, { count: platformDay }] = await Promise.all([
+      sessions().eq('created_by', user.id).gte('created_at', ago(60_000)),
+      sessions().eq('created_by', user.id).gte('created_at', ago(3_600_000)),
+      sessions().eq('organization_id', organizationId).gte('created_at', ago(86_400_000)),
+      sessions().gte('created_at', ago(86_400_000)),
+    ]);
+    if ((lastMinute ?? 0) >= USER_PER_MINUTE) return json({ error: 'Too many analyses in a row. Wait a minute and try again.' }, 429);
+    if ((lastHour ?? 0) >= USER_PER_HOUR) return json({ error: `You've run ${USER_PER_HOUR} analyses this hour. Try again later.` }, 429);
+    if ((workspaceDay ?? 0) >= DAILY_LIMIT) return json({ error: `Daily VitaMind AI limit reached (${DAILY_LIMIT} analyses). Try again tomorrow.` }, 429);
+    if ((platformDay ?? 0) >= GLOBAL_DAILY_LIMIT) return json({ error: 'VitaMind AI is paused for today. VitaLink has been alerted.' }, 503);
 
     let snapshot: Record<string, unknown> = {};
     const patientId = body.patientId ? String(body.patientId) : null;

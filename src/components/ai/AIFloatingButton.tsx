@@ -17,7 +17,7 @@ export function AIFloatingButton({ onClick }: AIFloatingButtonProps) {
         "shadow-lg shadow-vitalink-500/30",
         "border border-white/20",
         "transition-all duration-300 ease-out",
-        "hover:shadow-xl hover:shadow-vitamind-500/30",
+        "hover:brightness-105",
         "group"
       )}
     >

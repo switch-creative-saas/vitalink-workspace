@@ -245,9 +245,11 @@
     transition: all var(--sentinel-transition-base);
   }
 
-  .sentinel-card:hover {
-    box-shadow: var(--sentinel-shadow-lg);
-    transform: translateY(-2px);
+  /* Only clickable cards respond to hover, and lightly. */
+  button.sentinel-card:hover,
+  a.sentinel-card:hover,
+  .sentinel-card[role='button']:hover {
+    box-shadow: var(--sentinel-shadow-md);
   }
 
   .sentinel-card-elevated {

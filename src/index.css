@@ -241,9 +241,8 @@
     background: var(--bg-card);
     color: var(--text-primary);
     border: 1px solid color-mix(in srgb, var(--border-color) 75%, transparent);
-    box-shadow: 
-      0 2px 8px rgba(30, 58, 138, 0.06),
-      0 8px 24px rgba(30, 58, 138, 0.08);
+    /* Flat at rest: a hairline only, no glow around the card. */
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     transition: box-shadow 150ms ease, border-color 150ms ease;
   }
 
@@ -257,10 +256,13 @@
     @apply min-w-0 max-w-full;
   }
   
-  .premium-card:hover {
-    box-shadow: 
-      0 8px 24px rgba(30, 58, 138, 0.12),
-      0 16px 48px rgba(30, 58, 138, 0.14);
+  /* Only cards you can click react to the pointer, and lightly; plain cards stay still. */
+  button.premium-card:hover,
+  a.premium-card:hover,
+  .premium-card[role='button']:hover,
+  .premium-card.cursor-pointer:hover {
+    border-color: color-mix(in srgb, #1E4ED8 22%, transparent);
+    box-shadow: 0 4px 12px rgba(30, 58, 138, 0.08);
   }
   
   /* Button Styles */

@@ -281,8 +281,8 @@ function DemoHumanResourcesPage() {
       <div className="sticky top-0 z-20 -mx-[var(--page-padding)] px-[var(--page-padding)] py-3 md:mx-0 md:px-0 bg-background/90 backdrop-blur-md border-b border-white/40 md:border-0">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-[#1E4ED8]">Human Resources</h1>
-            <p className="text-sm text-gray-500 mt-1">Staff lifecycle, role governance, attendance, and performance across VitaLink facilities</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Human Resources</h1>
+            <p className="text-sm text-gray-500 mt-1">Staff records, roles, attendance and performance</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Popover>

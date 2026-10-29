@@ -27,14 +27,16 @@ def chunk_text(text: str, size: int = CHUNK_CHARS, overlap: int = OVERLAP_CHARS)
     return chunks
 
 
-def embed(openai_client, texts: list[str]) -> list[list[float]]:
+def embed(openai_client, texts: list[str], usage=None) -> list[list[float]]:
     response = openai_client.embeddings.create(model=get_settings().embedding_model, input=texts)
+    if usage is not None:
+        usage.add_embed(response)
     return [item.embedding for item in response.data]
 
 
-def store(supabase, openai_client, *, text: str, source_url: str, title: str, source_type: str) -> list[str]:
+def store(supabase, openai_client, *, text: str, source_url: str, title: str, source_type: str, usage=None) -> list[str]:
     chunks = chunk_text(text)
-    vectors = embed(openai_client, chunks)
+    vectors = embed(openai_client, chunks, usage)
     rows = [
         {"source_url": source_url, "title": title, "chunk_index": i, "chunk_text": chunk, "embedding": vector, "source_type": source_type}
         for i, (chunk, vector) in enumerate(zip(chunks, vectors))
@@ -43,8 +45,8 @@ def store(supabase, openai_client, *, text: str, source_url: str, title: str, so
     return [row["id"] for row in (result.data or [])]
 
 
-def search(supabase, openai_client, query: str, top_k: int = 5, min_similarity: float = 0.2) -> list[KnowledgeChunk]:
-    [vector] = embed(openai_client, [query])
+def search(supabase, openai_client, query: str, top_k: int = 5, min_similarity: float = 0.2, usage=None) -> list[KnowledgeChunk]:
+    [vector] = embed(openai_client, [query], usage)
     result = supabase.rpc(
         "vitamind_match_knowledge", {"query_embedding": vector, "match_count": top_k, "min_similarity": min_similarity}
     ).execute()

@@ -513,7 +513,7 @@ export function PharmacyPage() {
     return (
       <div className="premium-card p-8 text-center page-transition">
         <h1 className="text-xl font-semibold text-gray-900">Pharmacy</h1>
-        <p className="text-sm text-gray-500 mt-2">Pharmacy is locked on your plan. Upgrade to Pro.</p>
+        <p className="text-sm text-gray-500 mt-2">Pharmacy is not included in your plan. Upgrade from Subscription to use it.</p>
       </div>
     );
   }
@@ -523,8 +523,8 @@ export function PharmacyPage() {
       <div className="sticky top-0 z-20 -mx-[var(--page-padding)] px-[var(--page-padding)] py-3 md:mx-0 md:px-0 bg-background/90 backdrop-blur-md border-b border-white/50 md:border-0">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-[#1E4ED8]">Pharmacy</h1>
-            <p className="text-sm text-gray-500 mt-1">VitaLink iOS-glass pharmacy workflow with EMR/Billing integrations.</p>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Pharmacy</h1>
+            <p className="text-sm text-gray-500 mt-1">Drug stock, prescriptions and dispensing, linked to patient records and billing.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {isDoctor && (
@@ -566,11 +566,11 @@ export function PharmacyPage() {
                 </div>
               </PopoverContent>
             </Popover>
-            <Button data-tour-id="pharmacy-add-stock" className="gap-2 rounded-xl bg-gradient-to-r from-[#1E4ED8] to-[#1E3A8A] text-white hover:shadow-lg" onClick={() => setAddStockOpen(true)} disabled={!canCreate}>
+            <Button data-tour-id="pharmacy-add-stock" className="gap-2 rounded-xl bg-gradient-to-r from-[#1E4ED8] to-[#1E3A8A] text-white hover:shadow-md" onClick={() => setAddStockOpen(true)} disabled={!canCreate}>
               <Plus className="w-4 h-4" />
               Add Stock
             </Button>
-            <Button data-tour-id="pharmacy-dispense" className="gap-2 rounded-xl bg-emerald-600 text-white hover:shadow-lg" onClick={() => setDispenseOpen(true)} disabled={!(isPharmacist || currentRole === 'super-admin' || isHospitalAdmin)}>
+            <Button data-tour-id="pharmacy-dispense" className="gap-2 rounded-xl bg-emerald-600 text-white hover:shadow-md" onClick={() => setDispenseOpen(true)} disabled={!(isPharmacist || currentRole === 'super-admin' || isHospitalAdmin)}>
               <ShoppingCart className="w-4 h-4" />
               Dispense
             </Button>
@@ -579,25 +579,25 @@ export function PharmacyPage() {
       </div>
 
       <div className="dashboard-stat-grid">
-        <button type="button" className="glass-panel premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowLow(false); setShowExpiring(false); setShowOutOfStock(false); }}>
+        <button type="button" className="glass-panel premium-card p-4 text-left transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowLow(false); setShowExpiring(false); setShowOutOfStock(false); }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center"><Package className="w-5 h-5 text-purple-600" /></div>
             <div className="min-w-0"><p className="text-xl font-bold text-gray-900 dark:text-slate-50 truncate tabular-nums">{totalItems}</p><p className="text-xs text-gray-500 dark:text-slate-400 truncate">Total Items</p></div>
           </div>
         </button>
-        <button type="button" className="glass-panel premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowLow(true); setShowExpiring(false); setShowOutOfStock(false); }}>
+        <button type="button" className="glass-panel premium-card p-4 text-left transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowLow(true); setShowExpiring(false); setShowOutOfStock(false); }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center"><AlertTriangle className="w-5 h-5 text-red-600" /></div>
             <div className="min-w-0"><p className="text-xl font-bold text-red-600 truncate tabular-nums">{lowStockCount}</p><p className="text-xs text-gray-500 dark:text-slate-400 truncate">Low Stock</p></div>
           </div>
         </button>
-        <button type="button" className="glass-panel premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowExpiring(true); setShowLow(false); setShowOutOfStock(false); }}>
+        <button type="button" className="glass-panel premium-card p-4 text-left transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('inventory'); setShowExpiring(true); setShowLow(false); setShowOutOfStock(false); }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center"><TrendingDown className="w-5 h-5 text-amber-600" /></div>
             <div className="min-w-0"><p className="text-xl font-bold text-amber-600 truncate tabular-nums">{expiringSoonCount}</p><p className="text-xs text-gray-500 dark:text-slate-400 truncate">Expiring Soon</p></div>
           </div>
         </button>
-        <button type="button" className="glass-panel premium-card p-4 text-left hover:shadow-md transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('dispensations'); setShowRecentDispensed(true); }}>
+        <button type="button" className="glass-panel premium-card p-4 text-left transition-all card-equal-height h-full min-w-0 overflow-hidden" onClick={() => { setActiveTab('dispensations'); setShowRecentDispensed(true); }}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center"><ShoppingCart className="w-5 h-5 text-green-600" /></div>
             <div className="min-w-0"><p className="text-xl font-bold text-gray-900 dark:text-slate-50 truncate tabular-nums">{dispensedToday}</p><p className="text-xs text-gray-500 dark:text-slate-400 truncate">Dispensed Today</p></div>
@@ -830,7 +830,7 @@ export function PharmacyPage() {
       {/* Offline demo only: these integrations are not connected in live workspaces. */}
       {!isSupabaseConfigured && (
       <div className="glass-panel premium-card p-4 border border-white/60">
-        <h3 className="font-semibold text-[#1E4ED8] mb-2">Smart automation & integrations</h3>
+        <h3 className="font-semibold text-slate-900 dark:text-slate-50 mb-2">Smart automation & integrations</h3>
         <div className="grid md:grid-cols-2 gap-3 text-sm text-gray-600 dark:text-slate-400">
           <p className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-indigo-500" /> VitaMind AI: low-stock and weekly high-usage insights.</p>
           <p className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500" /> EMR: prescription pull + dispensed status updates.</p>

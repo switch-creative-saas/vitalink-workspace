@@ -190,7 +190,7 @@ function BookAppointmentModal({ open, onClose }: { open: boolean; onClose: () =>
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
-          <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
+          <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2">
             <CalendarPlus className="w-5 h-5" />
             Book Appointment
           </DialogTitle>
@@ -294,7 +294,7 @@ function OrderLabModal({ open, onClose }: { open: boolean; onClose: () => void }
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
-          <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
+          <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2">
             <FlaskConical className="w-5 h-5" />
             Order Lab Test
           </DialogTitle>
@@ -384,7 +384,7 @@ function DispenseModal({ open, onClose }: { open: boolean; onClose: () => void }
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
-          <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
+          <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2">
             <Pill className="w-5 h-5" />
             Dispense Medication
           </DialogTitle>
@@ -683,7 +683,7 @@ export function DashboardPage() {
 
   const navigateToAppointments = () => {
     if (!canOpenAppointmentsHub(currentRole) || !canView('Appointments')) {
-      toast.error('RBAC: Your role cannot open the full appointments module.');
+      toast.error('Your role cannot open Appointments.');
       return;
     }
     preserveDashboardContext({
@@ -961,7 +961,7 @@ export function DashboardPage() {
             <button
               type="button"
               onClick={() => toast.info('Opening VitaMind Insights...')}
-              className="w-full mt-3 py-2 px-4 rounded-xl bg-gradient-vitamind text-white text-sm font-medium hover:shadow-lg hover:shadow-vitamind-500/25 transition-all duration-200 min-w-0"
+              className="w-full mt-3 py-2 px-4 rounded-xl bg-gradient-vitamind text-white text-sm font-medium hover:brightness-105 transition-all duration-200 min-w-0"
             >
               Open VitaMind
             </button>
@@ -1043,7 +1043,7 @@ export function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="p-4 sm:p-6 space-y-4 border-b lg:border-b-0 lg:border-r border-gray-100 dark:border-slate-700">
                 <DialogHeader>
-                  <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
+                  <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2">
                     <CalendarCheck className="w-5 h-5" />
                     Quick Appointment Hub
                   </DialogTitle>

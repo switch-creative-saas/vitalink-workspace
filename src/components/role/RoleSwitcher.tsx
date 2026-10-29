@@ -41,7 +41,7 @@ export function RoleSwitcher() {
         </div>
         <div>
           <h3 className="font-semibold text-gray-900">Role Simulation</h3>
-          <p className="text-sm text-gray-500">Change roles to test RBAC</p>
+          <p className="text-sm text-gray-500">Preview the app as another role</p>
         </div>
       </div>
 

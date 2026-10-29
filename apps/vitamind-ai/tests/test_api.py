@@ -49,12 +49,17 @@ class FakeSupabase:
     def __init__(self):
         self.saved: dict[str, list] = {}
         self.rpc_calls: list = []
+        self.usage_today = {"requests": 0, "tokens": 0}
 
     def table(self, name):
         return FakeQuery(self, name)
 
     def rpc(self, name, params):
         self.rpc_calls.append((name, params))
+        if name == "ai_usage_today":
+            return SimpleNamespace(execute=lambda: SimpleNamespace(data=self.usage_today))
+        if name == "ai_usage_add":
+            return SimpleNamespace(execute=lambda: SimpleNamespace(data=None))
         return SimpleNamespace(execute=lambda: SimpleNamespace(data=[CHUNK]))
 
 
@@ -121,7 +126,41 @@ def test_embed_chunks_and_stores(fakes):
 def test_search_returns_chunks(fakes):
     r = fakes.client.post("/search", headers=AUTH, json={"query": "fever and chills", "top_k": 3})
     assert r.status_code == 200 and r.json()[0]["title"] == CHUNK["title"]
-    assert fakes.db.rpc_calls[0][0] == "vitamind_match_knowledge" and fakes.db.rpc_calls[0][1]["match_count"] == 3
+    [match] = [params for name, params in fakes.db.rpc_calls if name == "vitamind_match_knowledge"]
+    assert match["match_count"] == 3
+
+
+def test_daily_budget_blocks_paid_calls(fakes):
+    fakes.db.usage_today = {"requests": 10**9, "tokens": 0}
+    r = fakes.client.post("/search", headers=AUTH, json={"query": "fever"})
+    assert r.status_code == 429
+    assert not [name for name, _ in fakes.db.rpc_calls if name == "vitamind_match_knowledge"]
+
+
+def test_usage_is_recorded(fakes):
+    fakes.client.post("/search", headers=AUTH, json={"query": "fever"})
+    assert ("ai_usage_add", {"p_kind": "embed", "p_requests": 1, "p_tokens": 0}) in fakes.db.rpc_calls
+
+
+def test_rejects_oversized_input(fakes):
+    r = fakes.client.post("/diagnose", headers=AUTH, json={"session_id": "s", "chief_complaint": "x" * 2001})
+    assert r.status_code == 422
+    big = fakes.client.post("/embed", headers={**AUTH, "content-length": "5000000"}, content=b"{}")
+    assert big.status_code == 413
+
+
+def test_per_minute_rate_limit(fakes, monkeypatch):
+    from app import limits
+    monkeypatch.setattr(limits, "_recent", limits.deque())
+    statuses = []
+    original = get_settings().max_requests_per_minute
+    try:
+        object.__setattr__(get_settings(), "max_requests_per_minute", 2)
+        for _ in range(3):
+            statuses.append(fakes.client.post("/search", headers=AUTH, json={"query": "fever"}).status_code)
+    finally:
+        object.__setattr__(get_settings(), "max_requests_per_minute", original)
+    assert statuses == [200, 200, 429]
 
 
 def test_diagnose_end_to_end(fakes):

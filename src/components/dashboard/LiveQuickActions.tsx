@@ -137,7 +137,7 @@ export function LiveBookAppointmentDialog({ open, onClose, initialPatient }: { o
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
       <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
-          <DialogTitle className="text-[#1E4ED8] flex items-center gap-2"><CalendarPlus className="w-5 h-5" />Book Appointment</DialogTitle>
+          <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2"><CalendarPlus className="w-5 h-5" />Book Appointment</DialogTitle>
           <DialogDescription>Times come from the clinician's schedule; booked slots are hidden.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 mt-2">
@@ -236,7 +236,7 @@ export function LiveOrderLabDialog({ open, onClose, initialPatient }: { open: bo
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
       <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
-          <DialogTitle className="text-[#1E4ED8] flex items-center gap-2"><FlaskConical className="w-5 h-5" />Order Lab Test</DialogTitle>
+          <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2"><FlaskConical className="w-5 h-5" />Order Lab Test</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 mt-2">
           <div>
@@ -367,7 +367,7 @@ export function LiveDispenseDialog({ open, onClose }: { open: boolean; onClose: 
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
       <DialogContent className="sm:max-w-lg bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
-          <DialogTitle className="text-[#1E4ED8] flex items-center gap-2"><Pill className="w-5 h-5" />Dispense Medication</DialogTitle>
+          <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2"><Pill className="w-5 h-5" />Dispense Medication</DialogTitle>
           <DialogDescription>Dispenses against an active prescription and deducts the chosen stock batch.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4 mt-2">
@@ -486,7 +486,7 @@ export function PatientLookupDialog({ open, mode, onClose }: { open: boolean; mo
     <Dialog open={open} onOpenChange={(next) => !next && close()}>
       <DialogContent className="sm:max-w-md bg-white/95 backdrop-blur-xl dark:bg-slate-900">
         <DialogHeader>
-          <DialogTitle className="text-[#1E4ED8] flex items-center gap-2">
+          <DialogTitle className="text-slate-900 dark:text-slate-50 flex items-center gap-2">
             {mode === 'nfc' ? <Nfc className="w-5 h-5" /> : <QrCode className="w-5 h-5" />}
             {mode === 'nfc' ? 'Identify by VitaCard' : 'Scan patient QR'}
           </DialogTitle>

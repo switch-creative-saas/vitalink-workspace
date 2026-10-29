@@ -183,7 +183,7 @@ export function LiveAdministration() {
     <div className="space-y-4 md:space-y-6 page-transition">
       <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E4ED8]">Administration</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Administration</h1>
           <p className="text-sm text-gray-500 mt-1">Departments, staff placement and operating settings for {organization.name}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

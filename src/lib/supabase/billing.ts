@@ -282,14 +282,83 @@ export async function listPayments(organizationId: string): Promise<BillingPayme
   }));
 }
 
-export async function recordPayment(invoiceId: string, amount: number, method: PaymentMethod, reference?: string) {
-  const { error } = await requireSupabase().from('invoice_payments').insert({
+/** Returns the new payment's id (its receipt is written by the database in the same transaction). */
+export async function recordPayment(invoiceId: string, amount: number, method: PaymentMethod, reference?: string): Promise<string> {
+  const { data, error } = await requireSupabase().from('invoice_payments').insert({
     invoice_id: invoiceId,
     amount_kobo: toKobo(amount),
     method,
     reference: reference?.trim() || null,
-  });
+  }).select('id').single();
   if (error) throw friendly(error, 'record payments');
+  return (data as { id: string }).id;
+}
+
+// ---------- receipts ----------
+
+/** Written by the database for every payment, with the hospital's details as they were at payment time. */
+export interface PaymentReceipt {
+  id: string;
+  paymentId: string;
+  number: string;
+  facilityName: string;
+  facilityAddress: string;
+  facilityPhone: string;
+  facilityEmail: string;
+  patientName: string;
+  patientSwitchId: string;
+  invoiceNumber: string;
+  amount: number;
+  method: PaymentMethod;
+  reference: string;
+  invoiceTotal: number;
+  paidToDate: number;
+  balance: number;
+  items: Array<{ description: string; quantity: number; unitPrice: number; total: number }>;
+  receivedBy: string;
+  issuedAt: string;
+}
+
+interface ReceiptRow {
+  id: string; payment_id: string; receipt_number: string; facility_name: string; facility_address: string | null;
+  facility_phone: string | null; facility_email: string | null; patient_name: string; patient_switch_id: string | null;
+  invoice_number: string; amount_kobo: number; method: PaymentMethod; reference: string | null; invoice_total_kobo: number;
+  paid_to_date_kobo: number; balance_kobo: number; received_by_name: string | null; issued_at: string;
+  items: Array<{ description: string; quantity: number; unit_price_kobo: number; total_kobo: number }>;
+}
+
+const receiptFromRow = (row: ReceiptRow): PaymentReceipt => ({
+  id: row.id,
+  paymentId: row.payment_id,
+  number: row.receipt_number,
+  facilityName: row.facility_name,
+  facilityAddress: row.facility_address ?? '',
+  facilityPhone: row.facility_phone ?? '',
+  facilityEmail: row.facility_email ?? '',
+  patientName: row.patient_name,
+  patientSwitchId: row.patient_switch_id ?? '',
+  invoiceNumber: row.invoice_number,
+  amount: toNaira(row.amount_kobo),
+  method: row.method,
+  reference: row.reference ?? '',
+  invoiceTotal: toNaira(row.invoice_total_kobo),
+  paidToDate: toNaira(row.paid_to_date_kobo),
+  balance: toNaira(row.balance_kobo),
+  items: (row.items ?? []).map((item) => ({ description: item.description, quantity: item.quantity, unitPrice: toNaira(item.unit_price_kobo), total: toNaira(item.total_kobo) })),
+  receivedBy: row.received_by_name ?? '',
+  issuedAt: row.issued_at,
+});
+
+export async function listInvoiceReceipts(invoiceId: string): Promise<PaymentReceipt[]> {
+  const { data, error } = await requireSupabase().from('payment_receipts').select('*').eq('invoice_id', invoiceId).order('issued_at');
+  if (error) throw friendly(error, 'view receipts');
+  return (data as ReceiptRow[]).map(receiptFromRow);
+}
+
+export async function getPaymentReceipt(paymentId: string): Promise<PaymentReceipt | null> {
+  const { data, error } = await requireSupabase().from('payment_receipts').select('*').eq('payment_id', paymentId).maybeSingle();
+  if (error) throw friendly(error, 'view receipts');
+  return data ? receiptFromRow(data as ReceiptRow) : null;
 }
 
 // ---------- HMO claims ----------

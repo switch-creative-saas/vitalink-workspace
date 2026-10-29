@@ -33,7 +33,7 @@ import { printDocument } from '@/lib/printDocument';
 import { toast } from 'sonner';
 import { findPatientBySwitchId, type RegistryPatient } from '@/lib/patientRegistry';
 import { SENTINEL_CLINICAL_EVENT, type SentinelClinicalPayload } from '@/lib/sentinel/events';
-import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { isSupabaseConfigured, requireSupabase } from '@/lib/supabase/client';
 import { ReceivedRecordsPanel } from '@/components/network/ReceivedRecordsPanel';
 import { ConnectedEmrRecords } from '@/components/patients/ConnectedEmrRecords';
 import {
@@ -217,6 +217,12 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   const patientId = patient?.id;
   const organizationId = organization.id;
 
+  // Every opening of a record is written to the audit log (who looked at which patient).
+  useEffect(() => {
+    if (!isSupabaseConfigured || !patientId) return;
+    void requireSupabase().rpc('audit_record_view', { p_patient_id: patientId, p_section: 'emr' }).then(() => undefined, () => undefined);
+  }, [patientId]);
+
   const refreshClinical = useCallback(async () => {
     if (!isSupabaseConfigured || !patientId) return;
     try {
@@ -393,7 +399,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
 
   const launchClinicalEditor = () => {
     if (!canCreateClinical) {
-      toast.error('RBAC: only doctors can create clinical notes.');
+      toast.error('Only doctors can write clinical notes.');
       return;
     }
     setActiveNoteId(null);
@@ -419,7 +425,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
 
   const saveClinicalNote = () => {
     if (!canEditClinical || noteLocked) {
-      toast.error('RBAC or signature lock prevents editing this note.');
+      toast.error('This note is signed or your role cannot edit it.');
       return;
     }
     saveDraft();
@@ -540,7 +546,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
 
   const addLabResult = () => {
     if (!canUploadLab || !patientId) {
-      toast.error('RBAC: your role cannot upload lab results.');
+      toast.error('Your role cannot upload lab results.');
       return;
     }
     if (!labForm.testName.trim()) {
@@ -623,7 +629,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
       return;
     }
     if (!canUploadLab) {
-      toast.error('RBAC: your role cannot upload lab results.');
+      toast.error('Your role cannot upload lab results.');
       return;
     }
     const newLab: LabResultItem = {
@@ -701,7 +707,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
 
   const uploadDocument = () => {
     if (!canUploadDocuments) {
-      toast.error('RBAC: your role cannot upload to document vault.');
+      toast.error('Your role cannot upload documents.');
       return;
     }
     if (isSupabaseConfigured) {
@@ -725,7 +731,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   };
 
   if (!emrReadAllowed) {
-    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Access denied by EMR RBAC policy.</div>;
+    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Your role does not have access to medical records.</div>;
   }
   if (patientSwitchId && patientLoading) {
     return <div className="rounded-2xl border border-gray-100 bg-white p-6 text-sm text-gray-500">Loading patient record...</div>;
@@ -753,8 +759,8 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
       </div>
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">Electronic Medical Records</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">Government-grade clinical documentation, lab intelligence, and secure document vault.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Electronic Medical Records</h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400">Clinical notes, vitals, lab results, prescriptions and documents for each patient.</p>
         </div>
         <div className="flex gap-2">
           <Button data-tour-id="emr-new-note" className="bg-gradient-to-r from-royal-600 to-royal-800 text-white gap-2" onClick={launchClinicalEditor}>

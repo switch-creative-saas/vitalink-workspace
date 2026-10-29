@@ -24,6 +24,7 @@ import {
   type StaffInvitation,
   type StaffMember,
 } from '@/lib/supabase/staff';
+import { resetMemberMfa } from '@/lib/supabase/mfa';
 
 const ADMIN_ROLES: UserRole[] = ['super-admin', 'hospital-admin', 'ngo-admin', 'government-admin'];
 // Suggestions only until the workspace creates its own departments in Administration.
@@ -169,6 +170,17 @@ export function StaffManagement() {
     }
   };
 
+  // Lost phone: clears their authenticator so they set up two-step verification again at next sign-in.
+  const resetTwoStep = async (member: StaffMember) => {
+    if (!window.confirm(`Reset two-step verification for ${member.fullName}? Only do this after confirming who they are (in person or by phone). They'll set it up again the next time they sign in.`)) return;
+    try {
+      await resetMemberMfa(member.membershipId);
+      toast.success('Two-step verification reset', { description: 'Recorded in the audit log.' });
+    } catch (error) {
+      toast.error(errorText(error, 'Could not reset two-step verification'));
+    }
+  };
+
   const remove = async (member: StaffMember) => {
     if (!window.confirm(`Remove ${member.fullName} from ${organization.name}? Their records stay; they lose access.`)) return;
     try {
@@ -217,7 +229,7 @@ export function StaffManagement() {
     <div className="space-y-4 md:space-y-6 page-transition">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1E4ED8]">Human Resources</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Human Resources</h1>
           <p className="mt-1 text-sm text-gray-500">Staff, roles and clinic schedules for {organization.name}.</p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -311,6 +323,7 @@ export function StaffManagement() {
                         {isAdmin && !isSelf(member) && (
                           <>
                             <Button size="sm" variant="outline" onClick={() => void toggleSuspend(member)}>{member.status === 'suspended' ? 'Reactivate' : 'Suspend'}</Button>
+                            {member.status === 'active' && <Button size="sm" variant="outline" title="Reset two-step verification (lost phone)" onClick={() => void resetTwoStep(member)}>Reset 2FA</Button>}
                             <Button size="sm" variant="outline" className="text-red-600" onClick={() => void remove(member)}><Trash2 className="h-3.5 w-3.5" /></Button>
                           </>
                         )}

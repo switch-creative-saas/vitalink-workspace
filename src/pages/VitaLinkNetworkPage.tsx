@@ -135,7 +135,7 @@ function DemoVitaLinkNetworkPage() {
   ];
 
   if (!canView('Administration')) {
-    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Access denied by RBAC policy.</div>;
+    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Your role does not have access to the network.</div>;
   }
   if (!hasAccess('multi_hospital')) {
     return <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-800">Multi-hospital networking is an Enterprise feature. Upgrade to continue.</div>;
@@ -235,7 +235,7 @@ function DemoVitaLinkNetworkPage() {
       <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">{BRAND.network}</h1>
-          <p className="text-sm text-slate-600 dark:text-slate-400">Frontend-only inter-hospital directory, referral, consent, portability, and transfer workflow.</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">Find hospitals on VitaLink, refer or transfer patients, and share records with the patient's consent.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select className="h-10 rounded-md border border-input bg-white px-3 text-sm text-slate-900 dark:bg-slate-900/50 dark:text-slate-50" value={state.activeOrganizationId} onChange={(event) => workflow.setActiveOrganization(event.target.value)}>
@@ -445,7 +445,7 @@ function DirectoryFilters({ filters, setFilters }: { filters: typeof emptyFilter
 
 function OrganizationCard({ organization, selected, onSelect, onTransfer, canCreate, statusTone }: { organization: NetworkOrganization; selected: boolean; onSelect: () => void; onTransfer: () => void; canCreate: boolean; statusTone: (status: string) => string }) {
   return (
-    <button type="button" onClick={onSelect} className={cn('rounded-2xl border bg-white/75 p-4 text-left shadow-soft transition-all hover:shadow-lg dark:bg-slate-800/80', selected ? 'border-royal-300 ring-2 ring-royal-100 dark:border-blue-500 dark:ring-blue-900/50' : 'border-white/70 dark:border-slate-700')}>
+    <button type="button" onClick={onSelect} className={cn('rounded-2xl border bg-white/75 p-4 text-left shadow-soft transition-all hover:shadow-md dark:bg-slate-800/80', selected ? 'border-royal-300 ring-2 ring-royal-100 dark:border-blue-500 dark:ring-blue-900/50' : 'border-white/70 dark:border-slate-700')}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-semibold text-slate-900 dark:text-slate-50 truncate">{organization.name}</h3>

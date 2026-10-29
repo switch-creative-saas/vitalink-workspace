@@ -21,11 +21,14 @@ import { uploadDocument } from '@/lib/supabase/documents';
 import { listCliniciansRemote } from '@/lib/supabase/appointments';
 import type { AppointmentDoctor } from '@/contexts/AppointmentContext';
 import {
-  createSession, listSessions, subscribeToSessions, updateSession, visitLink, type TeleSession,
+  createSession, listExternalConferences, listNetworkSpecialists, listSessions, saveExternalSummary, subscribeToMyInvitations,
+  subscribeToSessions, updateSession, visitLink, type NetworkSpecialist, type TeleSession,
 } from '@/lib/supabase/telemedicine';
+import { listDirectory, type NetworkFacility } from '@/lib/supabase/network';
 import { openCameraAndMic, VideoCall, type CallState } from '@/lib/telemedicine/videoCall';
 import { TELEMEDICINE_HANDOFF_KEY } from '@/lib/handoffs';
 import { timeAgo } from '@/lib/timeAgo';
+import { BRAND } from '@/config/brand';
 
 type Tab = 'consultation' | 'conference';
 const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
@@ -55,6 +58,7 @@ export function LiveTelemedicine() {
   const organizationId = organization.id;
   const [tab, setTab] = useState<Tab>('consultation');
   const [sessions, setSessions] = useState<TeleSession[]>([]);
+  const [invitations, setInvitations] = useState<TeleSession[]>([]);
   const [me, setMe] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [active, setActive] = useState<{ session: TeleSession; role: 'host' | 'guest' } | null>(null);
@@ -64,6 +68,8 @@ export function LiveTelemedicine() {
 
   const reload = useCallback(() => {
     listSessions(organizationId).then(setSessions).catch((error) => toast.error(errorText(error, 'Could not load telemedicine sessions')));
+    // Conferences other network hospitals invited me to.
+    listExternalConferences(organizationId).then(setInvitations).catch(() => setInvitations([]));
   }, [organizationId]);
 
   useEffect(() => {
@@ -74,8 +80,10 @@ export function LiveTelemedicine() {
     return () => { unsubscribe(); window.clearInterval(timer); };
   }, [organizationId, reload]);
 
+  useEffect(() => (me ? subscribeToMyInvitations(me, reload) : undefined), [me, reload]);
+
   // Keep the open call's session row fresh (status, consent, summary).
-  const activeSession = active ? sessions.find((item) => item.id === active.session.id) ?? active.session : null;
+  const activeSession = active ? [...sessions, ...invitations].find((item) => item.id === active.session.id) ?? active.session : null;
 
   // "Join Telemedicine" on an appointment hands over the appointment id.
   // Cleared once used (not here: StrictMode runs initializers twice).
@@ -108,7 +116,7 @@ export function LiveTelemedicine() {
     <div className="space-y-4 page-transition">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">Telemedicine Suite</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Telemedicine Suite</h1>
           <p className="text-sm text-gray-500">Video visits with patients and specialist conferences, with the patient record alongside.</p>
         </div>
         <div className="rounded-xl px-3 py-2 bg-green-50 text-green-700 text-xs flex items-center gap-2">
@@ -120,7 +128,7 @@ export function LiveTelemedicine() {
       <div data-tour-id="telemedicine-modes" className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit dark:bg-slate-800">
         {[
           { id: 'consultation' as const, label: 'Patient Consultation', count: waitingRoom.filter((item) => isWaitingNow(item, now)).length },
-          { id: 'conference' as const, label: 'Specialist Conference', count: conferences.filter((item) => item.guestId === me && item.status !== 'ended' && item.status !== 'cancelled').length },
+          { id: 'conference' as const, label: 'Specialist Conference', count: [...conferences.filter((item) => item.guestId === me), ...invitations].filter((item) => item.status !== 'ended' && item.status !== 'cancelled').length },
         ].map((item) => (
           <button
             key={item.id}
@@ -195,6 +203,7 @@ export function LiveTelemedicine() {
           canConference={canConference}
           organizationId={organizationId}
           conferences={conferences}
+          invitations={invitations}
           onJoin={join}
           onChanged={reload}
         />
@@ -307,11 +316,12 @@ function NewVisitCard({ canRun, appointments, handoffAppointmentId, onHandoffUse
 
 // ---------------------------------------------------------------------------
 
-function ConferencePanel({ me, canConference, organizationId, conferences, onJoin, onChanged }: {
+function ConferencePanel({ me, canConference, organizationId, conferences, invitations, onJoin, onChanged }: {
   me: string | null;
   canConference: boolean;
   organizationId: string;
   conferences: TeleSession[];
+  invitations: TeleSession[];
   onJoin: (session: TeleSession, role: 'host' | 'guest') => void;
   onChanged: () => void;
 }) {
@@ -320,19 +330,45 @@ function ConferencePanel({ me, canConference, organizationId, conferences, onJoi
   const [guestId, setGuestId] = useState('');
   const [consent, setConsent] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Specialists can come from this hospital or any network hospital that offers telemedicine.
+  const [source, setSource] = useState<'internal' | 'network'>('internal');
+  const [directory, setDirectory] = useState<NetworkFacility[] | null>(null);
+  const [facilityId, setFacilityId] = useState('');
+  const [specialists, setSpecialists] = useState<NetworkSpecialist[] | null>(null);
+  const [caseNote, setCaseNote] = useState('');
 
   useEffect(() => {
     listCliniciansRemote(organizationId).then(setColleagues).catch(() => setColleagues([]));
+    listDirectory().then(setDirectory).catch(() => setDirectory([]));
   }, [organizationId]);
 
+  const onNetwork = Boolean(directory?.some((item) => item.isMine));
+  const hospitals = (directory ?? []).filter((item) => !item.isMine && item.telemedicine);
+  const facility = hospitals.find((item) => item.organizationId === facilityId) ?? null;
+
+  const chooseFacility = (id: string) => {
+    setFacilityId(id);
+    setGuestId('');
+    setSpecialists(null);
+    if (id) listNetworkSpecialists(id).then(setSpecialists).catch((error) => { toast.error(errorText(error, 'Could not load specialists')); setSpecialists([]); });
+  };
+
+  const external = source === 'network';
+  const ready = Boolean(patient && guestId && consent && (!external || (facilityId && caseNote.trim().length >= 10)));
+
   const invite = async () => {
-    if (!patient || !guestId || !consent) return;
+    if (!patient || !ready) return;
     setSaving(true);
     try {
-      const result = await createSession({ patientId: patient.id, kind: 'conference', guestId });
+      const result = await createSession({
+        patientId: patient.id, kind: 'conference', guestId,
+        guestOrganizationId: external ? facilityId : null, caseSummary: caseNote,
+      });
       await updateSession(result.id, { consent: true });
-      toast.success('Specialist invited', { description: 'They see it under Specialist Conference; start it when ready.' });
-      setPatient(null); setGuestId(''); setConsent(false);
+      toast.success('Specialist invited', {
+        description: external ? `They see it in their own VitaLink workspace at ${facility?.name ?? 'their hospital'}. Start it when ready.` : 'They see it under Specialist Conference; start it when ready.',
+      });
+      setPatient(null); setGuestId(''); setConsent(false); setCaseNote('');
       onChanged();
     } catch (error) {
       toast.error(errorText(error, 'Could not create the conference'));
@@ -342,6 +378,7 @@ function ConferencePanel({ me, canConference, organizationId, conferences, onJoi
   };
 
   const open = conferences.filter((item) => item.status !== 'ended' && item.status !== 'cancelled');
+  const openInvitations = invitations.filter((item) => item.status !== 'ended' && item.status !== 'cancelled');
   const others = colleagues.filter((item) => item.id !== me);
 
   return (
@@ -358,17 +395,58 @@ function ConferencePanel({ me, canConference, organizationId, conferences, onJoi
               <PatientSearch value={patient} onChange={setPatient} />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Specialist to invite</label>
-              <select className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white dark:border-slate-700 dark:bg-slate-900/50" value={guestId} onChange={(e) => setGuestId(e.target.value)}>
-                <option value="">{others.length ? 'Select a colleague' : 'No other clinicians in this workspace yet'}</option>
-                {others.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.department}</option>)}
-              </select>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Invite a specialist from</label>
+              <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit dark:bg-slate-900/60">
+                {([['internal', 'This hospital'], ['network', 'Another hospital']] as const).map(([id, label]) => (
+                  <button key={id} type="button" onClick={() => { setSource(id); setGuestId(''); }} className={cn('rounded-md px-3 py-1.5 text-sm', source === id ? 'bg-white text-royal-700 shadow-sm dark:bg-slate-800 dark:text-blue-300' : 'text-gray-600 hover:text-gray-900 dark:text-slate-400')}>{label}</button>
+                ))}
+              </div>
+            </div>
+            {!external ? (
+              <div>
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Specialist to invite</label>
+                <select className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white dark:border-slate-700 dark:bg-slate-900/50" value={guestId} onChange={(e) => setGuestId(e.target.value)}>
+                  <option value="">{others.length ? 'Select a colleague' : 'No other clinicians in this workspace yet'}</option>
+                  {others.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.department}</option>)}
+                </select>
+              </div>
+            ) : directory === null ? (
+              <p className="text-sm text-gray-500">Loading the network directory…</p>
+            ) : !onNetwork ? (
+              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">Your hospital isn’t on the {BRAND.network} yet. A workspace admin can join from the Network page; then you can invite specialists from other hospitals.</p>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Hospital</label>
+                    <select className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white dark:border-slate-700 dark:bg-slate-900/50" value={facilityId} onChange={(e) => chooseFacility(e.target.value)}>
+                      <option value="">{hospitals.length ? 'Select a hospital' : 'No network hospitals offer telemedicine yet'}</option>
+                      {hospitals.map((item) => <option key={item.organizationId} value={item.organizationId}>{item.name}{item.city || item.state ? ` · ${[item.city, item.state].filter(Boolean).join(', ')}` : ''}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Specialist</label>
+                    <select className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm bg-white dark:border-slate-700 dark:bg-slate-900/50" disabled={!facilityId} value={guestId} onChange={(e) => setGuestId(e.target.value)}>
+                      <option value="">{!facilityId ? 'Choose a hospital first' : specialists === null ? 'Loading…' : specialists.length ? 'Select a specialist' : 'No specialists available'}</option>
+                      {(specialists ?? []).map((item) => <option key={item.id} value={item.id}>{item.name}{item.title || item.department ? ` · ${item.title || item.department}` : ''}</option>)}
+                    </select>
+                  </div>
+                </div>
+                {facility && facility.specialties.length > 0 && <p className="text-xs text-gray-500">Specialties: {facility.specialties.join(', ')}</p>}
+              </>
+            )}
+            <div>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Case note for the specialist{external ? '' : ' (optional)'}</label>
+              <Textarea rows={3} maxLength={4000} value={caseNote} onChange={(e) => setCaseNote(e.target.value)} placeholder="Presenting problem, key findings and what you’d like advice on" />
+              {external && <p className="mt-1 text-[11px] text-gray-500">A specialist at another hospital sees this note and the patient’s name, age and sex, not your hospital’s records. Share anything else on the call.</p>}
             </div>
             <label className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
               <input type="checkbox" className="mt-1" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              The patient has agreed to their record being discussed with this specialist. (Recorded with your name and the time.)
+              {external
+                ? 'The patient has agreed to their case being discussed with a specialist at another hospital. (Recorded with your name and the time.)'
+                : 'The patient has agreed to their record being discussed with this specialist. (Recorded with your name and the time.)'}
             </label>
-            <Button className="bg-royal-700 hover:bg-royal-800 text-white" disabled={!patient || !guestId || !consent || saving} onClick={() => void invite()}>
+            <Button className="bg-royal-700 hover:bg-royal-800 text-white" disabled={!ready || saving} onClick={() => void invite()}>
               <Users className="w-4 h-4 mr-2" />{saving ? 'Inviting...' : 'Invite specialist'}
             </Button>
           </>
@@ -379,14 +457,23 @@ function ConferencePanel({ me, canConference, organizationId, conferences, onJoi
 
       <aside className="rounded-3xl border border-white/70 bg-white/70 backdrop-blur-xl p-4 shadow-soft space-y-3 min-w-0 dark:border-slate-700 dark:bg-slate-800/80">
         <h3 className="font-semibold text-gray-900 dark:text-slate-50">Conferences</h3>
-        {open.length === 0 && <p className="text-xs text-gray-500">No open conferences.</p>}
+        {open.length === 0 && openInvitations.length === 0 && <p className="text-xs text-gray-500">No open conferences.</p>}
+        {openInvitations.map((session) => (
+          <div key={session.id} className="rounded-xl border border-blue-200 bg-blue-50/60 p-3 space-y-2 dark:border-blue-500/30 dark:bg-blue-500/10">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">Invitation from {session.external?.hostFacility}</p>
+            <p className="text-sm font-medium text-gray-900 dark:text-slate-50">About {session.patientName}</p>
+            <p className="text-xs text-gray-500">{session.hostName} · {session.status === 'live' ? 'in progress' : `sent ${timeAgo(session.createdAt)}`}</p>
+            {session.caseSummary && <p className="whitespace-pre-wrap text-xs text-gray-700 dark:text-slate-300">{session.caseSummary}</p>}
+            <Button size="sm" className="bg-royal-700 text-white" onClick={() => onJoin(session, 'guest')}><PhoneCall className="w-3.5 h-3.5 mr-1" />Join</Button>
+          </div>
+        ))}
         {open.map((session) => {
           const iAmGuest = session.guestId === me;
           const iAmHost = session.hostId === me;
           return (
             <div key={session.id} className={cn('rounded-xl border p-3 space-y-2', iAmGuest ? 'border-blue-200 bg-blue-50/60' : 'border-gray-100 dark:border-slate-700')}>
               <p className="text-sm font-medium text-gray-900 dark:text-slate-50">About {session.patientName}</p>
-              <p className="text-xs text-gray-500">{session.hostName} → {session.guestName || 'specialist'} · {session.status === 'live' ? 'in progress' : `created ${timeAgo(session.createdAt)}`}</p>
+              <p className="text-xs text-gray-500">{session.hostName} → {session.guestName || 'specialist'}{session.guestFacility && session.guestFacility !== '' ? ` (${session.guestFacility})` : ''} · {session.status === 'live' ? 'in progress' : `created ${timeAgo(session.createdAt)}`}</p>
               <p className="text-[11px] text-gray-400">Consent recorded {session.consentAt ? new Date(session.consentAt).toLocaleString() : '—'}</p>
               <div className="flex gap-1.5">
                 {(iAmHost || iAmGuest) && (
@@ -464,7 +551,7 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
     setEnding(true);
     try {
       if (endForEveryone) await updateSession(session.id, { status: 'ended', summary });
-      else if (summary !== session.summary) await updateSession(session.id, { summary });
+      else if (summary !== session.summary) await saveSummary(summary);
       toast.success(endForEveryone ? 'Visit ended and summary saved' : 'You left the call');
     } catch (err) {
       toast.error(errorText(err, 'Could not save the session'));
@@ -474,6 +561,9 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
       onClose();
     }
   };
+
+  // A specialist from another hospital can only add to the summary of the inviting hospital's session.
+  const saveSummary = (text: string) => (session.external ? saveExternalSummary(session.id, text) : updateSession(session.id, { summary: text }));
 
   const toggleShare = async () => {
     const call = callRef.current;
@@ -516,6 +606,7 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-slate-50">{session.kind === 'conference' ? `Specialist conference · ${session.patientName}` : `Video visit · ${session.patientName}`}</h1>
+          {session.external && <p className="text-xs text-blue-700 dark:text-blue-300">Hosted by {session.hostName} at {session.external.hostFacility}</p>}
           <p className="text-xs text-gray-500">{stateText[state]}</p>
         </div>
         <div className="flex items-center gap-2 text-xs bg-gray-100 px-2.5 py-1.5 rounded-lg dark:bg-slate-800"><Timer className="w-3.5 h-3.5" />{session.startedAt ? `${minutes} min` : 'not started'}</div>
@@ -543,7 +634,7 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
             <Button variant="outline" onClick={() => { const next = !micOn; setMicOn(next); callRef.current?.setAudio(next); }}>{micOn ? <Mic className="w-4 h-4 mr-1" /> : <MicOff className="w-4 h-4 mr-1" />}{micOn ? 'Mute' : 'Unmute'}</Button>
             <Button variant="outline" onClick={() => { const next = !camOn; setCamOn(next); callRef.current?.setVideo(next); }}>{camOn ? <Video className="w-4 h-4 mr-1" /> : <VideoOff className="w-4 h-4 mr-1" />}{camOn ? 'Camera off' : 'Camera on'}</Button>
             <Button variant="outline" disabled={!connected || !navigator.mediaDevices?.getDisplayMedia} onClick={() => void toggleShare()}><MonitorUp className="w-4 h-4 mr-1" />{sharing ? 'Stop sharing' : 'Share screen'}</Button>
-            <Button variant="outline" onClick={() => fileInput.current?.click()}><FileUp className="w-4 h-4 mr-1" />Add file to record</Button>
+            {!session.external && <Button variant="outline" onClick={() => fileInput.current?.click()}><FileUp className="w-4 h-4 mr-1" />Add file to record</Button>}
             <input ref={fileInput} type="file" multiple accept=".pdf,image/*,.doc,.docx,.txt" className="hidden" onChange={(e) => void upload(e.target.files)} />
             {role === 'host' ? (
               <Button className="bg-red-600 hover:bg-red-700 text-white" disabled={ending} onClick={() => void leave(true)}><PhoneOff className="w-4 h-4 mr-1" />End {session.kind === 'conference' ? 'conference' : 'visit'}</Button>
@@ -556,19 +647,38 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
             <label className="text-sm font-semibold text-gray-900 dark:text-slate-50">{session.kind === 'conference' ? 'Case discussion summary' : 'Visit summary'}</label>
             <Textarea value={summary} onChange={(e) => setSummary(e.target.value)} rows={4} placeholder="Findings, advice given, follow-up plan..." />
             <div className="flex justify-between items-center gap-2">
-              <p className="text-[11px] text-gray-500">Saved with the session when the visit ends{role === 'guest' ? ' or when you leave' : ''}. Write the full SOAP note in the EMR.</p>
-              <Button size="sm" variant="outline" onClick={() => void updateSession(session.id, { summary }).then(() => toast.success('Summary saved')).catch((err) => toast.error(errorText(err, 'Could not save')))}>Save now</Button>
+              <p className="text-[11px] text-gray-500">Saved with the session when the visit ends{role === 'guest' ? ' or when you leave' : ''}.{session.external ? ` ${session.external.hostFacility} keeps it with the patient's record.` : ' Write the full SOAP note in the EMR.'}</p>
+              <Button size="sm" variant="outline" onClick={() => void saveSummary(summary).then(() => toast.success('Summary saved')).catch((err) => toast.error(errorText(err, 'Could not save')))}>Save now</Button>
             </div>
           </div>
         </div>
 
-        <PatientContextPanel organizationId={organizationId} session={session} />
+        {session.external ? <ExternalCasePanel session={session} /> : <PatientContextPanel organizationId={organizationId} session={session} />}
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
+
+function ExternalCasePanel({ session }: { session: TeleSession }) {
+  const details = [session.external?.patientAge != null ? `${session.external.patientAge} years` : '', session.external?.patientSex ?? ''].filter(Boolean).join(' · ');
+  return (
+    <aside className="rounded-3xl border border-white/70 bg-white/70 backdrop-blur-xl p-4 space-y-4 min-w-0 dark:border-slate-700 dark:bg-slate-800/80">
+      <div>
+        <h3 className="font-semibold text-gray-900 dark:text-slate-50">{session.patientName}</h3>
+        {details && <p className="text-xs capitalize text-gray-500">{details}</p>}
+      </div>
+      <div>
+        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">Case note from {session.hostName || 'the referring doctor'}</p>
+        <p className="whitespace-pre-wrap text-sm text-gray-800 dark:text-slate-200">{session.caseSummary || 'No case note was added. Ask the referring doctor to share the details on the call.'}</p>
+      </div>
+      <p className="rounded-lg bg-slate-50 p-2.5 text-[11px] text-slate-600 dark:bg-slate-900/60 dark:text-slate-400">
+        This patient is registered at {session.external?.hostFacility}. Their records stay with that hospital; the doctor can share their screen to show results. Consent recorded {session.consentAt ? new Date(session.consentAt).toLocaleString() : '—'}.
+      </p>
+    </aside>
+  );
+}
 
 function PatientContextPanel({ organizationId, session }: { organizationId: string; session: TeleSession }) {
   const [patient, setPatient] = useState<RegistryPatient | null>(null);

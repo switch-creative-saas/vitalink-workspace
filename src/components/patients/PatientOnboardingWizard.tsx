@@ -339,7 +339,7 @@ export function PatientOnboardingWizard({
 
   const submit = async () => {
     if (!canCreate) {
-      toast.error('Permission denied: RBAC policy blocks patient creation.');
+      toast.error('Your role cannot register patients.');
       return;
     }
     try {
@@ -424,7 +424,7 @@ export function PatientOnboardingWizard({
           <DialogHeader className="px-4 py-4 sm:px-6 sm:py-5 border-b border-gray-100 bg-gradient-to-r from-royal-50/80 to-indigo-50/60 flex-shrink-0">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <DialogTitle className="text-[#1E4ED8]">Patient Onboarding Wizard</DialogTitle>
+                <DialogTitle className="text-slate-900 dark:text-slate-50">Patient Onboarding Wizard</DialogTitle>
                 <p className="text-xs text-gray-500">Enterprise Registration Workflow</p>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">

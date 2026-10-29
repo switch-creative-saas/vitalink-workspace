@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Toaster } from '@/components/ui/sonner';
 import { requireSupabase } from '@/lib/supabase/client';
+import { waitForMfa } from '@/lib/supabase/mfa';
+import { MfaGate } from '@/components/auth/MfaGate';
 import { amIPlatformAdmin, signIn, signOut } from '@/lib/supabase/auth';
 import { listAdmins, listFeed, subscribeToEvents } from '@/lib/supabase/console';
 import { listInbox, subscribeToAllSupport } from '@/lib/supabase/support';
@@ -75,7 +77,9 @@ export default function ConsoleApp() {
     if (!userId) return;
     let cancelled = false;
     resetPlatformAdminCheck();
-    amIPlatformAdmin()
+    // Platform admins must pass two-step verification before the admin check (the database requires it).
+    waitForMfa()
+      .then(() => amIPlatformAdmin())
       .catch(() => false)
       .then((value) => { if (!cancelled) setAdminCheck({ userId, isAdmin: value }); });
     return () => { cancelled = true; };
@@ -96,6 +100,7 @@ export default function ConsoleApp() {
   return (
     <>
       {content}
+      <MfaGate />
       <Toaster position="top-right" />
     </>
   );

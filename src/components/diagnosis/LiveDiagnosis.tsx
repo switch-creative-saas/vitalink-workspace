@@ -50,8 +50,8 @@ export function LiveDiagnosis() {
     <div className="space-y-4 page-transition">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900">AI Clinical Intelligence</h1>
-          <p className="text-sm text-gray-500">VitaMind Dx: VitaLink's own diagnosis engine. It learns from confirmed diagnoses and cites published research.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">AI Clinical Intelligence</h1>
+          <p className="text-sm text-gray-500">VitaMind Dx suggests possible diagnoses from the patient record and cites published research. A clinician confirms every result.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">
           <ShieldCheck className="h-4 w-4 shrink-0" />Decision support, not a final diagnosis

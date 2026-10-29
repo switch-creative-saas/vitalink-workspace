@@ -28,7 +28,7 @@ export function AIClinicalIntelligencePage() {
   );
 
   if (!canView('EMR')) {
-    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Access denied by RBAC policy.</div>;
+    return <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-red-700">Your role does not have access to clinical decision support.</div>;
   }
   if (!hasAccess('ai_limited')) {
     return <div className="rounded-2xl border border-amber-100 bg-amber-50 p-6 text-amber-800">AI Clinical Intelligence (VitaMind Dx) is part of the Growth plan. Upgrade from Subscription to use it.</div>;
@@ -40,8 +40,8 @@ export function AIClinicalIntelligencePage() {
     <div className="space-y-4 page-transition">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-2xl font-bold text-gray-900 truncate">AI Clinical Intelligence</h1>
-          <p className="text-sm text-gray-500 truncate">Decision support with explainable risk scoring, imaging insight, and historical pattern detection.</p>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 truncate">AI Clinical Intelligence</h1>
+          <p className="text-sm text-gray-500 truncate">Clinical decision support with risk scores and patterns from patient history.</p>
         </div>
         <div className="rounded-xl px-3 py-2 bg-amber-50 text-amber-700 text-xs flex items-center gap-2 shrink-0">
           <ShieldCheck className="w-4 h-4 shrink-0" />

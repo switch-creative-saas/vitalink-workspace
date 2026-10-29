@@ -1,4 +1,4 @@
--- Hardening for the tables added from Claude chat (prescriptions, drug_inventory,
+-- Hardening for the tables added directly to the live project (prescriptions, drug_inventory,
 -- invoices, nfc_card_orders, staff_invitations, sentinel_*):
 --   * staff_invitations was readable by anyone (USING true) -> token lookup/accept via RPCs only
 --   * pharmacy/billing policies used role names that don't exist ('admin', 'super_admin',

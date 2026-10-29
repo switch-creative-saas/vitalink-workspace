@@ -3,3 +3,11 @@ node_modules
 .env
 .env.local
 .env.*.local
+
+# Local notes and editor/assistant tooling (not part of the app)
+docs/
+.claude/
+.agents/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
