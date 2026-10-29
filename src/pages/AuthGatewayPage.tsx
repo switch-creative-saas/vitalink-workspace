@@ -10,7 +10,6 @@ import { LegalLink } from '@/components/auth/LegalLink';
 import { markWorkspaceSetupPending } from '@/lib/workspace/setup';
 import { FooterLinks } from '@/components/auth/FooterLinks';
 import { EnterpriseSubscription } from '@/components/auth/EnterpriseSubscription';
-import { ProvisioningScreen } from '@/components/auth/ProvisioningScreen';
 import { OTPInput } from '@/components/auth/OTPInput';
 import { WorkspaceURLPicker } from '@/components/auth/WorkspaceURLPicker';
 import type { PageType } from '@/types';
@@ -50,7 +49,6 @@ type Stage =
   | 'workspace-url'
   | 'verify-email'
   | 'provisioning'
-  | 'welcome'
   | 'forgot-password'
   | 'reset-password'
   | 'email-sent'
@@ -230,7 +228,6 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [authError, setAuthError] = useState('');
 
-  const [pendingUser, setPendingUser] = useState<AuthUser | null>(null);
 
   // ── Staff invitation (/invite?token=...) ──────────────────────────
   const inviteToken = new URLSearchParams(window.location.search).get('token') ?? '';
@@ -810,9 +807,8 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         } else if (sub?.status === 'comped') {
           toast.success(`Platform admin: ${sub.planName} activated without payment.`);
         }
-        setPendingUser(createdUser);
-        setStage('welcome');
-        toast.success('Workspace created successfully!');
+        toast.success('Workspace created. Let’s set it up.');
+        await authenticateSuccess(createdUser);
       } catch (error) {
         setAuthError(backendErrorMessage(error, 'Workspace setup failed.'));
         setStage('workspace-url');
@@ -884,11 +880,20 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
         capacity: networkForm.capacity,
       });
     }
-    setPendingUser(createdUser);
     localStorage.removeItem('vitalink-pending-slug');
-    setStage('welcome');
-    toast.success('Workspace created successfully!');
+    toast.success('Workspace created. Let’s set it up.');
+    await authenticateSuccess(createdUser);
   };
+
+  // Creates the workspace exactly once per visit to this step: the page re-renders while the
+  // two-step verification screen is open, and a second run would fail on the now-taken URL.
+  const finalizing = useRef(false);
+  useEffect(() => {
+    if (stage !== 'provisioning' || finalizing.current) return;
+    finalizing.current = true;
+    void finalizeWorkspace().finally(() => { finalizing.current = false; });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when this step opens
+  }, [stage]);
 
   return (
     <AuthLayout wide={stage === 'subscription'}>
@@ -898,7 +903,7 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
       <div className="flex w-full flex-col justify-center">
 
         {/* Back Button for multi-step */}
-        {stage !== 'login' && stage !== 'org-signup-start' && stage !== 'provisioning' && stage !== 'welcome' && stage !== 'email-sent' && stage !== 'checking-session' && stage !== 'accept-invite' && (
+        {stage !== 'login' && stage !== 'org-signup-start' && stage !== 'provisioning' && stage !== 'email-sent' && stage !== 'checking-session' && stage !== 'accept-invite' && (
           <button
             onClick={() => {
               setAuthError('');
@@ -926,7 +931,6 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
             {stage === 'subscription' && 'Choose Plan'}
             {stage === 'workspace-url' && 'Choose Your URL'}
             {stage === 'verify-email' && 'Verify Work Email'}
-            {stage === 'welcome' && 'Workspace Ready'}
             {stage === 'forgot-password' && 'Reset your password'}
             {stage === 'accept-invite' && 'Join your team'}
             {stage === 'reset-password' && 'Create new password'}
@@ -1170,30 +1174,12 @@ export function AuthGatewayPage({ onAuthenticated }: AuthGatewayPageProps) {
 
         {/* ── Org Signup 6: Provisioning ─────────────────────────── */}
         {stage === 'provisioning' && (
-          <ProvisioningScreen onComplete={finalizeWorkspace} />
-        )}
-
-        {/* ── Welcome ────────────────────────────────────────────── */}
-        {stage === 'welcome' && pendingUser && (
-          <div className="animate-[auth-form-slide-up_0.5s_ease-out_both] flex flex-col gap-3 text-center">
-            <div className="p-4 rounded-xl bg-gradient-to-b from-[var(--auth-accent)]/15 to-transparent border border-[var(--auth-accent)]/25">
-              <p className="text-[11px] text-[var(--auth-accent)] uppercase tracking-widest font-bold mb-1">Workspace URL</p>
-              <p className="text-lg font-mono text-[var(--auth-text-primary)] break-all">
-                {pendingUser.orgSlug}.vitalink.africa
-              </p>
-              <p className="text-[10px] text-[var(--auth-text-secondary)] mt-0.5">
-                Also: app.vitalink.africa/{pendingUser.orgSlug}
-              </p>
+          <div className="flex flex-col items-center justify-center gap-4 py-16 text-center animate-[auth-form-slide-up_0.4s_ease-out_both]">
+            <Loader2 className="h-8 w-8 animate-spin text-[var(--auth-accent)]" />
+            <div>
+              <p className="text-[17px] font-semibold text-[var(--auth-text-primary)]">Creating your workspace…</p>
+              <p className="mt-1 text-[13px] text-[var(--auth-text-secondary)]">This takes a few seconds. Next, you’ll set up your facility.</p>
             </div>
-
-              <p className="text-[14px] text-[var(--auth-text-secondary)]">
-              Your {workspaceLabel(pendingUser.workspaceType ?? 'healthcare').toLowerCase()} is ready. You are signed in as the {pendingUser.role.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}. Next, a short setup of your facility, departments and team.
-            </p>
-
-            <AuthPrimaryButton
-              label="Continue to setup"
-              onClick={() => authenticateSuccess(pendingUser)}
-            />
           </div>
         )}
 

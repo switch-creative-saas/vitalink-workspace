@@ -75,7 +75,7 @@ export function LiveNfcOrders() {
   }, [reload]);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 page-transition">
+    <div className="space-y-4 md:space-y-6 page-transition">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Order NFC VitaCards</h1>

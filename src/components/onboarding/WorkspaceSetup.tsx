@@ -1,13 +1,16 @@
 // First-run setup for a new workspace, before the dashboard: confirm the facility's details, add
-// its departments, (optionally) invite the team and choose whether to join the VitaLink Network.
-// Uses the same backend as Administration, Staff and Network settings (facility_save,
-// department_save, staff invitations, network_save_settings), so it works on every plan.
+// its departments, (optionally) invite the team and, on plans that include it, join the VitaLink
+// Network. It follows the plan chosen at sign-up: only the roles, staff seats and steps that plan
+// includes. Uses the same backend as Administration, Staff and Network settings (facility_save,
+// department_save, staff invitations, network_save_settings).
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ArrowRight, Building2, Check, CheckCircle2, Copy, Layers, Loader2, Mail, Network, Plus, Sparkles, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { useGuidedTour } from '@/contexts/GuidedTourContext';
+import { usePlan } from '@/hooks/usePlan';
+import { getEntitlements } from '@/lib/supabase/plans';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { getAdministrationOverview, saveDepartment, saveFacility, type AdminDepartment, type FacilityInput, type WorkingDay } from '@/lib/supabase/administration';
 import { createInvitation, inviteLink, roleLabel, sendInvitationEmail } from '@/lib/supabase/staff';
@@ -29,13 +32,28 @@ const codeFrom = (name: string) => {
 };
 const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
-type Step = 'facility' | 'departments' | 'team' | 'network' | 'done';
-const STEPS: Array<{ id: Step; title: string; hint: string; icon: typeof Building2 }> = [
+type Step = 'facility' | 'departments' | 'team' | 'network' | 'finishing' | 'done';
+const ALL_STEPS: Array<{ id: Step; title: string; hint: string; icon: typeof Building2 }> = [
   { id: 'facility', title: 'Your facility', hint: 'Name, address and contact details', icon: Building2 },
   { id: 'departments', title: 'Departments', hint: 'How your facility is organised', icon: Layers },
   { id: 'team', title: 'Your team', hint: 'Invite the people you work with', icon: Users },
   { id: 'network', title: 'VitaLink Network', hint: 'Referrals and transfers with other facilities', icon: Network },
   { id: 'done', title: 'Ready to go', hint: 'A quick look around', icon: Sparkles },
+];
+
+// Roles only make sense when the plan has the page they work in.
+const ROLE_MODULE: Partial<Record<UserRole, string>> = {
+  pharmacist: 'pharmacy', 'lab-scientist': 'laboratory', 'lab-technician': 'laboratory',
+  'billing-officer': 'billing', 'insurance-officer': 'billing',
+};
+
+// What the plan includes, in the words staff use.
+const MODULE_LABELS: Array<[string, string]> = [
+  ['patients', 'Patient registry'], ['appointments', 'Appointments'], ['emr', 'Medical records'], ['human-resources', 'Staff'],
+  ['nfc-cards', 'VitaCard ordering'], ['nfc-scanning', 'VitaCard scanning'], ['ocr-intake', 'Scan paper records'],
+  ['billing', 'Billing & receipts'], ['pharmacy', 'Pharmacy'], ['analytics', 'Analytics'], ['laboratory', 'Laboratory'],
+  ['telemedicine', 'Telemedicine'], ['ai-clinical-intelligence', 'VitaMind clinical AI'], ['ai-scribe', 'Consultation scribe'],
+  ['vitalink-network', 'VitaLink Network'], ['administration', 'Administration'], ['audit-logs', 'Security & audit'], ['sentinel', 'Sentinel surveillance'],
 ];
 
 const FACILITY_TYPES = ['Hospital', 'Clinic', 'Primary Health Centre', 'Specialist Centre', 'Diagnostic Centre', 'Maternity Home', 'Dental Clinic', 'Eye Clinic'];
@@ -60,7 +78,19 @@ interface SentInvite { email: string; sent: boolean; link: string }
 export function WorkspaceSetup() {
   const { organization, setActiveOrganization, userName } = useAuth();
   const { finishSetup } = useGuidedTour();
-  const roleOptions = useMemo(() => roleOptionsForOrganizationType(organization.organizationType).filter((role) => role !== 'super-admin'), [organization.organizationType]);
+  const { plan, hasModule } = usePlan();
+  const planName = plan?.tierName ?? 'Free';
+  const hasNetwork = hasModule('vitalink-network');
+  const STEPS = useMemo(() => ALL_STEPS.filter((s) => s.id !== 'network' || hasNetwork), [hasNetwork]);
+  const included = useMemo(() => MODULE_LABELS.filter(([module]) => hasModule(module)).map(([, label]) => label), [hasModule]);
+  const roleOptions = useMemo(() => roleOptionsForOrganizationType(organization.organizationType)
+    .filter((role) => role !== 'super-admin' && (!ROLE_MODULE[role] || hasModule(ROLE_MODULE[role] as string))), [organization.organizationType, hasModule]);
+  // Staff seats on this plan (the database refuses invitations beyond it too).
+  const [seats, setSeats] = useState<{ limit: number | null; used: number } | null>(null);
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    getEntitlements(organization.id).then((e) => setSeats({ limit: e.limits.staff, used: e.usage.staff })).catch(() => setSeats(null));
+  }, [organization.id]);
   const [step, setStep] = useState<Step>('facility');
   const [loading, setLoading] = useState(isSupabaseConfigured);
   const [busy, setBusy] = useState(false);
@@ -99,7 +129,10 @@ export function WorkspaceSetup() {
   useEffect(() => { load(); }, [load]);
 
   const existingNames = useMemo(() => new Set(departments.map((d) => d.name.toLowerCase())), [departments]);
-  const stepIndex = STEPS.findIndex((s) => s.id === step);
+  // The finishing screen belongs to the last step in the list.
+  const stepIndex = step === 'finishing' ? STEPS.length - 1 : STEPS.findIndex((s) => s.id === step);
+  const seatsLeft = seats?.limit == null ? null : Math.max(0, seats.limit - seats.used - sent.length);
+  const afterTeam: Step = hasNetwork ? 'network' : 'finishing';
   const firstName = userName.trim().split(/\s+/)[0];
 
   const saveFacilityStep = async () => {
@@ -163,7 +196,11 @@ export function WorkspaceSetup() {
     const rows = invites.filter((row) => row.email.trim());
     const bad = rows.find((row) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(row.email.trim()));
     if (bad) { toast.error(`${bad.email} isn't a valid email`); return; }
-    if (!rows.length) { setStep('network'); return; }
+    if (!rows.length) { setStep(afterTeam); return; }
+    if (seatsLeft != null && rows.length > seatsLeft) {
+      toast.error(seatsLeft === 0 ? `Your ${planName} plan has no staff seats left. Upgrade to invite more people.` : `Your ${planName} plan has ${seatsLeft} staff seat${seatsLeft === 1 ? '' : 's'} left. Remove ${rows.length - seatsLeft} invitation${rows.length - seatsLeft === 1 ? '' : 's'} or upgrade.`);
+      return;
+    }
     setBusy(true);
     const results: SentInvite[] = [];
     for (const row of rows) {
@@ -190,7 +227,7 @@ export function WorkspaceSetup() {
       if (isSupabaseConfigured) await saveNetworkSettings(organization.id, { ...network, specialties: splitList(specialtiesText) });
       setActiveOrganization({ ...organization, joinedNetwork: network.joined });
       if (network.joined) toast.success(`Joined the ${BRAND.network}`);
-      setStep('done');
+      setStep('finishing');
     } catch (error) {
       toast.error(errorText(error, 'Could not save your network settings'));
     } finally {
@@ -211,6 +248,7 @@ export function WorkspaceSetup() {
           <div className="relative mt-12">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/50">Set up your workspace</p>
             <h2 className="mt-3 text-[26px] font-semibold leading-tight">A few details, then you’re ready to see patients.</h2>
+            <span className="mt-4 inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white/80 backdrop-blur">{planName} plan</span>
           </div>
           <ol className="relative mt-10 space-y-2">
             {STEPS.map((s, i) => {
@@ -226,7 +264,7 @@ export function WorkspaceSetup() {
               );
             })}
           </ol>
-          <p className="relative mt-auto text-xs text-white/45">You can change all of this later in Administration, Staff and Network settings.</p>
+          <p className="relative mt-auto text-xs text-white/45">You can change all of this later{hasNetwork ? ' in Administration, Staff and Network settings' : ' in Settings and Staff'}.</p>
         </div>
       </aside>
 
@@ -234,7 +272,7 @@ export function WorkspaceSetup() {
       <main className="flex min-w-0 flex-1 flex-col overflow-y-auto px-5 py-6 sm:px-10">
         <div className="mx-auto flex w-full max-w-[640px] items-center justify-between">
           <p className="text-sm text-slate-500 dark:text-slate-400">Step {stepIndex + 1} of {STEPS.length}</p>
-          {step !== 'done' && <button type="button" onClick={() => finishSetup(false)} className="text-sm font-medium text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-white">Finish later</button>}
+          {step !== 'done' && step !== 'finishing' && <button type="button" onClick={() => finishSetup(false)} className="text-sm font-medium text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-white">Finish later</button>}
         </div>
         <div className="mx-auto mt-2 h-1 w-full max-w-[640px] overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
           <div className="h-full rounded-full bg-[#1E4ED8] transition-all duration-500" style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }} />
@@ -301,6 +339,12 @@ export function WorkspaceSetup() {
               <section data-tour-id="setup-team" className="animate-[auth-form-slide-up_0.4s_ease-out_both]">
                 <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">Invite your team</h1>
                 <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Each person gets an email to join. Their role decides what they can see and do. You can skip this and invite people later from Staff.</p>
+                {seats?.limit != null && (
+                  <p className={cn('mt-4 rounded-xl px-3.5 py-2.5 text-sm', seatsLeft ? 'bg-slate-50 text-slate-600 dark:bg-slate-900 dark:text-slate-300' : 'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200')}>
+                    Your {planName} plan includes {seats.limit} staff account{seats.limit === 1 ? '' : 's'}, including you.{' '}
+                    {seatsLeft ? `You can invite ${seatsLeft} more now.` : 'All seats are in use; upgrade from Subscription to add more people.'}
+                  </p>
+                )}
                 <div className="mt-6 space-y-3">
                   {invites.map((row, index) => (
                     <div key={index} className="grid gap-2 sm:grid-cols-[1fr_170px_170px_auto]">
@@ -315,7 +359,9 @@ export function WorkspaceSetup() {
                       <button type="button" aria-label="Remove" disabled={invites.length === 1} onClick={() => setInvites((rows) => rows.filter((_, i) => i !== index))} className="grid h-11 w-11 place-items-center rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-700 disabled:opacity-30 dark:hover:bg-slate-800"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   ))}
-                  <button type="button" onClick={() => setInvites((rows) => [...rows, { email: '', role: roleOptions[0] ?? 'doctor', department: '' }])} className="inline-flex items-center gap-1.5 text-sm font-medium text-[#1E4ED8] hover:underline"><Plus className="h-4 w-4" />Add another</button>
+                  {(seatsLeft == null || invites.length < seatsLeft) && (
+                    <button type="button" onClick={() => setInvites((rows) => [...rows, { email: '', role: roleOptions[0] ?? 'doctor', department: '' }])} className="inline-flex items-center gap-1.5 text-sm font-medium text-[#1E4ED8] hover:underline"><Plus className="h-4 w-4" />Add another</button>
+                  )}
                 </div>
                 {sent.length > 0 && (
                   <div className="mt-6 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -334,7 +380,7 @@ export function WorkspaceSetup() {
                   <div className="flex gap-2">
                     {invites.some((row) => row.email.trim())
                       ? <button type="button" className={primary} disabled={busy} onClick={() => void sendInvites()}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}Send invitations</button>
-                      : <button type="button" className={primary} onClick={() => setStep('network')}>{sent.length ? 'Continue' : 'Skip for now'}<ArrowRight className="h-4 w-4" /></button>}
+                      : <button type="button" className={primary} onClick={() => setStep(afterTeam)}>{sent.length ? 'Continue' : 'Skip for now'}<ArrowRight className="h-4 w-4" /></button>}
                   </div>
                 </div>
               </section>
@@ -424,6 +470,20 @@ export function WorkspaceSetup() {
               </section>
             )}
 
+            {step === 'finishing' && (
+              <FinishingScreen
+                tasks={[
+                  `Saving ${facility.name || 'your facility'}’s details`,
+                  `Setting up ${departments.length} department${departments.length === 1 ? '' : 's'}`,
+                  ...(sent.length ? [`Sending ${sent.length} invitation${sent.length === 1 ? '' : 's'}`] : []),
+                  ...(hasNetwork && network.joined ? [`Listing you on the ${BRAND.network}`] : []),
+                  `Applying your ${planName} plan`,
+                  'Securing your workspace',
+                ]}
+                onDone={() => setStep('done')}
+              />
+            )}
+
             {step === 'done' && (
               <section className="animate-[auth-form-slide-up_0.4s_ease-out_both] text-center">
                 <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15"><CheckCircle2 className="h-8 w-8" /></div>
@@ -431,6 +491,13 @@ export function WorkspaceSetup() {
                 <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
                   {departments.length} department{departments.length === 1 ? '' : 's'} set up{sent.length ? ` and ${sent.length} colleague${sent.length === 1 ? '' : 's'} invited` : ''}. Next, we’ll take two minutes to show you around your dashboard.
                 </p>
+                <div className="mx-auto mt-6 max-w-lg rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left dark:border-slate-800 dark:bg-slate-900">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Included in your {planName} plan</p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {included.map((label) => <span key={label} className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800 dark:text-slate-200"><Check className="h-3 w-3 text-emerald-600" />{label}</span>)}
+                  </div>
+                  {!hasModule('sentinel') && <p className="mt-3 text-xs text-slate-500">Need more? You can upgrade any time from Subscription.</p>}
+                </div>
                 <button type="button" className={cn(primary, 'mt-8')} onClick={() => finishSetup(true)}>Go to my dashboard<ArrowRight className="h-4 w-4" /></button>
               </section>
             )}
@@ -438,5 +505,30 @@ export function WorkspaceSetup() {
         </div>
       </main>
     </div>
+  );
+}
+
+/** The last moment of setup: what was just done, ticked off one by one before the workspace opens. */
+function FinishingScreen({ tasks, onDone }: { tasks: string[]; onDone: () => void }) {
+  const [done, setDone] = useState(0);
+  useEffect(() => {
+    const timer = window.setTimeout(() => (done >= tasks.length ? onDone() : setDone(done + 1)), done >= tasks.length ? 500 : 650);
+    return () => window.clearTimeout(timer);
+  }, [done, tasks.length, onDone]);
+  return (
+    <section className="animate-[auth-form-slide-up_0.4s_ease-out_both]">
+      <h1 className="text-[28px] font-semibold tracking-tight text-slate-900 dark:text-white">Setting up your workspace</h1>
+      <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Putting everything you entered in place.</p>
+      <ul className="mt-8 space-y-3">
+        {tasks.map((task, index) => (
+          <li key={task} className={cn('flex items-center gap-3 text-[15px] transition-opacity duration-300', index > done && 'opacity-40')}>
+            {index < done ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+              : index === done ? <Loader2 className="h-5 w-5 shrink-0 animate-spin text-[#1E4ED8]" />
+              : <span className="h-5 w-5 shrink-0 rounded-full border border-slate-300 dark:border-slate-600" />}
+            <span className={cn(index <= done ? 'text-slate-900 dark:text-white' : 'text-slate-500')}>{task}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
