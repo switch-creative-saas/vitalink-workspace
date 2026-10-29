@@ -106,7 +106,7 @@ export function AuthShowcase() {
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-[28px] bg-[#05060f]">
-      <img src="/auth-poster.png" alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_30%]" />
+      <img src="/auth-poster.webp" alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_30%]" />
       <div className="absolute inset-0 bg-gradient-to-b from-[#05060f]/10 via-[#05060f]/25 to-[#05060f]/85" />
 
       <a href={websiteUrl} className="absolute left-6 top-6 z-10 inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-medium text-white backdrop-blur-md transition hover:bg-white/25">

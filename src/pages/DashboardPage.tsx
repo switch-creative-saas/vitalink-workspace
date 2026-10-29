@@ -1,4 +1,5 @@
 import { useCallback, useState, useEffect } from 'react';
+import { refreshInterval } from '@/lib/network/dataSaver';
 import { 
   Users, 
   CalendarCheck, 
@@ -545,7 +546,8 @@ export function DashboardPage() {
       return () => clearTimeout(timer);
     }
     refreshSummary();
-    const timer = window.setInterval(refreshSummary, 60_000);
+    // Background refresh: slower on low data, skipped while the tab is hidden.
+    const timer = window.setInterval(() => { if (!document.hidden) refreshSummary(); }, refreshInterval(60_000));
     return () => window.clearInterval(timer);
   }, [refreshSummary]);
 

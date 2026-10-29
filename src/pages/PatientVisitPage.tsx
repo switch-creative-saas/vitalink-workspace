@@ -2,10 +2,11 @@
 // No account: the token identifies the visit. The patient previews their
 // camera, joins the waiting room, and is connected when the clinician admits them.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, Video, VideoOff } from 'lucide-react';
+import { AudioLines, Mic, MicOff, PhoneOff, Signal, Video, VideoOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { checkInToVisit, type VisitInfo } from '@/lib/supabase/telemedicine';
-import { openCameraAndMic, VideoCall, type CallState } from '@/lib/telemedicine/videoCall';
+import { openCameraAndMic, VideoCall, type CallQuality, type CallState } from '@/lib/telemedicine/videoCall';
+import { isLowData } from '@/lib/network/dataSaver';
 
 const token = () => new URLSearchParams(window.location.search).get('t') ?? '';
 
@@ -18,6 +19,10 @@ export function PatientVisitPage() {
   const [joined, setJoined] = useState(false);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  // Patients often join on mobile data: start small when the phone reports a slow connection.
+  const [lowData] = useState(isLowData);
+  const [quality, setQuality] = useState<{ level: CallQuality; audioOnly: boolean } | null>(null);
+  const [audioOnly, setAudioOnly] = useState(false);
   const callRef = useRef<VideoCall | null>(null);
   const localVideo = useRef<HTMLVideoElement>(null);
   const remoteVideo = useRef<HTMLVideoElement>(null);
@@ -43,13 +48,13 @@ export function PatientVisitPage() {
   const preview = useCallback(async () => {
     setError('');
     try {
-      const media = await openCameraAndMic();
+      const media = await openCameraAndMic(lowData);
       setLocal(media.stream);
       if (media.note) setError(media.note);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not open the camera');
     }
-  }, []);
+  }, [lowData]);
 
   const join = async () => {
     if (!local) return;
@@ -58,6 +63,8 @@ export function PatientVisitPage() {
       role: 'guest',
       onRemoteStream: setRemote,
       onState: setState,
+      lowData,
+      onQuality: (level, paused) => setQuality({ level, audioOnly: paused }),
       onEnded: () => setInfo((current) => (current ? { ...current, status: 'ended' } : current)),
       // Backup for a lost "end" message: ask the server whether the visit is over.
       onPeerLeft: () => { void checkInToVisit(token()).then((next) => next && setInfo(next)); },
@@ -142,6 +149,11 @@ export function PatientVisitPage() {
       </div>
 
       {error && <p className="text-sm text-red-300 text-center">{error}</p>}
+      {state === 'connected' && quality && quality.level !== 'good' && (
+        <p className="flex items-center justify-center gap-1.5 text-xs text-amber-200"><Signal className="h-3.5 w-3.5" />
+          {quality.audioOnly ? 'Weak connection: your video is paused so the audio stays clear.' : 'Weak connection: video quality lowered to keep the call going.'}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center justify-center gap-2">
         {!local && <Button onClick={() => void preview()} className="bg-[#1E4ED8] text-white"><Video className="w-4 h-4 mr-2" />Turn on camera</Button>}
@@ -154,6 +166,11 @@ export function PatientVisitPage() {
             <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => { const next = !camOn; setCamOn(next); local.getVideoTracks().forEach((t) => { t.enabled = next; }); }}>
               {camOn ? <Video className="w-4 h-4" /> : <VideoOff className="w-4 h-4" />}
             </Button>
+            {joined && (
+              <Button variant="outline" title="Stop sending your video to save data" className="bg-white/10 border-white/20 text-white hover:bg-white/20" onClick={() => { const next = !audioOnly; setAudioOnly(next); callRef.current?.setAudioOnly(next); }}>
+                <AudioLines className="w-4 h-4 mr-1" />{audioOnly ? 'Send video' : 'Audio only'}
+              </Button>
+            )}
           </>
         )}
         {joined && <Button onClick={() => void leave()} className="bg-red-600 hover:bg-red-700 text-white"><PhoneOff className="w-4 h-4 mr-2" />Leave</Button>}

@@ -219,7 +219,7 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     id: 'page:settings', page: 'settings', title: 'Settings', summary: 'Your profile, two-step sign-in, theme and notifications.', minutes: 1,
     steps: [
       { element: 'settings-tabs', side: 'right', title: 'Your settings', body: 'Update your profile, change your password or sign-in method, pick light or dark mode, and choose which notifications you get.' },
-      { element: 'settings-tabs', side: 'right', title: 'Two-step sign-in', body: 'Under Sign-in & security, set up an authenticator app (such as Google Authenticator). Admins and clinical staff must use it. A browser you use regularly is remembered, so you are only asked for a code after 14 days away; you can forget a device there too.' },
+      { element: 'settings-tabs', side: 'right', title: 'Two-step sign-in', body: 'Under Sign-in & security, set up an authenticator app (such as Google Authenticator). It is optional but strongly recommended, and a reminder shows at the top of the app until it is on. A browser you use regularly is remembered, so you are only asked for a code after 14 days away; you can forget a device there too.' },
     ],
   },
 ];

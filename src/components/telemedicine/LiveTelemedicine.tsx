@@ -3,8 +3,8 @@
 // patient's record beside the call.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Copy, FileUp, FlaskConical, Link2, MessageSquare, Mic, MicOff, MonitorUp, PhoneCall, PhoneOff, ShieldCheck,
-  Stethoscope, Timer, UserCheck, Users, Video, VideoOff, X,
+  AudioLines, Copy, FileUp, FlaskConical, Link2, MessageSquare, Mic, MicOff, MonitorUp, PhoneCall, PhoneOff, ShieldCheck,
+  Signal, Stethoscope, Timer, UserCheck, Users, Video, VideoOff, X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -25,7 +25,8 @@ import {
   subscribeToSessions, updateSession, visitLink, type NetworkSpecialist, type TeleSession,
 } from '@/lib/supabase/telemedicine';
 import { listDirectory, type NetworkFacility } from '@/lib/supabase/network';
-import { openCameraAndMic, VideoCall, type CallState } from '@/lib/telemedicine/videoCall';
+import { openCameraAndMic, VideoCall, type CallQuality, type CallState } from '@/lib/telemedicine/videoCall';
+import { useLowData } from '@/lib/network/dataSaver';
 import { TELEMEDICINE_HANDOFF_KEY } from '@/lib/handoffs';
 import { timeAgo } from '@/lib/timeAgo';
 import { BRAND } from '@/config/brand';
@@ -512,6 +513,9 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
   const [camOn, setCamOn] = useState(true);
   const [sharing, setSharing] = useState(false);
   const [summary, setSummary] = useState(session.summary);
+  const lowData = useLowData();
+  const [quality, setQuality] = useState<{ level: CallQuality; audioOnly: boolean } | null>(null);
+  const [audioOnly, setAudioOnly] = useState(false);
   const [ending, setEnding] = useState(false);
   const callRef = useRef<VideoCall | null>(null);
   const localVideo = useRef<HTMLVideoElement>(null);
@@ -527,13 +531,19 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
   useEffect(() => {
     let cancelled = false;
     let stream: MediaStream | null = null;
-    openCameraAndMic()
+    openCameraAndMic(lowData)
       .then(async ({ stream: media, note }) => {
         if (cancelled) { media.getTracks().forEach((track) => track.stop()); return; }
         stream = media;
         setLocal(media);
         if (note) setError(note);
-        const call = new VideoCall({ roomToken: session.roomToken, role, onRemoteStream: setRemote, onState: setState });
+        const call = new VideoCall({
+          roomToken: session.roomToken, role, onRemoteStream: setRemote, onState: setState, lowData,
+          onQuality: (level, paused) => setQuality((prev) => {
+            if (paused && !prev?.audioOnly) toast.info('Weak connection: your video is paused so the audio stays clear.');
+            return { level, audioOnly: paused };
+          }),
+        });
         callRef.current = call;
         await call.start(media);
         if (role === 'host' && !startedLive.current) await updateSession(session.id, { status: 'live' }).catch((err) => toast.error(errorText(err, 'Could not start the session')));
@@ -545,6 +555,8 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
       callRef.current = null;
       stream?.getTracks().forEach((track) => track.stop());
     };
+    // Low-data mode is read when the call starts; changing it mid-call isn't worth a reconnect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, session.roomToken, role]);
 
   const leave = async (endForEveryone: boolean) => {
@@ -609,7 +621,14 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
           {session.external && <p className="text-xs text-blue-700 dark:text-blue-300">Hosted by {session.hostName} at {session.external.hostFacility}</p>}
           <p className="text-xs text-gray-500">{stateText[state]}</p>
         </div>
-        <div className="flex items-center gap-2 text-xs bg-gray-100 px-2.5 py-1.5 rounded-lg dark:bg-slate-800"><Timer className="w-3.5 h-3.5" />{session.startedAt ? `${minutes} min` : 'not started'}</div>
+        <div className="flex items-center gap-2">
+          {connected && quality && (
+            <div title="Connection quality: video adjusts automatically" className={cn('flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg', quality.level === 'good' ? 'bg-emerald-50 text-emerald-700' : quality.level === 'fair' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700')}>
+              <Signal className="w-3.5 h-3.5" />{quality.level === 'good' ? 'Good connection' : quality.level === 'fair' ? 'Fair connection' : 'Weak connection'}{quality.audioOnly ? ' · audio only' : ''}{lowData ? ' · low data' : ''}
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-xs bg-gray-100 px-2.5 py-1.5 rounded-lg dark:bg-slate-800"><Timer className="w-3.5 h-3.5" />{session.startedAt ? `${minutes} min` : 'not started'}</div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-4">
@@ -633,6 +652,9 @@ function CallRoom({ session, role, organizationId, now, onClose }: {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => { const next = !micOn; setMicOn(next); callRef.current?.setAudio(next); }}>{micOn ? <Mic className="w-4 h-4 mr-1" /> : <MicOff className="w-4 h-4 mr-1" />}{micOn ? 'Mute' : 'Unmute'}</Button>
             <Button variant="outline" onClick={() => { const next = !camOn; setCamOn(next); callRef.current?.setVideo(next); }}>{camOn ? <Video className="w-4 h-4 mr-1" /> : <VideoOff className="w-4 h-4 mr-1" />}{camOn ? 'Camera off' : 'Camera on'}</Button>
+            <Button variant="outline" title="Stop sending your video to save data; you still see and hear them" onClick={() => { const next = !audioOnly; setAudioOnly(next); callRef.current?.setAudioOnly(next); }}>
+              {audioOnly ? <Video className="w-4 h-4 mr-1" /> : <AudioLines className="w-4 h-4 mr-1" />}{audioOnly ? 'Send video' : 'Audio only'}
+            </Button>
             <Button variant="outline" disabled={!connected || !navigator.mediaDevices?.getDisplayMedia} onClick={() => void toggleShare()}><MonitorUp className="w-4 h-4 mr-1" />{sharing ? 'Stop sharing' : 'Share screen'}</Button>
             {!session.external && <Button variant="outline" onClick={() => fileInput.current?.click()}><FileUp className="w-4 h-4 mr-1" />Add file to record</Button>}
             <input ref={fileInput} type="file" multiple accept=".pdf,image/*,.doc,.docx,.txt" className="hidden" onChange={(e) => void upload(e.target.files)} />

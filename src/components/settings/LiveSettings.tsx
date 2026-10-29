@@ -2,6 +2,7 @@
 // password, appearance that follows you between devices, which notifications
 // you get, and your place in the workspace. Everything saves to Supabase.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { connectionQuality, getDataSaverPreference, setDataSaverPreference, useLowData, type DataSaverPreference } from '@/lib/network/dataSaver';
 import {
   Bell, Building2, Camera, Check, ChevronRight, KeyRound, Laptop, Loader2, LogOut, Mail, Moon, Monitor, Palette, Save, Send, Shield, Sun, Trash2, User,
 } from 'lucide-react';
@@ -244,7 +245,7 @@ const THEMES: Array<{ id: ThemeMode; label: string; icon: React.ElementType }> =
 ];
 const SIZES = [{ value: 90, label: 'Small' }, { value: 100, label: 'Default' }, { value: 110, label: 'Large' }, { value: 120, label: 'Larger' }];
 
-/** Two-step verification: required for admin, clinical and VitaLink roles; optional for everyone else. */
+/** Two-step verification: optional (recommended for admin and clinical roles), required for VitaLink platform admins. */
 function TwoStepSection() {
   const [status, setStatus] = useState<MfaStatus | null>(null);
   const [factors, setFactors] = useState<TotpFactor[]>([]);
@@ -272,7 +273,9 @@ function TwoStepSection() {
   return (
     <Section title="Two-step verification" description={status?.required
       ? 'Required for your role: signing in needs your password and a code from your authenticator app.'
-      : 'Adds a code from your phone to your password, so a stolen password alone can’t open your account.'}>
+      : status?.recommended
+        ? 'Strongly recommended for your role: you can open patient records, so a stolen password alone shouldn’t be enough to get in.'
+        : 'Adds a code from your phone to your password, so a stolen password alone can’t open your account.'}>
       {status === null ? <p className="text-sm text-gray-500">Loading…</p> : settingUp ? (
         <div className="space-y-3">
           <TotpSetup onDone={() => { setSettingUp(false); load(); }} />
@@ -323,6 +326,10 @@ function AppearanceTab({ profile }: { profile: MyProfile }) {
 
   const pickTheme = (mode: ThemeMode) => { setTheme(mode); applyTheme(mode); void persist({ theme: mode }); };
   const pickSize = (value: number) => { setSize(value); applyFontScale(value); void persist({ fontScale: value }); };
+  // Low-data mode is per device (a phone on mobile data, a desk PC on broadband), so it isn't synced.
+  const [dataSaver, setDataSaver] = useState<DataSaverPreference>(getDataSaverPreference);
+  const lowData = useLowData();
+  const pickDataSaver = (value: DataSaverPreference) => { setDataSaver(value); setDataSaverPreference(value); };
 
   return (
     <>
@@ -343,6 +350,18 @@ function AppearanceTab({ profile }: { profile: MyProfile }) {
             <Button key={s.value} variant={size === s.value ? 'default' : 'outline'} className={size === s.value ? 'bg-royal-600 text-white' : ''} onClick={() => pickSize(s.value)}>{s.label}</Button>
           ))}
         </div>
+      </Section>
+      <Section title="Low-data mode" description="For slow or expensive internet. VitaLink drops heavy visual effects, refreshes less often, doesn’t download pages in advance, and video calls start at a lower quality. Applies to this device only.">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {([['auto', 'Automatic', 'On when this device reports a slow connection or data saver'], ['on', 'Always on', 'Use the least data'], ['off', 'Off', 'Best quality']] as const).map(([id, label, hint]) => (
+            <button key={id} onClick={() => pickDataSaver(id)}
+              className={cn('rounded-2xl border p-4 text-left', dataSaver === id ? 'border-royal-400 ring-2 ring-royal-200' : 'border-gray-200 hover:border-gray-300')}>
+              <span className="flex items-center gap-2 font-medium text-gray-900">{label}{dataSaver === id && <Check className="ml-auto h-4 w-4 text-royal-600" />}</span>
+              <span className="mt-1 block text-xs text-gray-500">{hint}</span>
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-gray-500">Right now low-data mode is <strong>{lowData ? 'on' : 'off'}</strong>{dataSaver === 'auto' ? ` (connection looks ${connectionQuality() === 'slow' ? 'slow' : connectionQuality() === 'good' ? 'good' : 'unknown on this browser'})` : ''}.</p>
       </Section>
       <Section title="Guided tours" description="Short walkthroughs of each page. All tours are listed under Help & Support.">
         <div className="flex flex-wrap items-center justify-between gap-3">

@@ -1,11 +1,17 @@
 /* VitaLink app shell for offline use. Built into dist/sw.js by the offlineShell
- * plugin in vite.config.ts, which fills in the build's file list and version.
+ * plugin in vite.config.ts, which fills in the build's file lists and version.
  *
  * It only stores the app itself (HTML, scripts, styles, images), so VitaLink
  * opens with no connection. Patient data never goes through here: the app keeps
- * it encrypted in IndexedDB (src/lib/offline). */
+ * it encrypted in IndexedDB (src/lib/offline).
+ *
+ * Installing downloads only the core (PRECACHE). The other files (pages, charts,
+ * maps) are cached the first time they're used, and all at once in the
+ * background when the app says the connection is good (message "warm"), one
+ * file at a time so it never competes with real work on a slow line. */
 const VERSION = '__VERSION__';
 const PRECACHE = __PRECACHE__;
+const WARM = __WARM__;
 const CACHE = `vitalink-shell-${VERSION}`;
 const NAVIGATION_TIMEOUT_MS = 4000;
 
@@ -25,6 +31,31 @@ self.addEventListener('activate', (event) => {
       .then((names) => Promise.all(names.filter((name) => name.startsWith('vitalink-shell-') && name !== CACHE).map((name) => caches.delete(name))))
       .then(() => self.clients.claim()),
   );
+});
+
+let warming = false;
+async function warm() {
+  if (warming) return;
+  warming = true;
+  try {
+    const cache = await caches.open(CACHE);
+    for (const file of WARM) {
+      const url = scoped(file);
+      if (await cache.match(url)) continue;
+      try {
+        const response = await fetch(url);
+        if (response.ok) await cache.put(url, response);
+      } catch {
+        return; // went offline or the connection dropped: try again next time
+      }
+    }
+  } finally {
+    warming = false;
+  }
+}
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'warm') event.waitUntil(warm());
 });
 
 async function navigation(request) {

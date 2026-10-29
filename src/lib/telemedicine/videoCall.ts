@@ -5,11 +5,26 @@
 // The host (clinician who admits) makes the offer once the guest is present;
 // the guest answers. If either side reloads, presence brings them back
 // together and the host renegotiates.
+//
+// Built for weak connections: video starts at 360p (180p in low-data mode), and every few seconds
+// the call checks packet loss, delay and the bandwidth available, lowering resolution, frame rate
+// and bitrate when the line struggles and raising them again when it recovers. On a very weak link
+// it stops sending video by itself (audio only) so the conversation stays clear.
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { requireSupabase } from '@/lib/supabase/client';
 
 export type CallRole = 'host' | 'guest';
 export type CallState = 'idle' | 'waiting-for-peer' | 'connecting' | 'connected' | 'reconnecting' | 'ended' | 'failed';
+export type CallQuality = 'good' | 'fair' | 'poor';
+
+// Outgoing video per connection level (bitrate in bits per second).
+const VIDEO_PROFILES: Record<CallQuality, { maxBitrate: number; scaleResolutionDownBy: number; maxFramerate: number }> = {
+  good: { maxBitrate: 700_000, scaleResolutionDownBy: 1, maxFramerate: 24 },
+  fair: { maxBitrate: 250_000, scaleResolutionDownBy: 1.5, maxFramerate: 15 },
+  poor: { maxBitrate: 100_000, scaleResolutionDownBy: 2, maxFramerate: 10 },
+};
+const AUDIO_POOR_BITRATE = 16_000;
+const CHECK_EVERY_MS = 4000;
 
 type Signal =
   | { type: 'offer'; sdp: RTCSessionDescriptionInit }
@@ -41,6 +56,10 @@ export interface VideoCallOptions {
   onPeerLeft?: () => void;
   /** The host ended the visit for everyone. */
   onEnded?: () => void;
+  /** Start as if the connection were weak (low-data mode). */
+  lowData?: boolean;
+  /** Connection level, and whether video is paused to keep audio clear. */
+  onQuality?: (quality: CallQuality, audioOnly: boolean) => void;
 }
 
 export class VideoCall {
@@ -51,6 +70,13 @@ export class VideoCall {
   private pendingIce: RTCIceCandidateInit[] = [];
   private closed = false;
   private readonly opts: VideoCallOptions;
+  private monitor = 0;
+  private quality: CallQuality = 'good';
+  private poorChecks = 0;
+  private goodChecks = 0;
+  private autoAudioOnly = false;
+  private manualAudioOnly = false;
+  private lastInbound: { lost: number; received: number } | null = null;
 
   constructor(opts: VideoCallOptions) {
     this.opts = opts;
@@ -118,13 +144,106 @@ export class VideoCall {
     pc.onicecandidate = (event) => { if (event.candidate) this.send({ type: 'ice', candidate: event.candidate.toJSON() }); };
     pc.onconnectionstatechange = () => {
       if (this.closed) return;
-      if (pc.connectionState === 'connected') this.opts.onState('connected');
+      if (pc.connectionState === 'connected') { this.opts.onState('connected'); this.startMonitor(); }
       else if (pc.connectionState === 'connecting' || pc.connectionState === 'new') this.opts.onState('connecting');
       else if (pc.connectionState === 'disconnected') this.opts.onState('reconnecting');
       else if (pc.connectionState === 'failed') this.opts.onState('failed');
     };
     this.pc = pc;
     return pc;
+  }
+
+  // ---------- adapting to the connection ----------
+
+  private startMonitor() {
+    window.clearInterval(this.monitor);
+    this.lastInbound = null;
+    this.setQuality(this.opts.lowData ? 'fair' : 'good');
+    this.monitor = window.setInterval(() => void this.check(), CHECK_EVERY_MS);
+  }
+
+  private async check() {
+    const pc = this.pc;
+    if (!pc || this.closed || pc.connectionState !== 'connected') return;
+    let rtt = 0;
+    let available = 0;
+    let lossOut = 0;
+    let lost = 0;
+    let received = 0;
+    const stats = await pc.getStats().catch(() => null);
+    stats?.forEach((report) => {
+      if (report.type === 'candidate-pair' && report.state === 'succeeded' && report.nominated) {
+        rtt = report.currentRoundTripTime ?? rtt;
+        available = report.availableOutgoingBitrate ?? available;
+      } else if (report.type === 'remote-inbound-rtp' && report.kind === 'video') {
+        lossOut = Math.max(lossOut, report.fractionLost ?? 0);
+      } else if (report.type === 'inbound-rtp' && report.kind === 'video') {
+        lost += report.packetsLost ?? 0;
+        received += report.packetsReceived ?? 0;
+      }
+    });
+    // Loss on what we receive, since the last check.
+    let lossIn = 0;
+    if (this.lastInbound) {
+      const newLost = lost - this.lastInbound.lost;
+      const newReceived = received - this.lastInbound.received;
+      if (newLost + newReceived > 0) lossIn = Math.max(0, newLost) / (Math.max(0, newLost) + Math.max(0, newReceived));
+    }
+    this.lastInbound = { lost, received };
+    const loss = Math.max(lossOut, lossIn);
+
+    const level: CallQuality = loss > 0.1 || rtt > 1 || (available > 0 && available < 150_000) ? 'poor'
+      : loss > 0.03 || rtt > 0.4 || (available > 0 && available < 500_000) ? 'fair' : 'good';
+    this.poorChecks = level === 'poor' ? this.poorChecks + 1 : 0;
+    this.goodChecks = level === 'good' ? this.goodChecks + 1 : 0;
+
+    // Video off by itself after ~12 s of a very weak link; back on after ~12 s of a good one.
+    if (!this.autoAudioOnly && this.poorChecks >= 3 && (available === 0 || available < 90_000 || loss > 0.15)) this.autoAudioOnly = true;
+    else if (this.autoAudioOnly && this.goodChecks >= 3) this.autoAudioOnly = false;
+
+    // Low-data mode never goes above "fair".
+    this.setQuality(this.opts.lowData && level === 'good' ? 'fair' : level);
+  }
+
+  private setQuality(level: CallQuality) {
+    this.quality = level;
+    void this.applyEncodings();
+    this.opts.onQuality?.(level, this.audioOnly);
+  }
+
+  private get audioOnly() {
+    return this.manualAudioOnly || this.autoAudioOnly;
+  }
+
+  private async applyEncodings() {
+    const pc = this.pc;
+    if (!pc) return;
+    for (const sender of pc.getSenders()) {
+      if (!sender.track) continue;
+      const params = sender.getParameters();
+      if (!params.encodings?.length) params.encodings = [{}];
+      const encoding = params.encodings[0];
+      if (sender.track.kind === 'video') {
+        const profile = VIDEO_PROFILES[this.quality];
+        encoding.maxBitrate = profile.maxBitrate;
+        encoding.maxFramerate = profile.maxFramerate;
+        // A shared screen keeps its full resolution so text stays readable.
+        encoding.scaleResolutionDownBy = this.screen ? 1 : profile.scaleResolutionDownBy;
+        encoding.active = !this.audioOnly;
+      } else if (sender.track.kind === 'audio') {
+        if (this.quality === 'poor') encoding.maxBitrate = AUDIO_POOR_BITRATE;
+        else delete encoding.maxBitrate;
+      }
+      await sender.setParameters(params).catch(() => undefined);
+    }
+  }
+
+  /** Stops (or resumes) sending video to save data; the other side's video still plays. */
+  setAudioOnly(on: boolean) {
+    this.manualAudioOnly = on;
+    if (!on) this.autoAudioOnly = false;
+    void this.applyEncodings();
+    this.opts.onQuality?.(this.quality, this.audioOnly);
   }
 
   private async makeOffer() {
@@ -181,11 +300,14 @@ export class VideoCall {
 
   /** Swaps the outgoing camera for a screen share; resolves when sharing stops. */
   async shareScreen(onStop: () => void) {
-    const display = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    // A low frame rate is plenty for documents and results, and keeps the bitrate down.
+    const display = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 5, max: 10 } } });
     this.screen = display;
     const track = display.getVideoTracks()[0];
+    if (track) track.contentHint = 'detail';
     const sender = this.pc?.getSenders().find((item) => item.track?.kind === 'video');
     if (sender && track) await sender.replaceTrack(track);
+    void this.applyEncodings();
     track.onended = () => void this.stopScreen().then(onStop);
   }
 
@@ -195,6 +317,7 @@ export class VideoCall {
     if (sender && camera) await sender.replaceTrack(camera);
     this.screen?.getTracks().forEach((track) => track.stop());
     this.screen = null;
+    void this.applyEncodings();
   }
 
   /** Leaves the room. `endForEveryone` (host) closes the visit on the other side too; otherwise they see "left". */
@@ -202,6 +325,7 @@ export class VideoCall {
     if (this.closed) return;
     this.send({ type: endForEveryone ? 'end' : 'bye' });
     this.closed = true;
+    window.clearInterval(this.monitor);
     this.screen?.getTracks().forEach((track) => track.stop());
     this.pc?.close();
     this.pc = null;
@@ -224,13 +348,18 @@ export interface LocalMedia {
 /**
  * Camera + microphone, falling back to microphone only and then to
  * listen-only (empty stream) so a missing or blocked device never stops a visit.
+ * 360p is plenty for a consultation; low-data mode asks for 180p at a lower frame rate.
  */
-export async function openCameraAndMic(): Promise<LocalMedia> {
+export async function openCameraAndMic(lowData = false): Promise<LocalMedia> {
   if (!navigator.mediaDevices?.getUserMedia) {
     return { stream: new MediaStream(), note: 'This browser cannot use a camera or microphone; you can still see and hear the other side.' };
   }
   try {
-    return { stream: await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true }), note: '' };
+    const video = lowData
+      ? { width: { ideal: 320 }, height: { ideal: 180 }, frameRate: { ideal: 12, max: 15 } }
+      : { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 24, max: 30 } };
+    const audio = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+    return { stream: await navigator.mediaDevices.getUserMedia({ video, audio }), note: '' };
   } catch (error) {
     const name = error instanceof DOMException ? error.name : '';
     try {

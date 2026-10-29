@@ -12,6 +12,11 @@
     <meta name="theme-color" content="#1E4ED8" />
     <link rel="icon" type="image/png" href="/vitalink-logo.png" />
     <link rel="apple-touch-icon" href="/vitalink-logo.png" />
+    <!-- Connect early to the font and data servers; the font never blocks the first paint (swap). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
     <title>VitaLink Healthcare Platform</title>
   </head>
   <body>

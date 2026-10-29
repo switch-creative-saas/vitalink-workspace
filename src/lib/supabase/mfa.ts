@@ -1,9 +1,9 @@
 // Two-step verification (TOTP authenticator apps) on Supabase Auth.
 //
-// Admins, clinical staff and VitaLink platform admins must use it; anyone else may turn it on, and
-// once on it's always asked for. The database enforces it: until a session is verified (aal2),
-// role checks fail, so patient data isn't readable with a password alone. Sign-in flows call
-// waitForMfa() before loading workspace data; the <MfaGate /> overlay collects the code.
+// Optional for workspace staff (the app shows a standing reminder until it's set up, see
+// <MfaReminder />); required for VitaLink platform admins. Once someone turns it on it's always
+// asked for, and the database enforces that: until their session is verified (aal2), role checks
+// fail. Sign-in flows call waitForMfa() before loading workspace data; <MfaGate /> collects the code.
 //
 // A browser where a code was entered is remembered: later sign-ins there skip the code until the
 // device goes 14 days unused (or 30 days after it was first trusted). Only a hash of the device
@@ -12,7 +12,11 @@ import { requireSupabase } from './client';
 
 export type MfaNeed = 'none' | 'challenge' | 'enroll';
 
-export interface MfaStatus { required: boolean; enrolled: boolean; aal: 'aal1' | 'aal2' }
+export interface MfaStatus { required: boolean; recommended: boolean; enrolled: boolean; aal: 'aal1' | 'aal2' }
+
+/** Fired on window whenever this user's two-step setup changes (turned on or off). */
+export const MFA_CHANGED_EVENT = 'vitalink:mfa-changed';
+const announceChange = () => window.dispatchEvent(new Event(MFA_CHANGED_EVENT));
 export interface TotpFactor { id: string; name: string; createdAt: string }
 export interface TotpEnrollment { factorId: string; qrCode: string; secret: string }
 
@@ -75,6 +79,7 @@ export async function verifyTotp(factorId: string, code: string) {
   const { error } = await requireSupabase().auth.mfa.challengeAndVerify({ factorId, code: code.replace(/\s/g, '') });
   if (error) throw new Error(/invalid|expired/i.test(error.message) ? 'That code didn’t match. Check the time on your phone and try the newest code.' : error.message);
   await rememberThisDevice().catch(() => undefined);
+  announceChange();
 }
 
 // ---------------------------------------------------------------------------
@@ -140,6 +145,7 @@ export async function verifySignInCode(code: string) {
 export async function removeTotpFactor(factorId: string) {
   const { error } = await requireSupabase().auth.mfa.unenroll({ factorId });
   if (error) throw new Error(error.message);
+  announceChange();
 }
 
 /** Workspace admins: clears a staff member's authenticator so they can set it up again (lost phone). */

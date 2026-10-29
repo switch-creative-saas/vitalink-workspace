@@ -242,7 +242,7 @@ export function WorkspaceSetup() {
       {/* Steps */}
       <aside className="relative hidden w-[380px] shrink-0 overflow-hidden p-4 lg:block">
         <div className="relative flex h-full flex-col overflow-hidden rounded-[28px] bg-[#05060f] p-8 text-white">
-          <img src="/auth-poster.png" alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_30%] opacity-45" />
+          <img src="/auth-poster.webp" alt="" className="absolute inset-0 h-full w-full object-cover object-[50%_30%] opacity-45" />
           <div className="absolute inset-0 bg-gradient-to-b from-[#05060f]/40 to-[#05060f]/90" />
           <div className="relative flex items-center gap-2.5"><img src="/vitalink-icon.png" alt="" className="h-9 w-9" /><span className="text-lg font-semibold">VitaLink</span></div>
           <div className="relative mt-12">

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { refreshInterval } from '@/lib/network/dataSaver';
 import { X, Sparkles, AlertTriangle, TrendingUp, Brain, Users, Clock, CheckCircle, AlertCircle, ArrowRight, RefreshCw, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -106,7 +107,7 @@ export function VitaMindAIPanel({ isOpen, onClose }: VitaMindAIPanelProps) {
   useEffect(() => {
     if (!isOpen || !isSupabaseConfigured) return;
     const first = window.setTimeout(load, 0);
-    const timer = window.setInterval(load, 60_000);
+    const timer = window.setInterval(() => { if (!document.hidden) load(); }, refreshInterval(60_000));
     return () => { window.clearTimeout(first); window.clearInterval(timer); };
   }, [isOpen, load]);
 

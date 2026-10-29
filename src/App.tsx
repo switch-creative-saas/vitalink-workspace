@@ -10,27 +10,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { PageContainer } from '@/components/layout/PageContainer';
 import { VitaMindAIPanel } from '@/components/ai/VitaMindAIPanel';
 import { AIFloatingButton } from '@/components/ai/AIFloatingButton';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { PatientIdentityPage } from '@/pages/PatientIdentityPage';
-import { PatientsPage } from '@/pages/PatientsPage';
-import { EMRPage } from '@/pages/EMRPage';
-import { TelemedicinePage } from '@/pages/TelemedicinePage';
-import { AIClinicalIntelligencePage } from '@/pages/AIClinicalIntelligencePage';
-import { VitaLinkNetworkPage } from '@/pages/VitaLinkNetworkPage';
-import { AppointmentsPage } from '@/pages/AppointmentsPage';
-import { LaboratoryPage } from '@/pages/LaboratoryPage';
-import { PharmacyPage } from '@/pages/PharmacyPage';
-import { BillingPage } from '@/pages/BillingPage';
-import { AnalyticsPage } from '@/pages/AnalyticsPage';
-import { HumanResourcesPage } from '@/pages/HumanResourcesPage';
-import { AdministrationPage } from '@/pages/AdministrationPage';
-import { SubscriptionPage } from '@/pages/SubscriptionPage';
-import { AuditLogsPage } from '@/pages/AuditLogsPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { HelpSupportPage } from '@/pages/HelpSupportPage';
-import { NFCCardsPage } from '@/pages/NFCCardsPage';
 import { AuthGatewayPage } from '@/pages/AuthGatewayPage';
-import { PatientVisitPage } from '@/pages/PatientVisitPage';
 import { resetPlatformAdminCheck } from '@/hooks/usePlatformAdmin';
 import { Toaster } from '@/components/ui/sonner';
 import type { PageType } from '@/types';
@@ -50,13 +30,68 @@ import { SessionGuard } from '@/components/security/SessionGuard';
 import { OfflineBanner } from '@/components/offline/OfflineStatus';
 import { ProfileSync } from '@/components/profile/ProfileSync';
 import { MfaGate } from '@/components/auth/MfaGate';
+import { MfaReminder } from '@/components/auth/MfaReminder';
+import { isLowData } from '@/lib/network/dataSaver';
+import { PageLoading } from '@/components/layout/PageLoading';
 
 // The VitaLink Console is its own app (own sign-in, own layout); only its code is downloaded at /console.
+// Pages load on first use (one small file each), so the first visit on a slow connection only
+// downloads the sign-in screen and the shell. Once signed in on a good connection the rest are
+// fetched in the background so moving around is instant (skipped in low-data mode).
+const PAGE_LOADERS = {
+  DashboardPage: () => import('@/pages/DashboardPage'),
+  PatientIdentityPage: () => import('@/pages/PatientIdentityPage'),
+  PatientsPage: () => import('@/pages/PatientsPage'),
+  EMRPage: () => import('@/pages/EMRPage'),
+  TelemedicinePage: () => import('@/pages/TelemedicinePage'),
+  AIClinicalIntelligencePage: () => import('@/pages/AIClinicalIntelligencePage'),
+  VitaLinkNetworkPage: () => import('@/pages/VitaLinkNetworkPage'),
+  AppointmentsPage: () => import('@/pages/AppointmentsPage'),
+  LaboratoryPage: () => import('@/pages/LaboratoryPage'),
+  PharmacyPage: () => import('@/pages/PharmacyPage'),
+  BillingPage: () => import('@/pages/BillingPage'),
+  AnalyticsPage: () => import('@/pages/AnalyticsPage'),
+  HumanResourcesPage: () => import('@/pages/HumanResourcesPage'),
+  AdministrationPage: () => import('@/pages/AdministrationPage'),
+  SubscriptionPage: () => import('@/pages/SubscriptionPage'),
+  AuditLogsPage: () => import('@/pages/AuditLogsPage'),
+  SettingsPage: () => import('@/pages/SettingsPage'),
+  HelpSupportPage: () => import('@/pages/HelpSupportPage'),
+  NFCCardsPage: () => import('@/pages/NFCCardsPage'),
+  PatientVisitPage: () => import('@/pages/PatientVisitPage'),
+};
+const DashboardPage = lazy(() => PAGE_LOADERS.DashboardPage().then((m) => ({ default: m.DashboardPage })));
+const PatientIdentityPage = lazy(() => PAGE_LOADERS.PatientIdentityPage().then((m) => ({ default: m.PatientIdentityPage })));
+const PatientsPage = lazy(() => PAGE_LOADERS.PatientsPage().then((m) => ({ default: m.PatientsPage })));
+const EMRPage = lazy(() => PAGE_LOADERS.EMRPage().then((m) => ({ default: m.EMRPage })));
+const TelemedicinePage = lazy(() => PAGE_LOADERS.TelemedicinePage().then((m) => ({ default: m.TelemedicinePage })));
+const AIClinicalIntelligencePage = lazy(() => PAGE_LOADERS.AIClinicalIntelligencePage().then((m) => ({ default: m.AIClinicalIntelligencePage })));
+const VitaLinkNetworkPage = lazy(() => PAGE_LOADERS.VitaLinkNetworkPage().then((m) => ({ default: m.VitaLinkNetworkPage })));
+const AppointmentsPage = lazy(() => PAGE_LOADERS.AppointmentsPage().then((m) => ({ default: m.AppointmentsPage })));
+const LaboratoryPage = lazy(() => PAGE_LOADERS.LaboratoryPage().then((m) => ({ default: m.LaboratoryPage })));
+const PharmacyPage = lazy(() => PAGE_LOADERS.PharmacyPage().then((m) => ({ default: m.PharmacyPage })));
+const BillingPage = lazy(() => PAGE_LOADERS.BillingPage().then((m) => ({ default: m.BillingPage })));
+const AnalyticsPage = lazy(() => PAGE_LOADERS.AnalyticsPage().then((m) => ({ default: m.AnalyticsPage })));
+const HumanResourcesPage = lazy(() => PAGE_LOADERS.HumanResourcesPage().then((m) => ({ default: m.HumanResourcesPage })));
+const AdministrationPage = lazy(() => PAGE_LOADERS.AdministrationPage().then((m) => ({ default: m.AdministrationPage })));
+const SubscriptionPage = lazy(() => PAGE_LOADERS.SubscriptionPage().then((m) => ({ default: m.SubscriptionPage })));
+const AuditLogsPage = lazy(() => PAGE_LOADERS.AuditLogsPage().then((m) => ({ default: m.AuditLogsPage })));
+const SettingsPage = lazy(() => PAGE_LOADERS.SettingsPage().then((m) => ({ default: m.SettingsPage })));
+const HelpSupportPage = lazy(() => PAGE_LOADERS.HelpSupportPage().then((m) => ({ default: m.HelpSupportPage })));
+const NFCCardsPage = lazy(() => PAGE_LOADERS.NFCCardsPage().then((m) => ({ default: m.NFCCardsPage })));
+const PatientVisitPage = lazy(() => PAGE_LOADERS.PatientVisitPage().then((m) => ({ default: m.PatientVisitPage })));
+
+function prefetchPages() {
+  if (isLowData()) return;
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1500));
+  idle(() => { Object.values(PAGE_LOADERS).forEach((load) => void load().catch(() => undefined)); });
+}
+
 const ConsoleApp = lazy(() => import('@/components/console/ConsoleApp'));
 
 function App() {
   // Patients open video-visit links without an account.
-  if (isSupabaseConfigured && window.location.pathname === '/visit') return <PatientVisitPage />;
+  if (isSupabaseConfigured && window.location.pathname === '/visit') return <Suspense fallback={<PageLoading fullScreen />}><PatientVisitPage /></Suspense>;
   if (isSupabaseConfigured && /^\/console(\/|$)/.test(window.location.pathname)) {
     return <Suspense fallback={null}><ConsoleApp /></Suspense>;
   }
@@ -87,6 +122,8 @@ function AppShell() {
   const { hasModule } = usePlan();
   // With Supabase the gateway always re-validates the real session on load.
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !isSupabaseConfigured && Boolean(localStorage.getItem('vitalink-auth-session')));
+  // Signed in: fetch the other pages in the background (good connections only).
+  useEffect(() => { if (isAuthenticated) prefetchPages(); }, [isAuthenticated]);
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
   const [vitaMindPanelOpen, setVitaMindPanelOpen] = useState(false);
   const [emrSwitchId, setEmrSwitchId] = useState<string | null>(null);
@@ -412,6 +449,7 @@ function AppShell() {
         />
         
         <div className="flex-1 flex flex-col min-w-0 relative">
+          {isSupabaseConfigured && <MfaReminder />}
           <Header 
             title={getPageTitle()} 
             onAIClick={() => setVitaMindPanelOpen(!vitaMindPanelOpen)}
@@ -423,7 +461,7 @@ function AppShell() {
           {isSupabaseConfigured && <OfflineBanner />}
           <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 page-transition">
             <PageContainer className="py-4 md:py-5 lg:py-6">
-              {renderPage()}
+              <Suspense fallback={<PageLoading />}>{renderPage()}</Suspense>
             </PageContainer>
           </main>
         </div>

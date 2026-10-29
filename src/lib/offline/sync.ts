@@ -15,6 +15,7 @@
 // Everything else (sign-in, uploads, edge functions, admin actions) behaves as
 // before and fails with a clear message while offline.
 import { cacheGet, cachePut, cacheScan, clearCache, hashKey, outboxAll, outboxCountAll, outboxDelete, outboxPut, pruneCache, userKey, wipeVault } from './vault';
+import { refreshInterval } from '@/lib/network/dataSaver';
 
 type Row = Record<string, unknown>;
 
@@ -682,7 +683,7 @@ export function startOfflineSync(options: { supabaseUrl: string; apiKey: string;
   started = true;
   window.addEventListener('online', () => { setStatus({ online: true }); void flushOutbox(); });
   window.addEventListener('offline', () => setStatus({ online: false }));
-  window.setInterval(() => { void flushOutbox(); }, 30_000);
+  window.setInterval(() => { if (!document.hidden) void flushOutbox(); }, refreshInterval(30_000));
   const userId = lastUser();
   if (userId) void loadQueue(userId);
   void pruneCache().catch(() => undefined);

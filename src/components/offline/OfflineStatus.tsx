@@ -1,18 +1,21 @@
 // Connection and sync status: the header chip (with the list of changes waiting
-// to sync or refused by the server) and the banner shown while offline.
+// to sync or refused by the server, and the low-data switch) and the banner shown while offline.
 import { useEffect, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, CloudOff, Loader2, RefreshCw, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { AlertTriangle, CloudOff, Gauge, Loader2, RefreshCw, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { discardEntry, flushOutbox, retryEntry } from '@/lib/offline/sync';
 import { useOfflineStatus } from '@/hooks/useOfflineStatus';
+import { Switch } from '@/components/ui/switch';
+import { getDataSaverPreference, setDataSaverPreference, useLowData } from '@/lib/network/dataSaver';
 
 export function OfflineStatusChip() {
   const status = useOfflineStatus();
   const [busy, setBusy] = useState<string | null>(null);
   const waiting = status.pending + status.failed.length;
+  const lowData = useLowData();
 
   useEffect(() => {
     const onSynced = (event: Event) => {
@@ -28,8 +31,8 @@ export function OfflineStatusChip() {
   const tone = status.failed.length ? 'bg-red-100 text-red-700' : !status.online ? 'bg-amber-100 text-amber-700' : waiting ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
   const label = status.failed.length ? `${status.failed.length} need attention`
     : !status.online ? (status.pending ? `Offline · ${status.pending} to sync` : 'Offline')
-    : status.syncing ? 'Syncing…' : status.pending ? `${status.pending} to sync` : 'Online';
-  const Icon = status.failed.length ? AlertTriangle : !status.online ? WifiOff : status.syncing ? Loader2 : Wifi;
+    : status.syncing ? 'Syncing…' : status.pending ? `${status.pending} to sync` : lowData ? 'Low data' : 'Online';
+  const Icon = status.failed.length ? AlertTriangle : !status.online ? WifiOff : status.syncing ? Loader2 : lowData ? Gauge : Wifi;
 
   const act = async (id: string, action: () => Promise<void>) => {
     setBusy(id);
@@ -52,6 +55,10 @@ export function OfflineStatusChip() {
               ? status.lastSyncedAt ? `Last synced ${formatDistanceToNow(status.lastSyncedAt, { addSuffix: true })}.` : 'Changes save straight to VitaLink.'
               : 'Pages show what was last loaded on this device. Patient registration, notes, vitals, appointments, lab and pharmacy changes are kept here and sent when you reconnect.'}
           </p>
+          <label className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-300">
+            <span><span className="block font-semibold text-slate-900 dark:text-slate-50">Low-data mode</span>{getDataSaverPreference() === 'auto' ? 'Automatic: follows your connection' : 'Set by you on this device'}</span>
+            <Switch checked={lowData} onCheckedChange={(on) => setDataSaverPreference(on ? 'on' : 'off')} />
+          </label>
         </div>
         <div className="max-h-72 space-y-2 overflow-y-auto p-3">
           {waiting === 0 && <p className="px-1 py-2 text-xs text-slate-500 dark:text-slate-400">Nothing waiting to sync.</p>}
