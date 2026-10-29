@@ -52,18 +52,28 @@ export interface ExtractedPatient {
 
 export interface ExtractionResult { document_type: string; patients: ExtractedPatient[]; notes: string }
 
-/** Shrinks a photo to at most `maxSide` px as JPEG so uploads stay small on mobile data. */
+/** Largest photo sent (base64 characters): four always fit the AI service's 4.5 MB request limit. */
+export const MAX_PHOTO_BASE64 = 950_000;
+
+/** Shrinks a photo to at most `maxSide` px as JPEG, stepping quality and size down until it fits. */
 export async function preparePhoto(file: File, maxSide = 1600): Promise<{ mediaType: 'image/jpeg'; data: string; preview: string }> {
   const bitmap = await createImageBitmap(file).catch(() => null);
   if (!bitmap) throw new Error(`${file.name} is not a photo this browser can read. Use JPEG or PNG.`);
-  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const preview = canvas.toDataURL('image/jpeg', 0.85);
-  return { mediaType: 'image/jpeg', data: preview.slice(preview.indexOf(',') + 1), preview };
+  try {
+    for (const [side, quality] of [[maxSide, 0.85], [maxSide, 0.7], [1280, 0.7], [1024, 0.65]] as const) {
+      const scale = Math.min(1, side / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      const preview = canvas.toDataURL('image/jpeg', quality);
+      const data = preview.slice(preview.indexOf(',') + 1);
+      if (data.length <= MAX_PHOTO_BASE64) return { mediaType: 'image/jpeg', data, preview };
+    }
+    throw new Error(`${file.name} is too detailed to send. Take the photo again a little further away.`);
+  } finally {
+    bitmap.close();
+  }
 }
 
 export const extractPatients = (organizationId: string, images: Array<{ mediaType: string; data: string }>) =>

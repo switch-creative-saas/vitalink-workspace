@@ -50,7 +50,18 @@ Add FMOH / NCDC guideline text with `POST /embed` and `source_type: "fmoh"`.
 
 ## Deploy
 
-Any container host works (Render, Railway, Fly.io, Cloud Run): build the `Dockerfile`,
+**Vercel** (a second Vercel project, separate from the website):
+
+1. Vercel → Add New → Project → import this repository again.
+2. Root Directory: `apps/vitamind-ai`. Framework preset: FastAPI (Vercel finds `app/main.py` and installs `requirements.txt`).
+3. Environment Variables: everything in `.env.example` (at least `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`,
+   `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `VITAMIND_SERVICE_TOKEN`). Deploy.
+4. Open `https://<project>.vercel.app/health`: every `configured` value should be `true`.
+
+Vercel limits requests to 4.5 MB, so the app keeps each photo under ~1 MB and audio segments to a minute.
+Each Vercel instance keeps its own per-minute count, so the daily budgets in `ai_usage_daily` are the hard cap.
+
+**Any container host** (Render, Railway, Fly.io, Cloud Run): build the `Dockerfile`,
 set the variables from `.env.example`, expose port 8000 (`PORT` is honoured).
 
 Then set these secrets on the Supabase project so the edge function can reach it:

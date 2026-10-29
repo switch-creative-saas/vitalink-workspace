@@ -38,7 +38,9 @@ const LIMITS = {
   scribe_draft: { perHour: 20, workspacePerDay: 300 },
 };
 const MAX_IMAGES = 4;
-const MAX_IMAGE_BASE64 = 3_500_000;
+const MAX_IMAGE_BASE64 = 1_000_000;
+// The AI service runs on Vercel, which refuses request bodies over 4.5 MB.
+const MAX_IMAGES_TOTAL_BASE64 = 4_000_000;
 const MAX_AUDIO_BASE64 = 3_500_000;
 
 async function callService(path: string, body: unknown) {
@@ -108,8 +110,11 @@ Deno.serve(async (req) => {
       if (images.length < 1 || images.length > MAX_IMAGES) return json({ error: `Add between 1 and ${MAX_IMAGES} photos.` }, 400);
       for (const image of images) {
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(image?.mediaType) || typeof image?.data !== 'string' || image.data.length > MAX_IMAGE_BASE64) {
-          return json({ error: 'Each photo must be a JPEG, PNG or WebP under 2.5 MB.' }, 400);
+          return json({ error: 'Each photo must be a JPEG, PNG or WebP under about 700 KB. Update the app and try again.' }, 400);
         }
+      }
+      if (images.reduce((total: number, image: { data: string }) => total + image.data.length, 0) > MAX_IMAGES_TOTAL_BASE64) {
+        return json({ error: 'These photos are too large together. Send fewer at a time.' }, 400);
       }
       if ((await used('ocr', true, 3_600_000)) + images.length > LIMITS.ocr.perHour) return json({ error: `You've scanned ${LIMITS.ocr.perHour} photos this hour. Try again later.` }, 429);
       if ((await used('ocr', false, 86_400_000)) + images.length > LIMITS.ocr.workspacePerDay) return json({ error: 'Your workspace has reached today’s scanning limit. Try again tomorrow.' }, 429);

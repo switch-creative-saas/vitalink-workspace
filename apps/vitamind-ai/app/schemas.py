@@ -108,8 +108,9 @@ class FeedbackResponse(BaseModel):
 
 class RecordImage(BaseModel):
     media_type: Literal["image/jpeg", "image/png", "image/webp"]
-    # base64; about 3 MB per photo at most (the browser resizes to ~1600px first).
-    data: str = Field(min_length=100, max_length=4_000_000)
+    # base64; the browser resizes to ~1600px and keeps each photo under ~1 MB so a batch of four
+    # fits Vercel's 4.5 MB request limit.
+    data: str = Field(min_length=100, max_length=1_000_000)
 
 
 class ExtractPatientsRequest(BaseModel):

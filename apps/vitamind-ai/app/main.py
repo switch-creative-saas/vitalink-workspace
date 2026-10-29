@@ -37,8 +37,8 @@ log = logging.getLogger("vitamind")
 app = FastAPI(title="VitaMind AI", version="1.0.0")
 
 MAX_BODY_BYTES = 1_000_000
-# Photos and audio segments are bigger than text requests.
-MAX_BODY_BYTES_BY_PATH = {"/extract-patients": 14_000_000, "/transcribe": 4_500_000}
+# Photos and audio segments are bigger than text requests (Vercel itself stops at 4.5 MB).
+MAX_BODY_BYTES_BY_PATH = {"/extract-patients": 4_500_000, "/transcribe": 4_500_000}
 
 
 @app.middleware("http")
