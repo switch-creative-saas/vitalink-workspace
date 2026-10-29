@@ -26,6 +26,8 @@ class Settings:
     daily_llm_tokens: int
     daily_embed_requests: int
     daily_embed_tokens: int
+    transcribe_model: str
+    daily_audio_minutes: int
 
 
 @lru_cache
@@ -44,4 +46,7 @@ def get_settings() -> Settings:
         daily_llm_tokens=int(os.environ.get("VITAMIND_DAILY_LLM_TOKENS", "3000000")),
         daily_embed_requests=int(os.environ.get("VITAMIND_DAILY_EMBED_REQUESTS", "5000")),
         daily_embed_tokens=int(os.environ.get("VITAMIND_DAILY_EMBED_TOKENS", "5000000")),
+        transcribe_model=os.environ.get("VITAMIND_TRANSCRIBE_MODEL", "gpt-4o-transcribe"),
+        # Consultation audio for the whole platform per day (about $0.006 a minute).
+        daily_audio_minutes=int(os.environ.get("VITAMIND_DAILY_AUDIO_MINUTES", "1500")),
     )

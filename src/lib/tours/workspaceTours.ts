@@ -20,6 +20,8 @@ export interface WorkspaceTour {
 
 const ADMINS: UserRole[] = ['super-admin', 'hospital-admin'];
 const CLINICIANS: UserRole[] = ['super-admin', 'hospital-admin', 'doctor', 'nurse'];
+const REGISTRARS: UserRole[] = ['super-admin', 'hospital-admin', 'doctor', 'nurse', 'receptionist'];
+const DOCTORS: UserRole[] = ['super-admin', 'hospital-admin', 'doctor'];
 
 export const WELCOME_TOUR_ID = 'welcome';
 
@@ -32,13 +34,15 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     steps: [
       { page: 'dashboard', title: 'Welcome to VitaLink', body: "Let's take two minutes to show you around. You can close this at any time and pick it up again from the question-mark button at the top of the screen." },
       { element: 'sidebar-nav', side: 'right', title: 'Your menu', body: "Every part of VitaLink you can use is listed here. You only see what your role needs. A padlock means it's included in a higher plan." },
+      { element: 'sidebar-collapse', side: 'right', title: 'More room to work', body: 'Click this button on the edge of the menu to fold it away, and again to bring it back. Hover over it to see what it does.' },
       { element: 'sidebar-dashboard', side: 'right', title: 'Dashboard', body: "Your home screen: today's appointments, things that need someone's attention and shortcuts to common jobs." },
       { element: 'global-search', side: 'bottom', title: 'Find anything fast', body: "Search for a patient by name, phone number or VitaLink ID, or look up appointments and records, without leaving the page you're on." },
       { element: 'offline-status', side: 'bottom', title: 'Keeps working without internet', body: 'If the connection drops, keep working. Your changes are saved on this device and sent automatically when you are back online. Click here any time to see what is waiting to sync.' },
       { element: 'notifications', side: 'bottom', title: 'Notifications', body: 'Lab results, appointments, referrals and messages from your team arrive here. A red badge means something is new.' },
       { element: 'vitamind-button', side: 'bottom', title: 'VitaMind AI', body: "Your built-in assistant. Ask it a clinical question or how to do something in VitaLink. It helps you decide; it doesn't decide for you." },
+      { element: 'sidebar-help', side: 'right', title: 'Help & Support', body: 'Stuck? Ask your workspace admins here; they can bring in the VitaLink team if needed. Quick how-tos are here too.' },
       { element: 'tour-button', side: 'bottom', title: 'Help whenever you need it', body: 'Click here to tour the page you are on, or to see every guided tour. The first time you open a page, we will offer you a short tour of it.' },
-      { element: 'profile-menu', side: 'bottom', title: 'Your account', body: 'Change your profile, password, notifications and theme here, or sign out.' },
+      { element: 'profile-menu', side: 'bottom', title: 'Your account', body: 'Change your profile, password, notifications and theme here, or sign out. Settings is also where you set up two-step sign-in with an authenticator app.' },
       { title: "You're all set", body: 'Next, try a tour of the page you use most, or "A patient visit, start to finish" to see how everything connects. Both are under the question-mark button.' },
     ],
   },
@@ -50,12 +54,12 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     roles: ['super-admin', 'hospital-admin', 'doctor', 'nurse', 'receptionist'],
     steps: [
       { page: 'dashboard', title: 'One visit, one record', body: 'Everything about a patient visit lands in a single record that every department can see. Let us follow one patient through VitaLink.' },
-      { page: 'patients', element: 'patients-add', side: 'bottom', title: '1. Register the patient', body: 'New patients are added here. Each one gets a VitaLink ID that stays with them, even at other hospitals on VitaLink. Already registered? Search for them instead.' },
+      { page: 'patients', element: 'patients-add', side: 'bottom', title: '1. Register the patient', body: 'New patients are added here. Each one gets a VitaLink ID that stays with them, even at other hospitals on VitaLink. Moving from paper? Photograph old cards or register pages with "Scan paper records". Already registered? Search for them instead.' },
       { page: 'appointments', element: 'appointments-new', side: 'bottom', title: '2. Book the visit', body: "Book a consultation with a doctor. It shows on the doctor's schedule and on everyone's dashboard." },
-      { page: 'patients', element: 'patients-table', card: true, side: 'top', title: '3. Open their record', body: "Click a patient to open their medical record: history, vitals, clinical notes, lab results and documents, all in one place." },
+      { page: 'patients', element: 'patients-table', card: true, side: 'top', title: '3. Open their record', body: "Click a patient to open their medical record: history, vitals, clinical notes, lab results and documents, all in one place. On the Growth plan, VitaMind Scribe can listen to the consultation and draft the note for the doctor." },
       { page: 'laboratory', element: 'lab-new-order', side: 'bottom', title: '4. Order tests', body: "Lab requests go straight to the lab's queue. When results are ready, they are added to the patient's record." },
       { page: 'pharmacy', element: 'pharmacy-tabs', side: 'bottom', title: '5. Medication', body: "Prescriptions arrive at the pharmacy. The pharmacist checks stock and dispenses, and the stock count updates by itself." },
-      { page: 'billing', element: 'billing-new-invoice', side: 'bottom', title: '6. Bill and get paid', body: "Create the invoice, record cash, card or transfer payments, or send the claim to the patient's HMO." },
+      { page: 'billing', element: 'billing-new-invoice', side: 'bottom', title: '6. Bill and get paid', body: "Visits, lab tests and dispensed drugs are added to the patient's bill automatically. Take cash, card or transfer payments and print a receipt with your hospital's name, or send the claim to the patient's HMO." },
       { title: "That's the whole visit", body: 'Each department sees the same up-to-date record, so nothing has to be re-typed or carried on paper.' },
     ],
   },
@@ -73,11 +77,12 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     ],
   },
   {
-    id: 'page:patients', page: 'patients', title: 'Patients', summary: 'Find, register, import and export patients.', minutes: 1,
+    id: 'page:patients', page: 'patients', title: 'Patients', summary: 'Find, register, scan paper records, import and export patients.', minutes: 1,
     steps: [
       { title: 'Patient registry', body: 'Every patient registered at your facility is here.' },
       { element: 'patients-search', side: 'bottom', title: 'Search', body: 'Type a name, phone number or VitaLink ID. Use Advanced Filters to narrow by doctor, insurer, age and more.' },
       { element: 'patients-add', side: 'bottom', title: 'Add a patient', body: 'Register a new patient in a few short steps. They get a VitaLink ID straight away.' },
+      { element: 'patients-scan', side: 'bottom', roles: REGISTRARS, title: 'Register from paper', body: 'Photograph patient cards, registration forms or a page of your register book (up to 4 photos at a time). VitaMind reads them, highlights anything hard to read, and you check each patient before they are added. Included from the Starter plan.' },
       { element: 'patients-import', side: 'bottom', title: 'Bring in existing patients', body: 'Moving from paper or another system? Import a spreadsheet (CSV or Excel). Click Template first to get the right columns.' },
       { element: 'patients-export', side: 'bottom', title: 'Export', body: 'Download the list you are looking at as CSV, Excel or PDF.' },
       { element: 'patients-table', card: true, side: 'top', title: 'Open a record', body: "Click any patient to open their full medical record." },
@@ -92,12 +97,14 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     ],
   },
   {
-    id: 'page:emr', page: 'emr', title: 'Medical records (EMR)', summary: 'Read and add to a patient’s record.', minutes: 1, roles: [...CLINICIANS, 'lab-scientist', 'lab-technician'],
+    id: 'page:emr', page: 'emr', title: 'Medical records (EMR)', summary: 'Read and add to a patient’s record, with the consultation scribe.', minutes: 1, roles: [...CLINICIANS, 'lab-scientist', 'lab-technician'],
     steps: [
       { title: "The patient's record", body: 'Open a patient from the Patients page and their record appears here. Everything you add is saved to their timeline.' },
       { element: 'emr-patient', side: 'right', title: 'Who you are viewing', body: "The patient's name and VitaLink ID, so you always know whose record is open." },
       { element: 'emr-tabs', side: 'bottom', title: 'Sections of the record', body: 'Overview, clinical notes, lab results, documents and the full timeline. With consent, you can also see records from other hospitals and connected EMR systems.' },
-      { element: 'emr-new-note', side: 'bottom', title: 'Write a clinical note', body: 'Record the consultation using the SOAP layout: what the patient says, what you find, your assessment and your plan.' },
+      { element: 'emr-new-note', side: 'bottom', title: 'Write a clinical note', body: 'Record the consultation using the SOAP layout: what the patient says, what you find, your assessment and your plan. Every time a record is opened, it is noted in the audit log.' },
+      { element: 'emr-new-note', side: 'bottom', roles: DOCTORS, title: 'Let VitaMind Scribe take the note', body: "In a new note, choose 'Listen to consultation'. With the patient's agreement, VitaMind listens, writes the note and picks out symptoms and things to consider. You check it, add your diagnosis and sign; VitaMind learns from the diagnoses you sign. Audio is not kept. Included from the Growth plan." },
+      { element: 'emr-scribe', side: 'bottom', roles: DOCTORS, title: 'Start the scribe here', body: 'Tick that the patient agreed, then start listening. End the consultation when you are done and review the draft before using it.' },
     ],
   },
   {
@@ -113,9 +120,10 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     id: 'page:telemedicine', page: 'telemedicine', title: 'Telemedicine', summary: 'Video visits with patients and other doctors.', minutes: 1,
     steps: [
       { title: 'Care by video', body: 'See patients by video, or bring in a specialist to discuss a case.' },
-      { element: 'telemedicine-modes', side: 'bottom', title: 'Two kinds of call', body: 'Patient Consultation is for video visits with patients. Specialist Conference is for doctor-to-doctor calls.' },
+      { element: 'telemedicine-modes', side: 'bottom', title: 'Two kinds of call', body: 'Patient Consultation is for video visits with patients. Specialist Conference is for doctor-to-doctor calls, with a colleague here or a specialist at another hospital on the VitaLink Network.' },
       { element: 'telemedicine-start', card: true, title: 'Start a video visit', body: 'Send the patient a link. They join from their phone or computer, with no app or account needed.' },
       { element: 'telemedicine-waiting', card: true, side: 'left', title: 'Waiting room', body: 'Patients who have joined their video visit wait here for you.' },
+      { element: 'telemedicine-invite-from', side: 'bottom', title: 'Specialists from other hospitals', body: "Choose 'Another hospital' to pick a hospital from the network directory and one of its specialists. Write a short case note: they see that and the patient's name, age and sex, not your records. Invitations from other hospitals appear in your Conferences list." },
     ],
   },
   {
@@ -132,7 +140,7 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
       { title: 'Hospitals working together', body: 'Find other hospitals on VitaLink, refer or transfer patients, and share their records when the patient agrees.' },
       { element: 'network-status', side: 'bottom', title: 'Your network status', body: 'Shows whether your facility is on the network and listed in the directory. Admins can change this in Network settings.' },
       { element: 'network-stats', side: 'bottom', title: 'At a glance', body: 'Referrals coming in, referrals you have sent, and what has been completed this month.' },
-      { element: 'network-tabs', side: 'bottom', title: 'Directory and referrals', body: 'Search the directory to send a referral or request a transfer. Track and respond to them under Referrals & transfers.' },
+      { element: 'network-tabs', side: 'bottom', title: 'Directory and referrals', body: 'Search the directory to send a referral or request a transfer. Track and respond to them under Referrals & transfers. To discuss a case by video with a specialist elsewhere, invite them from Telemedicine.' },
     ],
   },
   {
@@ -153,11 +161,11 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     ],
   },
   {
-    id: 'page:billing', page: 'billing', title: 'Billing', summary: 'Invoices, payments, HMO claims and prices.', minutes: 1,
+    id: 'page:billing', page: 'billing', title: 'Billing', summary: 'Running bills, payments and receipts, HMO claims and prices.', minutes: 1,
     steps: [
-      { title: 'Billing & insurance', body: 'Charge for care, take payments and claim from HMOs.' },
-      { element: 'billing-new-invoice', side: 'bottom', title: 'New invoice', body: "Pick the patient and add the services from your price list. You can record a payment as soon as it is saved." },
-      { element: 'billing-tabs', side: 'bottom', title: 'Four sections', body: 'Invoices and Payments track what is owed and paid. HMO Claims sends bills to insurers and follows them up. Price List is where you set your prices.' },
+      { title: 'Billing & insurance', body: "Visits, lab tests and dispensed drugs are added to each patient's running bill by themselves. Take payment, print receipts and claim from HMOs here." },
+      { element: 'billing-new-invoice', side: 'bottom', title: 'New invoice', body: 'For anything billed outside a visit. Pick the patient and add services from your price list.' },
+      { element: 'billing-tabs', side: 'bottom', title: 'Five sections', body: "Open bills fill up live as the patient is seen; take a deposit or payment and finalize when they leave. All invoices lists every bill. Payments shows what was received, with a Print button for a receipt headed with your hospital's name. HMO Claims follows up insurers. Price List sets your prices." },
     ],
   },
   {
@@ -174,7 +182,7 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     steps: [
       { title: 'Your team', body: 'Everyone who works in this workspace, and what each person can do.' },
       { element: 'staff-invite', side: 'bottom', roles: ADMINS, title: 'Invite staff', body: "Send an invitation by email. Their role (doctor, nurse, pharmacist...) decides which pages they can see." },
-      { element: 'staff-tabs', side: 'bottom', title: 'Directory and invitations', body: 'See everyone on the team, and invitations that have not been accepted yet.' },
+      { element: 'staff-tabs', side: 'bottom', title: 'Directory and invitations', body: 'See everyone on the team, and invitations that have not been accepted yet. If someone loses the phone they use for two-step sign-in, an admin can reset it from their row.' },
     ],
   },
   {
@@ -204,13 +212,14 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     id: 'page:audit-logs', page: 'audit-logs', title: 'Security', summary: 'Who did what, active sessions and security rules.', minutes: 1,
     steps: [
       { title: 'Security & audit', body: 'Every change in the workspace is recorded: who made it, when and from where.' },
-      { element: 'audit-tabs', side: 'bottom', title: 'Three sections', body: 'Audit Log lists every action. Sessions shows who is signed in and lets you sign a device out. Security Policy sets password and idle-timeout rules.' },
+      { element: 'audit-tabs', side: 'bottom', title: 'Three sections', body: 'Audit Log lists every action, including each time a patient record is opened. Sessions shows who is signed in and lets you sign a device out. Security Policy sets password and idle-timeout rules.' },
     ],
   },
   {
-    id: 'page:settings', page: 'settings', title: 'Settings', summary: 'Your profile, sign-in, theme and notifications.', minutes: 1,
+    id: 'page:settings', page: 'settings', title: 'Settings', summary: 'Your profile, two-step sign-in, theme and notifications.', minutes: 1,
     steps: [
       { element: 'settings-tabs', side: 'right', title: 'Your settings', body: 'Update your profile, change your password or sign-in method, pick light or dark mode, and choose which notifications you get.' },
+      { element: 'settings-tabs', side: 'right', title: 'Two-step sign-in', body: 'Under Sign-in & security, set up an authenticator app (such as Google Authenticator). Admins and clinical staff must use it. A browser you use regularly is remembered, so you are only asked for a code after 14 days away; you can forget a device there too.' },
     ],
   },
 ];

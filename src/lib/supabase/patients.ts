@@ -214,7 +214,8 @@ export async function queryPatientsRemote(input: PatientQueryInput): Promise<Ser
 }
 
 async function findDuplicate(patient: NewPatient): Promise<PatientRow | null> {
-  const terms = [`phone.eq.${orValue(patient.phone.trim())}`];
+  // A blank phone (common on old paper records) must not match every other patient without one.
+  const terms = patient.phone.trim() ? [`phone.eq.${orValue(patient.phone.trim())}`] : [];
   if (patient.email?.trim()) terms.push(`email.ilike.${orValue(patient.email.trim())}`);
   terms.push(
     `and(first_name.ilike.${orValue(patient.firstName.trim())},last_name.ilike.${orValue(patient.lastName.trim())},date_of_birth.eq.${patient.dateOfBirth})`,

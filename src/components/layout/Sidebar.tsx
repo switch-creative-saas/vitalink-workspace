@@ -187,6 +187,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
         <TooltipTrigger asChild>
           <button
             type="button"
+            data-tour-id="sidebar-collapse"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             className="absolute -right-3.5 top-[26px] z-30 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-[#1E3A8A] shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-royal-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"

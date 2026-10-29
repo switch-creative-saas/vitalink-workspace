@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronRight, Download, Filter, Loader2, Nfc, Plus, Search, Upload } from 'lucide-react';
+import { ChevronRight, Download, Filter, Loader2, Lock, Nfc, Plus, ScanText, Search, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { PatientOnboardingWizard } from '@/components/patients/PatientOnboardingWizard';
+import { PaperIntakeDialog } from '@/components/patients/PaperIntakeDialog';
+import { usePlan } from '@/hooks/usePlan';
 import { buildCsv, getAge, getPatientSummary, listTenantPatients, parseCsvRows, queryPatients, sampleImportTemplate, type PatientSummary, type RegistryPatient } from '@/lib/patientRegistry';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 
@@ -46,6 +48,10 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
   const [debouncedQuery, setDebouncedQuery] = useState(searchParams.get('query') ?? '');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [paperOpen, setPaperOpen] = useState(false);
+  const { hasModule } = usePlan();
+  // Reading paper records with VitaMind: Starter plan and up.
+  const canScanPaper = isSupabaseConfigured && hasModule('ocr-intake');
   const [pageRows, setPageRows] = useState<RegistryPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRow, setSelectedRow] = useState<string | null>(null);
@@ -177,6 +183,18 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
           refresh();
         }}
       />
+      {canScanPaper && (
+        <PaperIntakeDialog
+          open={paperOpen}
+          onOpenChange={setPaperOpen}
+          tenantId={tenantId}
+          creatorName={userName}
+          onCreated={() => {
+            setPage(1);
+            refresh();
+          }}
+        />
+      )}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 truncate">Patient Registry</h1>
@@ -206,6 +224,21 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
           <Button data-tour-id="patients-export" variant="outline" onClick={() => exportRows('filtered', 'csv')} className="gap-2 min-w-0"><Download className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">Export CSV</span></Button>
           <Button variant="outline" onClick={() => exportRows('all', 'xlsx')} className="min-w-0">Excel</Button>
           <Button variant="outline" onClick={() => exportRows('filtered', 'pdf')} className="min-w-0">PDF</Button>
+          {isSupabaseConfigured && canCreate('Patients') && (
+            <Button
+              data-tour-id="patients-scan"
+              variant="outline"
+              className="gap-2 min-w-0"
+              title={canScanPaper ? 'Photograph paper records to register patients' : 'Included from the Starter plan'}
+              onClick={() => {
+                if (canScanPaper) { setPaperOpen(true); return; }
+                toast.info('Scanning paper records is included from the Starter plan.');
+                window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'subscription' } }));
+              }}
+            >
+              {canScanPaper ? <ScanText className="w-4 h-4 shrink-0" /> : <Lock className="w-4 h-4 shrink-0" />}<span className="truncate">Scan paper records</span>
+            </Button>
+          )}
           <Button
             data-tour-id="patients-add"
             className="bg-gradient-to-r from-royal-600 to-royal-800 text-white gap-2 min-w-0"

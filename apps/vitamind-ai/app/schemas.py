@@ -102,3 +102,95 @@ class FeedbackRequest(BaseModel):
 
 class FeedbackResponse(BaseModel):
     id: str
+
+
+# ---------- paper records (OCR) ----------
+
+class RecordImage(BaseModel):
+    media_type: Literal["image/jpeg", "image/png", "image/webp"]
+    # base64; about 3 MB per photo at most (the browser resizes to ~1600px first).
+    data: str = Field(min_length=100, max_length=4_000_000)
+
+
+class ExtractPatientsRequest(BaseModel):
+    images: list[RecordImage] = Field(min_length=1, max_length=4)
+
+
+class ExtractedPatient(BaseModel):
+    first_name: str = ""
+    middle_name: str | None = None
+    last_name: str = ""
+    date_of_birth: str | None = None
+    age_years: float | None = None
+    gender: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    address: str | None = None
+    state: str | None = None
+    occupation: str | None = None
+    marital_status: str | None = None
+    blood_group: str | None = None
+    genotype: str | None = None
+    allergies: str | None = None
+    chronic_conditions: str | None = None
+    current_medications: str | None = None
+    emergency_contact_name: str | None = None
+    emergency_relationship: str | None = None
+    emergency_phone: str | None = None
+    insurance_provider: str | None = None
+    insurance_policy_number: str | None = None
+    hospital_number: str | None = None
+    confidence: Literal["high", "medium", "low"] = "medium"
+    unclear_fields: list[str] = []
+
+
+class ExtractPatientsResponse(BaseModel):
+    document_type: str = "other"
+    patients: list[ExtractedPatient] = Field(default_factory=list, max_length=60)
+    notes: str = ""
+
+
+# ---------- consultation scribe ----------
+
+class TranscribeRequest(BaseModel):
+    # One recorded segment (about a minute); base64, at most ~3 MB.
+    audio: str = Field(min_length=100, max_length=4_000_000)
+    mime_type: str = Field(default="audio/webm", max_length=60)
+    seconds: int = Field(ge=1, le=300)
+    previous_text: str = Field(default="", max_length=2000)
+
+
+class TranscribeResponse(BaseModel):
+    text: str
+
+
+class FindingCode(BaseModel):
+    id: str = Field(max_length=60)
+    label: str = Field(max_length=200)
+
+
+class ScribeNoteRequest(BaseModel):
+    transcript: str = Field(min_length=20, max_length=120_000)
+    emr_snapshot: EmrSnapshot = EmrSnapshot()
+    findings: list[FindingCode] = Field(default_factory=list, max_length=400)
+
+
+class PossibleDiagnosis(BaseModel):
+    condition: str
+    likelihood: Literal["high", "medium", "low"] = "medium"
+    why: str = ""
+
+
+class ScribeNoteOutput(BaseModel):
+    chief_complaint: str = ""
+    history_of_present_illness: str = ""
+    review_of_systems: str = ""
+    examination: str = ""
+    assessment: str = ""
+    plan: str = ""
+    follow_up: str = ""
+    findings_present: list[str] = []
+    findings_absent: list[str] = []
+    possible_diagnoses: list[PossibleDiagnosis] = []
+    red_flags: list[str] = []
+    questions_to_ask: list[str] = []

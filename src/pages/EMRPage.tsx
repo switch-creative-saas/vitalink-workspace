@@ -13,6 +13,7 @@ import {
   History,
   Network,
   Database,
+  Ear,
   Lock,
   Mic,
   Paperclip,
@@ -36,6 +37,8 @@ import { SENTINEL_CLINICAL_EVENT, type SentinelClinicalPayload } from '@/lib/sen
 import { isSupabaseConfigured, requireSupabase } from '@/lib/supabase/client';
 import { ReceivedRecordsPanel } from '@/components/network/ReceivedRecordsPanel';
 import { ConnectedEmrRecords } from '@/components/patients/ConnectedEmrRecords';
+import { ConsultationScribe } from '@/components/emr/ConsultationScribe';
+import type { ScribeAnalysis, ScribeDraft } from '@/lib/supabase/assist';
 import {
   completeLab,
   formatVitals,
@@ -178,6 +181,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
   const { currentRole, canView, canCreate, canEdit, userName, organization } = useAuth();
   const { hasModule } = usePlan();
   const [dictating, setDictating] = useState(false);
+  const [scribeOpen, setScribeOpen] = useState(false);
   const recognition = useRef<{ stop: () => void } | null>(null);
   const [activeTab, setActiveTab] = useState<EmrTab>('overview');
   const [editorOpen, setEditorOpen] = useState(false);
@@ -354,6 +358,37 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
     if (!symptoms) { toast.error('Write the chief complaint or history first'); return; }
     sessionStorage.setItem(DIAGNOSIS_HANDOFF_KEY, JSON.stringify({ switchId: patient?.switchId ?? '', symptoms }));
     window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'ai-clinical-intelligence' } }));
+  };
+  // VitaMind Scribe: Growth plan and up, for the doctor writing the note.
+  const scribeAllowed = isSupabaseConfigured && hasModule('ai-scribe');
+  const openScribe = () => {
+    if (!scribeAllowed) {
+      toast.info('VitaMind Scribe is included from the Growth plan.');
+      window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'subscription' } }));
+      return;
+    }
+    setScribeOpen(true);
+  };
+  /** Fills the note from the scribe's draft; the doctor still writes and signs the diagnosis. */
+  const applyScribe = (draft: ScribeDraft, analysis: ScribeAnalysis | null) => {
+    const join = (...parts: string[]) => parts.map((part) => part.trim()).filter(Boolean).join('\n');
+    const dx = analysis?.conditions?.slice(0, 3).map((c) => `${c.name} (${Math.round(c.probability * 100)}%)`).join(', ');
+    setSoap((p) => ({
+      ...p,
+      chiefComplaint: p.chiefComplaint || draft.chief_complaint,
+      hpi: join(p.hpi, draft.history_of_present_illness),
+      reviewSystems: join(p.reviewSystems, draft.review_of_systems),
+      physicalExam: join(p.physicalExam, draft.examination),
+      differentialDiagnosis: p.differentialDiagnosis || draft.possible_diagnoses.map((d) => d.condition).join(', '),
+      aiSuggestion: join(
+        draft.assessment && `Assessment (scribe): ${draft.assessment}`,
+        draft.red_flags.length ? `Red flags: ${draft.red_flags.join('; ')}` : '',
+        dx ? `VitaMind Dx: ${dx}` : '',
+        analysis?.tests?.length ? `Suggested tests: ${analysis.tests.slice(0, 5).join(', ')}` : '',
+      ),
+      followUp: join(p.followUp, draft.plan, draft.follow_up),
+    }));
+    toast.success('Draft added to the note', { description: 'Review it, enter your diagnosis and sign.' });
   };
   const canUploadDocuments = currentRole !== 'receptionist';
   const canReadOnlyAdmin = currentRole === 'hospital-admin';
@@ -782,7 +817,7 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
           <div className="flex flex-col gap-3 md:flex-row md:justify-between md:items-center mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-50">Clinical Documentation Editor (SOAP)</h2>
-              <p className="text-xs text-gray-500 dark:text-slate-400">Draft autosave, versioning, digital signature, and timeline sync enabled.</p>
+              <p className="text-xs text-gray-500 dark:text-slate-400">Saved as a draft until you sign it. Every version is kept.</p>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={copyPrevious}>Copy Previous Note</Button>
@@ -793,6 +828,26 @@ export function EMRPage({ patientSwitchId, onBackToPatients }: EMRPageProps) {
               </Button>
             </div>
           </div>
+
+          {patientId && !noteLocked && (scribeOpen ? (
+            <div className="mb-4">
+              <ConsultationScribe
+                organizationId={organizationId}
+                patientId={patientId}
+                patientName={patient ? `${patient.firstName} ${patient.lastName}` : 'the patient'}
+                onApply={applyScribe}
+                onClose={() => setScribeOpen(false)}
+              />
+            </div>
+          ) : isSupabaseConfigured && (
+            <div data-tour-id="emr-scribe" className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-violet-200 bg-violet-50/30 px-4 py-3 dark:border-violet-500/30 dark:bg-violet-500/5">
+              <Ear className="h-5 w-5 shrink-0 text-violet-700 dark:text-violet-300" />
+              <p className="min-w-0 flex-1 text-sm text-slate-600 dark:text-slate-300">Let VitaMind listen to the consultation, write the note and pick out symptoms.</p>
+              <Button variant="outline" className="gap-2" onClick={openScribe}>
+                {scribeAllowed ? <Mic className="h-4 w-4" /> : <Lock className="h-4 w-4" />}Listen to consultation
+              </Button>
+            </div>
+          ))}
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             <section className="rounded-xl border border-gray-200 p-4 bg-white/80 min-w-0 overflow-hidden dark:border-slate-700 dark:bg-slate-800/60">

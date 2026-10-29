@@ -66,6 +66,12 @@ class FakeSupabase:
 class FakeOpenAI:
     def __init__(self):
         self.embeddings = SimpleNamespace(create=self._create)
+        self.audio_calls = []
+        self.audio = SimpleNamespace(transcriptions=SimpleNamespace(create=self._transcribe))
+
+    def _transcribe(self, **kwargs):
+        self.audio_calls.append(kwargs)
+        return SimpleNamespace(text=" Doctor, I have had fever and chills for three days. ")
 
     def _create(self, model, input):
         return SimpleNamespace(data=[SimpleNamespace(embedding=[0.1] * 1536) for _ in input])
@@ -105,7 +111,7 @@ def fakes():
     app.dependency_overrides[clients.get_supabase] = lambda: db
     app.dependency_overrides[clients.get_openai] = lambda: oa
     app.dependency_overrides[clients.get_anthropic] = lambda: llm
-    yield SimpleNamespace(db=db, llm=llm, client=TestClient(app))
+    yield SimpleNamespace(db=db, llm=llm, oa=oa, client=TestClient(app))
     app.dependency_overrides.clear()
 
 
@@ -212,3 +218,72 @@ def test_helpers():
         [KnowledgeChunk(**CHUNK)],
     )
     assert [c.source for c in kept] == [CHUNK["source_url"]]
+
+
+# ---------- paper records and the consultation scribe ----------
+
+IMAGE = {"media_type": "image/jpeg", "data": "A" * 400}
+EXTRACT_REPLY = json.dumps({
+    "document_type": "register_page",
+    "patients": [
+        {"first_name": "Amaka", "last_name": "Obi", "age_years": 34, "gender": "female", "phone": "08031234567", "confidence": "high"},
+        {"first_name": "Tunde", "last_name": "Bakare", "date_of_birth": "1990-04-12", "confidence": "low", "unclear_fields": ["phone"]},
+    ],
+    "notes": "Bottom row is torn.",
+})
+SCRIBE_REPLY = json.dumps({
+    "chief_complaint": "Fever and chills for three days",
+    "history_of_present_illness": "Patient reports fever and chills for three days.",
+    "findings_present": ["fever", "chills", "made_up_code"],
+    "findings_absent": ["fever", "cough"],
+    "possible_diagnoses": [{"condition": "Malaria", "likelihood": "high", "why": "fever with chills"}],
+})
+
+
+def test_extract_patients_sends_images_to_claude(fakes):
+    fakes.llm.replies = [EXTRACT_REPLY]
+    r = fakes.client.post("/extract-patients", headers=AUTH, json={"images": [IMAGE, IMAGE]})
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert [p["last_name"] for p in data["patients"]] == ["Obi", "Bakare"]
+    content = fakes.llm.calls[0]["messages"][0]["content"]
+    assert [block["type"] for block in content] == ["image", "image", "text"]
+    assert ("ai_usage_add", {"p_kind": "llm", "p_requests": 1, "p_tokens": 0}) in fakes.db.rpc_calls
+
+
+def test_extract_patients_limits(fakes):
+    assert fakes.client.post("/extract-patients", headers=AUTH, json={"images": [IMAGE] * 5}).status_code == 422
+    assert fakes.client.post("/extract-patients", headers=AUTH, json={"images": [{"media_type": "application/pdf", "data": "A" * 400}]}).status_code == 422
+    fakes.db.usage_today = {"requests": 10**9, "tokens": 0}
+    assert fakes.client.post("/extract-patients", headers=AUTH, json={"images": [IMAGE]}).status_code == 429
+    assert not fakes.llm.calls
+
+
+def test_transcribe_counts_audio_seconds(fakes):
+    import base64
+    audio = base64.b64encode(b"webm-audio" + b"0" * 200).decode()
+    r = fakes.client.post("/transcribe", headers=AUTH, json={"audio": audio, "mime_type": "audio/webm;codecs=opus", "seconds": 45, "previous_text": "Good morning."})
+    assert r.status_code == 200 and r.json()["text"] == "Doctor, I have had fever and chills for three days."
+    call = fakes.oa.audio_calls[0]
+    assert call["file"][0] == "consultation.webm" and "Good morning." in call["prompt"]
+    assert ("ai_usage_add", {"p_kind": "audio", "p_requests": 1, "p_tokens": 45}) in fakes.db.rpc_calls
+
+
+def test_transcribe_rejects_bad_audio(fakes):
+    r = fakes.client.post("/transcribe", headers=AUTH, json={"audio": "!" * 200, "seconds": 10})
+    assert r.status_code == 422 and not fakes.oa.audio_calls
+
+
+def test_scribe_note_keeps_only_offered_codes(fakes):
+    fakes.llm.replies = [SCRIBE_REPLY]
+    body = {
+        "transcript": "Doctor: what brings you in? Patient: fever and chills for three days, no cough.",
+        "emr_snapshot": {"age": 30, "sex": "female"},
+        "findings": [{"id": "fever", "label": "Fever"}, {"id": "chills", "label": "Chills"}, {"id": "cough", "label": "Cough"}],
+    }
+    r = fakes.client.post("/scribe-note", headers=AUTH, json=body)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["findings_present"] == ["fever", "chills"] and data["findings_absent"] == ["cough"]
+    assert data["possible_diagnoses"][0]["condition"] == "Malaria"
+    assert "fever: Fever" in fakes.llm.calls[0]["messages"][0]["content"]

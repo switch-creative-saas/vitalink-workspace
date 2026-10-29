@@ -1,10 +1,10 @@
-"""Spend protection for the paid model APIs (Anthropic for diagnosis, OpenAI for embeddings).
+"""Spend protection for the paid model APIs (Anthropic for diagnosis, OpenAI for embeddings and transcription).
 
 Three layers, all independent of the VitaLink edge function's own per-user and per-workspace
 limits, so a leaked service token or a bug still can't run up an unbounded bill:
 
 * a per-minute request limit for the whole service (in memory);
-* daily request and token budgets per kind ("llm", "embed"), counted in Supabase from the
+* daily request and token budgets per kind ("llm", "embed", "audio"), counted in Supabase from the
   usage the providers report (public.ai_usage_daily), checked before every paid call;
 * request size caps (see schemas.py and the body-size check in main.py).
 """
@@ -37,6 +37,8 @@ def check_rate() -> None:
 
 def _budget(kind: str) -> tuple[int, int]:
     s = get_settings()
+    if kind == "audio":  # tokens are seconds of audio; requests are segments of about a minute
+        return s.daily_audio_minutes * 2, s.daily_audio_minutes * 60
     return (s.daily_llm_requests, s.daily_llm_tokens) if kind == "llm" else (s.daily_embed_requests, s.daily_embed_tokens)
 
 
@@ -72,6 +74,8 @@ class Usage:
     llm_tokens: int = 0
     embed_requests: int = 0
     embed_tokens: int = 0
+    audio_requests: int = 0
+    audio_seconds: int = 0
 
     def add_llm(self, response) -> None:
         usage = getattr(response, "usage", None)
@@ -83,8 +87,14 @@ class Usage:
         self.embed_requests += 1
         self.embed_tokens += int(getattr(usage, "total_tokens", 0) or getattr(usage, "prompt_tokens", 0) or 0)
 
+    def add_audio(self, seconds: int) -> None:
+        self.audio_requests += 1
+        self.audio_seconds += int(seconds)
+
     def save(self, supabase) -> None:
         if self.llm_requests:
             record(supabase, "llm", self.llm_requests, self.llm_tokens)
         if self.embed_requests:
             record(supabase, "embed", self.embed_requests, self.embed_tokens)
+        if self.audio_requests:
+            record(supabase, "audio", self.audio_requests, self.audio_seconds)

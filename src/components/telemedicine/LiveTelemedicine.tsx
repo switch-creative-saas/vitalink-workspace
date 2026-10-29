@@ -395,7 +395,7 @@ function ConferencePanel({ me, canConference, organizationId, conferences, invit
               <PatientSearch value={patient} onChange={setPatient} />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Invite a specialist from</label>
+              <label data-tour-id="telemedicine-invite-from" className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1 block">Invite a specialist from</label>
               <div className="flex gap-1 rounded-lg bg-gray-100 p-1 w-fit dark:bg-slate-900/60">
                 {([['internal', 'This hospital'], ['network', 'Another hospital']] as const).map(([id, label]) => (
                   <button key={id} type="button" onClick={() => { setSource(id); setGuestId(''); }} className={cn('rounded-md px-3 py-1.5 text-sm', source === id ? 'bg-white text-royal-700 shadow-sm dark:bg-slate-800 dark:text-blue-300' : 'text-gray-600 hover:text-gray-900 dark:text-slate-400')}>{label}</button>

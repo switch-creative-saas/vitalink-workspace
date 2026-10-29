@@ -22,6 +22,9 @@ Browser ─▶ Supabase edge function vitamind-diagnose ─▶ this service ─�
 | POST | `/search` | Top-k chunks by cosine similarity (`vitamind_match_knowledge`) |
 | POST | `/diagnose` | Retrieve 5 chunks → Claude → validated JSON → `vitamind_results` |
 | POST | `/feedback` | Clinician confirm / override / partial → `vitamind_feedback` |
+| POST | `/extract-patients` | Up to 4 photos of paper records → Claude (vision) → patient details to review |
+| POST | `/transcribe` | One consultation audio segment (~1 min) → OpenAI (`VITAMIND_TRANSCRIBE_MODEL`) → text |
+| POST | `/scribe-note` | Consultation transcript + de-identified record → Claude → SOAP draft, symptom codes, things to consider |
 | GET | `/health` | Which keys are configured (no auth) |
 
 Patient data sent to the model is de-identified: no name, phone, address or VitaLink ID.
@@ -70,7 +73,10 @@ Paid calls are limited at two layers, so a leaked token or a runaway client can'
 | This service | all requests | `VITAMIND_MAX_REQUESTS_PER_MINUTE` (30) |
 | | Claude, per day (UTC) | `VITAMIND_DAILY_LLM_REQUESTS` (1500) and `VITAMIND_DAILY_LLM_TOKENS` (3,000,000) |
 | | OpenAI embeddings, per day | `VITAMIND_DAILY_EMBED_REQUESTS` (5000) and `VITAMIND_DAILY_EMBED_TOKENS` (5,000,000) |
-| | size | complaint 2,000 characters, EMR fields 20 KB each, request body 1 MB, `max_tokens` capped at 4000 |
+| | OpenAI transcription, per day | `VITAMIND_DAILY_AUDIO_MINUTES` (1500 minutes) |
+| | size | complaint 2,000 characters, EMR fields 20 KB each, request body 1 MB (photos 14 MB, audio 4.5 MB), `max_tokens` capped at 4000 |
+| Edge function `vitamind-assist` | paper records | 60 photos an hour per person, 800 a day per workspace |
+| | scribe | 90 minutes per consultation, 4 hours a day per doctor, 40 hours a day per workspace, 20 drafts an hour |
 
 Token budgets are counted from the usage Anthropic and OpenAI report, in `public.ai_usage_daily`.
 If the count can't be read, the service refuses rather than spending.

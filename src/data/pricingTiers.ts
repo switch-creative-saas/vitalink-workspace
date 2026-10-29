@@ -24,8 +24,8 @@ export interface PricingTier {
 
 // Keep in sync with public.plans (the server is the source of truth for prices, modules and limits).
 const FREE_MODULES = ['dashboard', 'patients', 'health-identity', 'patient-identity', 'appointments', 'emr', 'human-resources', 'subscription', 'settings', 'help', 'nfc-cards'];
-const STARTER_MODULES = [...FREE_MODULES, 'billing', 'pharmacy', 'analytics', 'nfc-scanning'];
-const GROWTH_MODULES = [...STARTER_MODULES, 'telemedicine', 'laboratory', 'ai-clinical-intelligence', 'vitamind-ai', 'vitalink-network', 'switch-network'];
+const STARTER_MODULES = [...FREE_MODULES, 'billing', 'pharmacy', 'analytics', 'nfc-scanning', 'ocr-intake'];
+const GROWTH_MODULES = [...STARTER_MODULES, 'telemedicine', 'laboratory', 'ai-clinical-intelligence', 'vitamind-ai', 'ai-scribe', 'vitalink-network', 'switch-network'];
 
 export const PRICING_TIERS: PricingTier[] = [
   {
@@ -40,6 +40,7 @@ export const PRICING_TIERS: PricingTier[] = [
       { name: 'Appointment reminders (SMS)', included: true }, { name: 'Basic invoicing and receipts', included: true },
       { name: 'Pharmacy stock tracking', included: true, limit: 'up to 100 drug SKUs' }, { name: 'Basic monthly reports', included: true },
       { name: 'VitaCard scanning & setup with full records', included: true }, { name: '10 NFC cards included', included: true, limit: 'more at ₦2,500/card' }, { name: 'Email support', included: true },
+      { name: 'Snap paper records to register patients', included: true },
       { name: 'HMO billing and claims', included: false }, { name: 'Sentinel surveillance', included: false, limit: 'add-on ₦50,000/month' },
     ],
   },
@@ -56,7 +57,7 @@ export const PRICING_TIERS: PricingTier[] = [
       { name: 'Full pharmacy (unlimited SKUs, low-stock alerts)', included: true }, { name: 'HMO/insurance billing and claims', included: true },
       { name: 'Advanced analytics dashboard', included: true }, { name: 'Staff roles and permissions', included: true },
       { name: 'Sentinel surveillance (read-only)', included: true, limit: 'full access ₦50,000/month' }, { name: '25 NFC cards included', included: true },
-      { name: 'VitaMind AI clinical decision support', included: true }, { name: 'Priority email + WhatsApp support', included: true },
+      { name: 'VitaMind AI clinical decision support', included: true }, { name: 'AI consultation scribe', included: true }, { name: 'Priority email + WhatsApp support', included: true },
     ],
   },
   {
