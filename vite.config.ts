@@ -54,6 +54,8 @@ export default defineConfig({
   plugins: [inspectAttr(), react(), offlineShell()],
   build: {
     rollupOptions: {
+      // The hospital app, and the VitaCard page on its own (card.html) for phones that tap a card.
+      input: { main: path.resolve(__dirname, 'index.html'), card: path.resolve(__dirname, 'card.html') },
       output: {
         // Core libraries in their own files: they change rarely, so browsers keep them cached across
         // releases. Libraries only one page uses (charts) split off with that page by themselves.

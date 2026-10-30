@@ -6,7 +6,7 @@ export const escapeHtml = (value: string) =>
 
 export interface PrintSection { heading: string; rows: Array<[label: string, value: string]> }
 
-function printHtml(html: string) {
+export function printHtml(html: string) {
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';

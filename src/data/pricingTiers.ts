@@ -25,7 +25,7 @@ export interface PricingTier {
 // Keep in sync with public.plans (the server is the source of truth for prices, modules and limits).
 const FREE_MODULES = ['dashboard', 'patients', 'health-identity', 'patient-identity', 'appointments', 'emr', 'human-resources', 'subscription', 'settings', 'help', 'nfc-cards'];
 const STARTER_MODULES = [...FREE_MODULES, 'billing', 'pharmacy', 'analytics', 'nfc-scanning', 'ocr-intake'];
-const GROWTH_MODULES = [...STARTER_MODULES, 'telemedicine', 'laboratory', 'ai-clinical-intelligence', 'vitamind-ai', 'ai-scribe', 'vitalink-network', 'switch-network'];
+const GROWTH_MODULES = [...STARTER_MODULES, 'telemedicine', 'laboratory', 'ai-clinical-intelligence', 'vitamind-ai', 'ai-scribe', 'ocr-ai', 'vitalink-network', 'switch-network'];
 
 export const PRICING_TIERS: PricingTier[] = [
   {

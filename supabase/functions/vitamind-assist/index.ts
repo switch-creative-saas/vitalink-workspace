@@ -3,7 +3,7 @@
 // (apps/vitamind-ai), which holds the Anthropic and OpenAI keys and its own daily budgets.
 //
 //   { action: 'status', organizationId }                              -> { ocr, scribe, configured }
-//   { action: 'extract_patients', organizationId, images: [{ mediaType, data }] }   (Starter and up)
+//   { action: 'extract_patients', organizationId, images: [{ mediaType, data }] }   (Growth and up)
 //        -> { document_type, patients: [...], notes }   photos of paper records → patient details
 //   { action: 'scribe_start', organizationId, patientId, consent: true }           (Growth and up)
 //        -> { id }                                        the patient's consent is recorded here
@@ -97,14 +97,15 @@ Deno.serve(async (req) => {
 
   try {
     if (action === 'status') {
-      const [ocr, scribe] = await Promise.all([hasModule('ocr-intake'), hasModule('ai-scribe')]);
+      const [ocr, scribe] = await Promise.all([hasModule('ocr-ai'), hasModule('ai-scribe')]);
       return json({ ocr: ocr && OCR_ROLES.includes(membership.role), scribe: scribe && SCRIBE_ROLES.includes(membership.role), configured });
     }
 
     // ---------- paper records ----------
     if (action === 'extract_patients') {
       if (!OCR_ROLES.includes(membership.role)) return json({ error: 'Your role cannot register patients.' }, 403);
-      if (!(await hasModule('ocr-intake'))) return json({ error: 'Scanning paper records is included from the Starter plan. Upgrade to use it.', code: 'upgrade_required' }, 402);
+      // VitaMind (AI) reading is Growth and up; Starter plans read registers on the device (Import).
+      if (!(await hasModule('ocr-ai'))) return json({ error: 'VitaMind paper reading is included from the Growth plan. On Starter, use Import to read register photos on your device.', code: 'upgrade_required' }, 402);
       if (!configured) return json({ error: 'VitaMind AI is not connected yet.', code: 'not_configured' }, 503);
       const images = Array.isArray(body.images) ? body.images : [];
       if (images.length < 1 || images.length > MAX_IMAGES) return json({ error: `Add between 1 and ${MAX_IMAGES} photos.` }, 400);

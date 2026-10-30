@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { exportTable } from '@/lib/export/tableExport';
 import { allergyConflicts } from '@/lib/allergyCheck';
 import {
   cancelPrescription,
@@ -498,7 +499,28 @@ export function PharmacyPage() {
 
   function doExport(format: ExportType) {
     if (!canExport) return toast.error('Export is restricted for your role');
-    toast.success(`Exported ${selectedExport} as ${format.toUpperCase()}`);
+    const naira = (n: number) => Number(n.toFixed(2));
+    if (selectedExport === 'dispensations') {
+      exportTable({
+        title: 'Dispensation log', facility: organization.name, fileName: 'pharmacy-dispensations',
+        columns: ['Date', 'Patient', 'Medicine', 'Quantity', 'Prescriber', 'Pharmacist', 'Status'],
+        rows: dispensations.map((d) => [d.date.slice(0, 16).replace('T', ' '), d.patient_name, d.medication_name, d.quantity, d.doctor_name, d.pharmacist_name, d.status]),
+      }, format);
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const in90 = new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 10);
+    const list = selectedExport === 'expiry'
+      ? medications.filter((m) => m.expiry_date && m.expiry_date <= in90).sort((a, b) => a.expiry_date.localeCompare(b.expiry_date))
+      : medications;
+    exportTable({
+      title: selectedExport === 'expiry' ? 'Expiry report (expired or expiring within 90 days)' : 'Pharmacy inventory',
+      facility: organization.name,
+      fileName: selectedExport === 'expiry' ? 'pharmacy-expiry' : 'pharmacy-inventory',
+      columns: ['Medicine', 'Category', 'Batch', 'Stock', 'Reorder at', 'Unit price (NGN)', 'Stock value (NGN)', 'Expiry', 'Supplier', 'Status'],
+      rows: list.map((m) => [m.name, m.category, m.batch_no, m.stock, m.reorder_threshold, naira(m.unit_price), naira(m.unit_price * m.stock),
+        m.expiry_date ? `${m.expiry_date}${m.expiry_date < today ? ' (expired)' : ''}` : '', m.supplier, m.status]),
+    }, format);
   }
 
   if (!canView || isReception || isLab) {

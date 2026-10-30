@@ -78,8 +78,8 @@ export function LiveNfcOrders() {
     <div className="space-y-4 md:space-y-6 page-transition">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">Order NFC VitaCards</h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">NFC-enabled VitaCards for patient identity, emergency profiles and linked VitaLink records.</p>
+          <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">Order cards</h2>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Blank VitaCards arrive ready to set up for any patient from the Patient cards tab.</p>
         </div>
         {isPlatform && (
           <Button variant="outline" size="sm" onClick={() => window.open('/console/orders', '_blank', 'noopener')}>

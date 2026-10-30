@@ -45,6 +45,8 @@ interface PatientRow {
   department: string | null;
   doctor_assigned: string | null;
   admission_status: string | null;
+  previous_number: string | null;
+  dob_estimated: boolean | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -103,6 +105,8 @@ function fromRow(row: PatientRow): RegistryPatient {
     doctorAssigned: row.doctor_assigned ?? undefined,
     department: row.department ?? undefined,
     admissionStatus: row.admission_status ?? undefined,
+    previousNumber: row.previous_number ?? undefined,
+    dobEstimated: row.dob_estimated ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     createdBy: row.created_by ?? '',
@@ -154,6 +158,8 @@ function toInsert(patient: NewPatient) {
     department: optional(patient.department),
     doctor_assigned: optional(patient.doctorAssigned),
     admission_status: optional(patient.admissionStatus),
+    previous_number: optional(patient.previousNumber),
+    dob_estimated: patient.dobEstimated ?? false,
   };
 }
 
@@ -175,7 +181,7 @@ export async function queryPatientsRemote(input: PatientQueryInput): Promise<Ser
   const needle = input.query.trim();
   if (needle) {
     const like = orValue(`%${needle}%`);
-    const terms = [`first_name.ilike.${like}`, `last_name.ilike.${like}`, `switch_id.ilike.${like}`, `phone.ilike.${like}`];
+    const terms = [`first_name.ilike.${like}`, `last_name.ilike.${like}`, `switch_id.ilike.${like}`, `phone.ilike.${like}`, `previous_number.ilike.${like}`];
     const [first, ...rest] = needle.split(/\s+/);
     if (rest.length > 0) {
       // "Ada Obi" should match first + last name together.
@@ -217,6 +223,8 @@ async function findDuplicate(patient: NewPatient): Promise<PatientRow | null> {
   // A blank phone (common on old paper records) must not match every other patient without one.
   const terms = patient.phone.trim() ? [`phone.eq.${orValue(patient.phone.trim())}`] : [];
   if (patient.email?.trim()) terms.push(`email.ilike.${orValue(patient.email.trim())}`);
+  // The same old card or hospital number means the same patient (importing a file twice).
+  if (patient.previousNumber?.trim()) terms.push(`previous_number.ilike.${orValue(patient.previousNumber.trim())}`);
   terms.push(
     `and(first_name.ilike.${orValue(patient.firstName.trim())},last_name.ilike.${orValue(patient.lastName.trim())},date_of_birth.eq.${patient.dateOfBirth})`,
   );

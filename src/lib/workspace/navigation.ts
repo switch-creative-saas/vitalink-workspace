@@ -34,7 +34,7 @@ export const HEALTHCARE_NAVIGATION: WorkspaceNavigationItem[] = [
   { id: 'patient-identity', label: 'Health Identity', icon: 'identity', module: 'Patients' },
   { id: 'patients', label: 'Patients', icon: 'patients', module: 'Patients' },
   { id: 'emr', label: 'EMR', icon: 'emr', module: 'EMR' },
-  { id: 'nfc-cards', label: 'Order NFC Cards', icon: 'nfc-cards', module: 'Patients' },
+  { id: 'nfc-cards', label: 'VitaCards', icon: 'nfc-cards', module: 'Patients' },
   { id: 'telemedicine', label: 'Telemedicine', icon: 'video', module: 'Appointments' },
   { id: 'ai-clinical-intelligence', label: 'AI Clinical Intelligence', icon: 'ai', module: 'EMR' },
   { id: 'switch-network', label: BRAND.network, icon: 'network', module: 'Administration' },

@@ -3,6 +3,7 @@
 // search; show their identity summary; link VitaCards; print ID cards. Free workspaces see a basic
 // profile and can't set up cards (the 'nfc-scanning' entitlement on paid plans; the database enforces linking).
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CardAccessPanel } from '@/components/identity/CardAccessPanel';
 import { usePatientPhoto } from '@/lib/supabase/patientPhotos';
 import QRCode from 'qrcode';
 import {
@@ -552,6 +553,8 @@ export function LiveHealthIdentity() {
                     )}
                   </div>
                 )}
+
+                {canLink && <CardAccessPanel key={patient.id} patient={patient} />}
 
                 <div className="grid grid-cols-2 gap-3">
                   {fullProfile ? (

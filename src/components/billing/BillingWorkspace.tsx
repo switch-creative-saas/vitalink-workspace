@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, Clock, Download, Pencil, Plus, Printer, Radio, RefreshCw, Search, Shield, Trash2, Upload, Wallet, XCircle, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { parseAmount, readTable } from '@/lib/import/table';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -879,29 +880,24 @@ function PriceCell({ value, canEdit, onSave }: { value: number; canEdit: boolean
   );
 }
 
-/** Minimal CSV parser: header row, commas, double-quoted cells. */
-function parseCsv(text: string): Array<Record<string, string>> {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = '';
-  let quoted = false;
-  for (let i = 0; i < text.length; i += 1) {
-    const char = text[i];
-    if (quoted) {
-      if (char === '"' && text[i + 1] === '"') { cell += '"'; i += 1; }
-      else if (char === '"') quoted = false;
-      else cell += char;
-    } else if (char === '"') quoted = true;
-    else if (char === ',') { row.push(cell); cell = ''; }
-    else if (char === '\n' || char === '\r') {
-      if (char === '\r' && text[i + 1] === '\n') i += 1;
-      row.push(cell); rows.push(row); row = []; cell = '';
-    } else cell += char;
-  }
-  if (cell || row.length) { row.push(cell); rows.push(row); }
-  const [header = [], ...body] = rows.filter((r) => r.some((value) => value.trim()));
-  const keys = header.map((h) => h.trim().toLowerCase().replace(/[^a-z]/g, ''));
-  return body.map((r) => Object.fromEntries(keys.map((key, index) => [key, (r[index] ?? '').trim()])));
+const PRICE_VOCAB = {
+  name: ['name', 'service', 'service name', 'description', 'item', 'item name', 'test', 'test name', 'procedure', 'investigation', 'particulars', 'details', 'service description'],
+  code: ['code', 'service code', 'item code', 'test code', 'cpt', 'cpt code', 'sku', 'tariff code', 'nhia code', 'nhis code'],
+  category: ['category', 'type', 'service type', 'servicetype', 'department', 'group', 'section', 'unit name', 'class'],
+  price: ['price', 'amount', 'fee', 'fees', 'cost', 'unit price', 'unitprice', 'rate', 'charge', 'charges', 'tariff', 'price ngn', 'amount ngn', 'price n', 'naira', 'selling price'],
+  unit: ['unit', 'per', 'uom', 'unit of measure', 'billing unit'],
+};
+
+/** Hospital wording → our price categories ("Investigations" → lab, "Ward" → room…). */
+function priceCategory(text: string): PriceCategory {
+  const t = text.toLowerCase();
+  if (/consult|clinic|review|visit|registration|card|folder/.test(t)) return 'consultation';
+  if (/lab|investigat|test|haemat|hemat|chem|micro|serolog|blood|urine|stool|malaria|fbc|culture/.test(t)) return 'lab';
+  if (/x-?ray|ultra|scan|imaging|radio|ct\b|mri|echo|ecg|mammo/.test(t)) return 'imaging';
+  if (/ward|bed|room|admission|accommodation|feeding|nursing care/.test(t)) return 'room';
+  if (/surg|procedure|theatre|operation|suturing|dressing|delivery|circumcision|incision|injection/.test(t)) return 'procedure';
+  if (/consumable|supply|supplies|glove|syringe|cannula|bandage|gauze/.test(t)) return 'supplies';
+  return 'other';
 }
 
 function PriceList({ prices, canManage, canEditDrugs, organizationId, onChanged }: {
@@ -945,14 +941,18 @@ function PriceList({ prices, canManage, canEditDrugs, organizationId, onChanged 
   const importFile = async (file: File) => {
     setImporting(true);
     try {
-      const rows = parseCsv(await file.text())
+      // Any price list as it is: Excel or CSV, any column order, title rows, ₦ signs and commas.
+      const { records } = await readTable(file, PRICE_VOCAB, ['name', 'price']);
+      const rows = records
         .map((r) => ({
-          code: r.code ?? '', name: r.name ?? '', unit: r.unit || 'each',
-          category: (PRICE_CATEGORIES.includes((r.category || r.servicetype || '').toLowerCase() as PriceCategory) ? (r.category || r.servicetype).toLowerCase() : 'other') as PriceCategory,
-          price: Number((r.price || r.unitprice || '0').replace(/[₦,\s]/g, '')) || 0,
+          code: r.code ?? '',
+          name: r.name ?? '',
+          unit: r.unit || 'each',
+          category: priceCategory(`${r.category ?? ''} ${r.name ?? ''}`),
+          price: parseAmount(r.price) ?? 0,
         }))
-        .filter((r) => r.name);
-      if (!rows.length) { toast.error('No rows found. Use columns: code, name, category, price, unit'); return; }
+        .filter((r) => r.name && !/^(total|sub ?total)$/i.test(r.name));
+      if (!rows.length) { toast.error('No prices found in this file.'); return; }
       const result = await importPrices(organizationId, rows, prices);
       toast.success(`${result.added} added, ${result.updated} updated${result.skipped.length ? `, ${result.skipped.length} skipped` : ''}`, {
         description: result.skipped.slice(0, 3).join(' · ') || undefined,
@@ -1011,8 +1011,8 @@ function PriceList({ prices, canManage, canEditDrugs, organizationId, onChanged 
           </div>
           {canManage && view !== 'drugs' && (
             <>
-              <input ref={fileInput} type="file" accept=".csv,text/csv" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void importFile(file); }} />
-              <Button variant="outline" className="gap-2" disabled={importing} onClick={() => fileInput.current?.click()}><Upload className="h-4 w-4" />{importing ? 'Importing…' : 'Import CSV'}</Button>
+              <input ref={fileInput} type="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt,.json" hidden onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void importFile(file); }} />
+              <Button variant="outline" className="gap-2" disabled={importing} onClick={() => fileInput.current?.click()}><Upload className="h-4 w-4" />{importing ? 'Importing…' : 'Import price list'}</Button>
               <Button className="gap-2 bg-[#1E4ED8] text-white" onClick={() => setEditing({ ...EMPTY_PRICE, category: view === 'all' ? 'consultation' : view })}><Plus className="h-4 w-4" />Add service</Button>
             </>
           )}

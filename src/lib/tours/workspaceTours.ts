@@ -54,7 +54,7 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     roles: ['super-admin', 'hospital-admin', 'doctor', 'nurse', 'receptionist'],
     steps: [
       { page: 'dashboard', title: 'One visit, one record', body: 'Everything about a patient visit lands in a single record that every department can see. Let us follow one patient through VitaLink.' },
-      { page: 'patients', element: 'patients-add', side: 'bottom', title: '1. Register the patient', body: 'New patients are added here. Each one gets a VitaLink ID that stays with them, even at other hospitals on VitaLink. Moving from paper? Photograph old cards or register pages with "Scan paper records". Already registered? Search for them instead.' },
+      { page: 'patients', element: 'patients-add', side: 'bottom', title: '1. Register the patient', body: 'New patients are added here. Each one gets a VitaLink ID that stays with them, even at other hospitals on VitaLink. Moving from paper or another system? Use Import for spreadsheets, EMR exports or photos of register pages. Already registered? Search for them instead.' },
       { page: 'appointments', element: 'appointments-new', side: 'bottom', title: '2. Book the visit', body: "Book a consultation with a doctor. It shows on the doctor's schedule and on everyone's dashboard." },
       { page: 'patients', element: 'patients-table', card: true, side: 'top', title: '3. Open their record', body: "Click a patient to open their medical record: history, vitals, clinical notes, lab results and documents, all in one place. On the Growth plan, VitaMind Scribe can listen to the consultation and draft the note for the doctor." },
       { page: 'laboratory', element: 'lab-new-order', side: 'bottom', title: '4. Order tests', body: "Lab requests go straight to the lab's queue. When results are ready, they are added to the patient's record." },
@@ -83,7 +83,7 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
       { element: 'patients-search', side: 'bottom', title: 'Search', body: 'Type a name, phone number or VitaLink ID. Use Advanced Filters to narrow by doctor, insurer, age and more.' },
       { element: 'patients-add', side: 'bottom', title: 'Add a patient', body: 'Register a new patient in a few short steps. They get a VitaLink ID straight away.' },
       { element: 'patients-scan', side: 'bottom', roles: REGISTRARS, title: 'Register from paper', body: 'Photograph patient cards, registration forms or a page of your register book (up to 4 photos at a time). VitaMind reads them, highlights anything hard to read, and you check each patient before they are added. Included from the Starter plan.' },
-      { element: 'patients-import', side: 'bottom', title: 'Bring in existing patients', body: 'Moving from paper or another system? Import a spreadsheet (CSV or Excel). Click Template first to get the right columns.' },
+      { element: 'patients-import', side: 'bottom', title: 'Bring in existing patients', body: 'Moving from paper or another system? Import your list as it is: Excel or CSV from any EMR, FHIR or HL7 exports, or a photo of a register page. Columns are matched for you, ages become estimated birth dates, and you check everything before it is saved.' },
       { element: 'patients-export', side: 'bottom', title: 'Export', body: 'Download the list you are looking at as CSV, Excel or PDF.' },
       { element: 'patients-table', card: true, side: 'top', title: 'Open a record', body: "Click any patient to open their full medical record." },
     ],
@@ -194,11 +194,11 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     ],
   },
   {
-    id: 'page:nfc-cards', page: 'nfc-cards', title: 'VitaCards', summary: 'Order NFC patient cards.', minutes: 1,
+    id: 'page:nfc-cards', page: 'nfc-cards', title: 'VitaCards', summary: 'Set up patient cards and order more.', minutes: 1,
     steps: [
-      { title: 'VitaCards', body: "Contactless cards that carry a patient's VitaLink ID. Tap one at any VitaLink facility to bring up the right record." },
-      { element: 'nfc-summary', side: 'left', title: 'Place an order', body: 'Choose how many cards and how you want them delivered. The total updates as you go.' },
-      { element: 'nfc-history', card: true, side: 'top', title: 'Track your orders', body: 'Follow each order from payment to dispatch and delivery.' },
+      { title: 'VitaCards', body: "Contactless patient cards. Tapping one on any phone opens the patient's emergency profile, and their PIN opens their full record. No app needed." },
+      { element: 'vitacards-cards', side: 'bottom', title: 'Set up a patient’s card', body: 'Find the patient, let them choose a 4–6 digit PIN, then write the link onto their card or print it as a QR code. Reset a forgotten PIN or switch off a lost card here too.' },
+      { element: 'vitacards-order', side: 'bottom', title: 'Order cards', body: 'Order blank VitaCards in packs, choose delivery, and track each order to your door.' },
     ],
   },
   {

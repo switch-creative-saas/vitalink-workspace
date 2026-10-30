@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { exportTable } from '@/lib/export/tableExport';
 import { applyTheme, getSavedTheme, type ThemeMode } from '@/lib/theme';
 import { useAuth, type UserRole } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -89,7 +90,7 @@ export function SettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
 }
 
 function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
-  const { currentRole, setCurrentRole, userName, userEmail, hasPermission } = useAuth();
+  const { currentRole, setCurrentRole, userName, userEmail, hasPermission, organization } = useAuth();
   const { subscription, hasAccess, DEV_OVERRIDE, addAudit } = useSubscription();
   const { offerPageTours, setOfferPageTours, resetProgress, startTour } = useGuidedTour();
   const globalToursEnabled = isFeatureEnabled('onboardingToursEnabled');
@@ -170,6 +171,27 @@ function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
   const canUseBranchConfig = subscription.plan === 'enterprise' || DEV_OVERRIDE;
   const canAccessDeveloperSettings = currentRole === 'super-admin' || currentRole === 'it-officer';
   const [toursOverrideEnabled, setToursOverrideEnabled] = useState(isFeatureEnabled('onboardingToursEnabled'));
+
+  // A record of how this workspace is set up (for handover, audits or support).
+  const exportSettings = (format: 'csv' | 'pdf') => {
+    const label = (key: string) => key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase());
+    const value = (v: unknown) => (typeof v === 'boolean' ? (v ? 'On' : 'Off') : String(v ?? ''));
+    const group = (name: string, values: Record<string, unknown>) => Object.entries(values).map(([k, v]) => [name, label(k), value(v)]);
+    exportTable({
+      title: 'Workspace settings',
+      facility: organization.name || facilityForm.hospitalName,
+      fileName: 'workspace-settings',
+      subtitle: `Exported by ${userName}`,
+      columns: ['Section', 'Setting', 'Value'],
+      rows: [
+        ...group('Facility', facilityForm),
+        ...group('Offline & sync', { offlineMode, autoSync }),
+        ...group('Integrations', apiIntegrations),
+        ...group('Notifications', notificationForm),
+        ...group('Appearance', { theme, fontScale: `${fontScale}%`, compactMode }),
+      ],
+    }, format);
+  };
 
   const filteredActions = useMemo(
     () =>
@@ -748,8 +770,8 @@ function DemoSettingsPage({ onLogout, onDeleteAccount }: SettingsPageProps) {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" disabled={!isAdmin} onClick={() => toast.success('Exported as CSV')}><Download className="w-4 h-4 mr-2" />Export CSV</Button>
-                    <Button variant="outline" disabled={!isAdmin} onClick={() => toast.success('Exported as PDF')}><Download className="w-4 h-4 mr-2" />Export PDF</Button>
+                    <Button variant="outline" disabled={!isAdmin} onClick={() => exportSettings('csv')}><Download className="w-4 h-4 mr-2" />Export CSV</Button>
+                    <Button variant="outline" disabled={!isAdmin} onClick={() => exportSettings('pdf')}><Download className="w-4 h-4 mr-2" />Export PDF</Button>
                   </div>
 
                   <div className="p-4 rounded-xl bg-green-50 border border-green-100">

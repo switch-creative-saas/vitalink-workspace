@@ -9,9 +9,12 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { PatientOnboardingWizard } from '@/components/patients/PatientOnboardingWizard';
 import { PaperIntakeDialog } from '@/components/patients/PaperIntakeDialog';
+import { SmartImportDialog } from '@/components/patients/SmartImportDialog';
 import { usePlan } from '@/hooks/usePlan';
-import { buildCsv, getAge, getPatientSummary, listTenantPatients, parseCsvRows, queryPatients, sampleImportTemplate, type PatientSummary, type RegistryPatient } from '@/lib/patientRegistry';
+import { getAge, getPatientSummary, listTenantPatients, queryPatients, sampleImportTemplate, type PatientSummary, type RegistryPatient } from '@/lib/patientRegistry';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { exportTable, type ExportFormat } from '@/lib/export/tableExport';
+import { BRAND } from '@/config/brand';
 
 // Demo tenants for the offline mock; with Supabase the active workspace is the only tenant.
 const demoTenants = [
@@ -49,9 +52,11 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [paperOpen, setPaperOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const { hasModule } = usePlan();
-  // Reading paper records with VitaMind: Starter plan and up.
-  const canScanPaper = isSupabaseConfigured && hasModule('ocr-intake');
+  // Reading paper records with VitaMind (AI): Growth plan and up. Starter reads register photos on
+  // the device through Import.
+  const canScanPaper = isSupabaseConfigured && hasModule('ocr-ai');
   const [pageRows, setPageRows] = useState<RegistryPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRow, setSelectedRow] = useState<string | null>(null);
@@ -125,45 +130,35 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
     URL.revokeObjectURL(url);
   };
 
-  const runImport = async (file: File) => {
-    if (!canCreate('Patients')) {
-      toast.error('RBAC policy prevents bulk import for your role.');
-      return;
-    }
-    const content = await file.text();
-    const parsed = parseCsvRows(content);
-    if (parsed.headers.length === 0) {
-      toast.error('Import failed: empty file.');
-      return;
-    }
-    const missing = ['firstName', 'lastName', 'dateOfBirth', 'gender', 'phone', 'tenantId'].filter((h) => !parsed.headers.includes(h));
-    if (missing.length > 0) {
-      toast.error(`Missing required columns: ${missing.join(', ')}`);
-      return;
-    }
-    toast.info(`Queued ${parsed.rows.length} rows for background processing`, { description: 'Preview and validation complete.' });
-  };
-
-  const exportRows = async (mode: 'filtered' | 'selected' | 'all', format: 'csv' | 'xlsx' | 'pdf') => {
+  const [exporting, setExporting] = useState(false);
+  // Everything matching the current search and filters (not just this page), in columns the
+  // importer reads straight back.
+  const exportRows = async (mode: 'filtered' | 'all', format: ExportFormat) => {
     if (!canExport('Patients')) {
       toast.error('Your role cannot export patient lists.');
       return;
     }
-    const outputRows = mode === 'all' ? await listTenantPatients(tenantId) : pageRows;
-    if (format !== 'csv') {
-      toast.success(`Prepared ${format.toUpperCase()} export (${mode})`, {
-        description: 'Enterprise export adapters are queued server-side in production mode.',
-      });
-      return;
+    setExporting(true);
+    try {
+      const outputRows = mode === 'all'
+        ? await listTenantPatients(tenantId)
+        : (await queryPatients({ tenantId, page: 1, pageSize: 10_000, query: debouncedQuery, sortBy, sortOrder, filters })).rows;
+      exportTable({
+        title: 'Patient registry',
+        facility: organization.name,
+        fileName: `patients-${mode}`,
+        subtitle: `${outputRows.length} patient${outputRows.length === 1 ? '' : 's'}${mode === 'filtered' && (debouncedQuery || JSON.stringify(filters) !== JSON.stringify(defaultFilters)) ? ' · filtered' : ''}`,
+        columns: [BRAND.patientIdLabel, 'Old number', 'First name', 'Middle name', 'Surname', 'Date of birth', 'Sex', 'Phone', 'Email', 'Address', 'State',
+          'Blood group', 'Genotype', 'Allergies', 'Chronic conditions', 'Next of kin', 'Next of kin relationship', 'Next of kin phone', 'HMO', 'Enrollee number', 'Status', 'Registered'],
+        rows: outputRows.map((p) => [p.switchId, p.previousNumber, p.firstName, p.middleName, p.lastName, p.dateOfBirth + (p.dobEstimated ? ' (est.)' : ''), p.gender, p.phone, p.email,
+          p.address, p.state, p.bloodGroup, p.genotype, p.allergies, p.chronicConditions, p.emergencyContactName, p.emergencyRelationship, p.emergencyPhone,
+          p.insuranceProvider, p.insurancePolicyNumber, p.status, p.createdAt.slice(0, 10)]),
+      }, format);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not export patients');
+    } finally {
+      setExporting(false);
     }
-    const csv = buildCsv(outputRows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `patients-${mode}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
   };
 
   if (!canView('Patients')) {
@@ -178,6 +173,17 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
         tenantId={tenantId}
         creatorName={userName}
         canCreate={canCreate('Patients')}
+        onCreated={() => {
+          setPage(1);
+          refresh();
+        }}
+      />
+      <SmartImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        tenantId={tenantId}
+        creatorName={userName}
+        canScan={!isSupabaseConfigured || hasModule('ocr-intake')}
         onCreated={() => {
           setPage(1);
           refresh();
@@ -209,34 +215,33 @@ export function PatientsPage({ onOpenPatientEmr }: PatientsPageProps) {
             ))}
           </select>
           <Button variant="outline" onClick={saveTemplate} className="min-w-0">Template</Button>
-          <label data-tour-id="patients-import" className="inline-flex items-center shrink-0">
-            <input
-              className="hidden"
-              type="file"
-              accept=".csv,.xlsx"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) runImport(file);
-              }}
-            />
-            <span className="inline-flex h-10 items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium gap-2 cursor-pointer min-w-0"><Upload className="w-4 h-4 shrink-0" /><span className="truncate">Import</span></span>
-          </label>
-          <Button data-tour-id="patients-export" variant="outline" onClick={() => exportRows('filtered', 'csv')} className="gap-2 min-w-0"><Download className="w-4 h-4 mr-2 shrink-0" /><span className="truncate">Export CSV</span></Button>
-          <Button variant="outline" onClick={() => exportRows('all', 'xlsx')} className="min-w-0">Excel</Button>
-          <Button variant="outline" onClick={() => exportRows('filtered', 'pdf')} className="min-w-0">PDF</Button>
+          <Button
+            data-tour-id="patients-import"
+            variant="outline"
+            className="gap-2 min-w-0"
+            onClick={() => {
+              if (!canCreate('Patients')) { toast.error('Your role cannot import patients.'); return; }
+              setImportOpen(true);
+            }}
+          >
+            <Upload className="w-4 h-4 shrink-0" /><span className="truncate">Import</span>
+          </Button>
+          <Button data-tour-id="patients-export" variant="outline" disabled={exporting} onClick={() => void exportRows('filtered', 'csv')} className="gap-2 min-w-0">{exporting ? <Loader2 className="w-4 h-4 mr-2 shrink-0 animate-spin" /> : <Download className="w-4 h-4 mr-2 shrink-0" />}<span className="truncate">Export CSV</span></Button>
+          <Button variant="outline" disabled={exporting} onClick={() => void exportRows('filtered', 'excel')} className="min-w-0">Excel</Button>
+          <Button variant="outline" disabled={exporting} onClick={() => void exportRows('filtered', 'pdf')} className="min-w-0">PDF</Button>
           {isSupabaseConfigured && canCreate('Patients') && (
             <Button
               data-tour-id="patients-scan"
               variant="outline"
               className="gap-2 min-w-0"
-              title={canScanPaper ? 'Photograph paper records to register patients' : 'Included from the Starter plan'}
+              title={canScanPaper ? 'VitaMind AI reads photos of patient cards and registers' : 'VitaMind AI reading is included from the Growth plan'}
               onClick={() => {
                 if (canScanPaper) { setPaperOpen(true); return; }
-                toast.info('Scanning paper records is included from the Starter plan.');
+                toast.info('VitaMind AI reading is included from the Growth plan. On your plan, use Import to read register photos on this device.');
                 window.dispatchEvent(new CustomEvent('app:navigate', { detail: { page: 'subscription' } }));
               }}
             >
-              {canScanPaper ? <ScanText className="w-4 h-4 shrink-0" /> : <Lock className="w-4 h-4 shrink-0" />}<span className="truncate">Scan paper records</span>
+              {canScanPaper ? <ScanText className="w-4 h-4 shrink-0" /> : <Lock className="w-4 h-4 shrink-0" />}<span className="truncate">VitaMind scan</span>
             </Button>
           )}
           <Button

@@ -50,7 +50,7 @@ const ROLE_MODULE: Partial<Record<UserRole, string>> = {
 // What the plan includes, in the words staff use.
 const MODULE_LABELS: Array<[string, string]> = [
   ['patients', 'Patient registry'], ['appointments', 'Appointments'], ['emr', 'Medical records'], ['human-resources', 'Staff'],
-  ['nfc-cards', 'VitaCard ordering'], ['nfc-scanning', 'VitaCard scanning'], ['ocr-intake', 'Scan paper records'],
+  ['nfc-cards', 'VitaCard ordering'], ['nfc-scanning', 'VitaCard scanning'], ['ocr-intake', 'Import and scan registers'], ['ocr-ai', 'VitaMind paper reading'],
   ['billing', 'Billing & receipts'], ['pharmacy', 'Pharmacy'], ['analytics', 'Analytics'], ['laboratory', 'Laboratory'],
   ['telemedicine', 'Telemedicine'], ['ai-clinical-intelligence', 'VitaMind clinical AI'], ['ai-scribe', 'Consultation scribe'],
   ['vitalink-network', 'VitaLink Network'], ['administration', 'Administration'], ['audit-logs', 'Security & audit'], ['sentinel', 'Sentinel surveillance'],

@@ -5,6 +5,7 @@ import { NFC_CARD_PRICING } from '@/data/pricingTiers';
 import { usePlan } from '@/hooks/usePlan';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { LiveNfcOrders } from '@/components/nfc/LiveNfcOrders';
+import { VitaCardsManager } from '@/components/nfc/VitaCardsManager';
 
 type DeliveryOption = 'pickup' | 'delivery';
 type NFCOrder = { id: string; quantity: number; total: number; deliveryOption: DeliveryOption; deliveryAddress: string; status: 'processing'; orderedAt: string; estimatedDelivery: string };
@@ -14,7 +15,25 @@ const cardDetails = ['NFC chip (ISO 14443A)', 'VitaLink ID encoded', 'Emergency 
 function readOrders(): NFCOrder[] { try { return JSON.parse(localStorage.getItem('nfc_card_orders') ?? '[]') as NFCOrder[]; } catch { return []; } }
 
 export function NFCCardsPage() {
-  return isSupabaseConfigured ? <LiveNfcOrders /> : <DemoNFCCardsPage />;
+  const [tab, setTab] = useState<'cards' | 'order'>(() => (new URLSearchParams(window.location.search).get('tab') === 'order' ? 'order' : 'cards'));
+  if (!isSupabaseConfigured) return <DemoNFCCardsPage />;
+  return (
+    <div className="space-y-5 page-transition">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50">VitaCards</h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Patient cards that open their emergency profile on any phone, and their full record with their PIN.</p>
+        </div>
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 text-sm dark:bg-slate-800" role="tablist">
+          {([['cards', 'Patient cards'], ['order', 'Order cards']] as const).map(([id, label]) => (
+            <button key={id} type="button" role="tab" aria-selected={tab === id} data-tour-id={`vitacards-${id}`} onClick={() => setTab(id)}
+              className={`rounded-lg px-4 py-1.5 font-medium transition ${tab === id ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-50' : 'text-slate-500'}`}>{label}</button>
+          ))}
+        </div>
+      </div>
+      {tab === 'cards' ? <VitaCardsManager /> : <LiveNfcOrders />}
+    </div>
+  );
 }
 
 /** Offline demo (no Supabase): orders kept in this browser only. */

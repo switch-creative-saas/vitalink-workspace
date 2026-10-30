@@ -60,6 +60,7 @@ const PAGE_LOADERS = {
   HelpSupportPage: () => import('@/pages/HelpSupportPage'),
   NFCCardsPage: () => import('@/pages/NFCCardsPage'),
   PatientVisitPage: () => import('@/pages/PatientVisitPage'),
+  CardPage: () => import('@/pages/CardPage'),
 };
 const DashboardPage = lazy(() => PAGE_LOADERS.DashboardPage().then((m) => ({ default: m.DashboardPage })));
 const PatientIdentityPage = lazy(() => PAGE_LOADERS.PatientIdentityPage().then((m) => ({ default: m.PatientIdentityPage })));
@@ -81,6 +82,7 @@ const SettingsPage = lazy(() => PAGE_LOADERS.SettingsPage().then((m) => ({ defau
 const HelpSupportPage = lazy(() => PAGE_LOADERS.HelpSupportPage().then((m) => ({ default: m.HelpSupportPage })));
 const NFCCardsPage = lazy(() => PAGE_LOADERS.NFCCardsPage().then((m) => ({ default: m.NFCCardsPage })));
 const PatientVisitPage = lazy(() => PAGE_LOADERS.PatientVisitPage().then((m) => ({ default: m.PatientVisitPage })));
+const CardPage = lazy(() => PAGE_LOADERS.CardPage().then((m) => ({ default: m.CardPage })));
 
 function prefetchPages() {
   if (isLowData()) return;
@@ -93,6 +95,8 @@ const ConsoleApp = lazy(() => import('@/components/console/ConsoleApp'));
 function App() {
   // Patients open video-visit links without an account.
   if (isSupabaseConfigured && window.location.pathname === '/visit') return <Suspense fallback={<PageLoading fullScreen />}><PatientVisitPage /></Suspense>;
+  // A tapped or scanned VitaCard: emergency profile, and the full record behind the patient's PIN.
+  if (isSupabaseConfigured && window.location.pathname.startsWith('/card/')) return <Suspense fallback={<PageLoading fullScreen />}><CardPage /></Suspense>;
   if (isSupabaseConfigured && /^\/console(\/|$)/.test(window.location.pathname)) {
     return <Suspense fallback={null}><ConsoleApp /></Suspense>;
   }
@@ -337,7 +341,7 @@ function AppShell() {
       case 'administration':
         return 'Administration';
       case 'nfc-cards':
-        return 'Order NFC Cards';
+        return 'VitaCards';
       case 'subscription':
         return 'Subscription & Billing';
       case 'audit-logs':

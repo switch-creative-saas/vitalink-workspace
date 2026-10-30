@@ -57,6 +57,10 @@ export interface RegistryPatient {
   doctorAssigned?: string;
   department?: string;
   admissionStatus?: string;
+  /** Number from the patient's old card, folder or previous system (OP001, MRN, file no.). */
+  previousNumber?: string;
+  /** Date of birth worked out from an age, not written down. */
+  dobEstimated?: boolean;
   insuranceProviderFilter?: string;
   createdAt: string;
   updatedAt: string;
@@ -361,22 +365,6 @@ export function buildCsv(rows: RegistryPatient[]) {
     patient.createdAt,
   ]);
   return [headers, ...data].map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')).join('\n');
-}
-
-export function parseCsvRows(input: string) {
-  const [headerLine, ...body] = input.split('\n').filter(Boolean);
-  if (!headerLine) {
-    return { headers: [], rows: [] as string[][] };
-  }
-  const headers = headerLine.split(',').map((item) => item.trim().replaceAll('"', ''));
-  const rows = body.map((line) => line.split(',').map((item) => item.trim().replaceAll('"', '')));
-  return { headers, rows };
-}
-
-export function validateImportColumns(headers: string[]) {
-  const required = ['firstName', 'lastName', 'dateOfBirth', 'gender', 'phone', 'tenantId', 'emergencyContactName', 'emergencyRelationship', 'emergencyPhone'];
-  const missing = required.filter((column) => !headers.includes(column));
-  return { required, missing };
 }
 
 export function sampleImportTemplate() {

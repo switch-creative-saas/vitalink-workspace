@@ -11,3 +11,6 @@ docs/
 CLAUDE.md
 CLAUDE.local.md
 AGENTS.md
+
+# Copied from node_modules by scripts/copy-ocr-assets.mjs
+public/ocr/

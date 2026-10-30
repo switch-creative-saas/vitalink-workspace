@@ -13,7 +13,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AUTH_LABEL, EMR_SYSTEMS, METHOD_LABEL, systemByKey, type EmrAuthType, type EmrMethod, type EmrSystem } from '@/lib/emr/catalog';
-import { FIELD_LABEL, guessMapping, parseCsv, rowsToPatients, type CsvField } from '@/lib/emr/csvImport';
+import { FIELD_LABEL, guessMapping, rowsToPatients, type CsvField } from '@/lib/emr/csvImport';
+import { detect, readImportFile } from '@/lib/import/patientImport';
 import {
   EMR_PUSH_URL, createEmrPushKey, deleteEmrConnection, importEmrPatients, listEmrConnections, listEmrRuns, saveEmrConnection, setEmrConnectionPaused,
   startEmrSync, testEmrConnection, type EmrConnection, type EmrSyncRun, type SaveEmrConnection,
@@ -256,7 +257,15 @@ function FileImportDialog({ connection, onClose, onDone }: { connection: EmrConn
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async (file: File) => {
-    const parsed = parseCsv(await file.text());
+    // Excel, CSV, FHIR or HL7 exports: the heading row is found wherever it is.
+    let parsed: string[][];
+    try {
+      const found = detect(await readImportFile(file));
+      parsed = found ? [found.columns.map((c) => c.header), ...found.body] : [];
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not read that file');
+      return;
+    }
     if (parsed.length < 2) { toast.error('That file has no patient rows'); return; }
     setRows(parsed);
     setMapping(guessMapping(parsed[0]));
@@ -284,14 +293,14 @@ function FileImportDialog({ connection, onClose, onDone }: { connection: EmrConn
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import patients into VitaLink</DialogTitle>
-          <DialogDescription>Upload a CSV exported from {connection.name}. Dates written day-first (12/03/1985) are understood. Patients already in VitaLink are matched by NIN, phone and date of birth, or name and date of birth.</DialogDescription>
+          <DialogDescription>Upload the patient export from {connection.name}. Dates written day-first (12/03/1985) are understood. Patients already in VitaLink are matched by NIN, phone and date of birth, or name and date of birth.</DialogDescription>
         </DialogHeader>
-        <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void load(f); e.target.value = ''; }} />
+        <input ref={fileRef} type="file" accept=".xlsx,.xlsm,.csv,.tsv,.txt,.json,.ndjson,.hl7" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void load(f); e.target.value = ''; }} />
         {!rows ? (
           <button type="button" onClick={() => fileRef.current?.click()} className="w-full rounded-2xl border-2 border-dashed border-gray-200 p-10 text-center hover:border-royal-400">
             <FileUp className="mx-auto h-8 w-8 text-gray-400" />
-            <p className="mt-2 text-sm font-medium text-gray-800">Choose a CSV file</p>
-            <p className="text-xs text-gray-500">From Excel: File → Save As → CSV (Comma delimited)</p>
+            <p className="mt-2 text-sm font-medium text-gray-800">Choose the export file</p>
+            <p className="text-xs text-gray-500">Excel, CSV, FHIR JSON or HL7, exactly as the system exported it</p>
           </button>
         ) : result ? (
           <div className="space-y-3">

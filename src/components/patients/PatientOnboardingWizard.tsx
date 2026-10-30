@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronRight, Clock, FileText, Loader2, Nfc, Save, Trash2, UploadCloud, WifiOff } from 'lucide-react';
 import { PatientPhotoInput } from '@/components/patients/PatientPhotoInput';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { CardAccessPanel } from '@/components/identity/CardAccessPanel';
+import { usePlan } from '@/hooks/usePlan';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,6 +132,10 @@ export function PatientOnboardingWizard({
   onCreated,
 }: PatientOnboardingWizardProps) {
   const [step, setStep] = useState(1);
+  // Last part of registration: link the patient's VitaCard (their PIN, then write or print the link).
+  const [cardFor, setCardFor] = useState<RegistryPatient | null>(null);
+  const { hasModule } = usePlan();
+  const canLinkCard = isSupabaseConfigured && hasModule('nfc-scanning');
   const [submitting, setSubmitting] = useState(false);
   const [draft, setDraft] = useState<Draft>(initialDraft(tenantId));
   const [registrationSessionId, setRegistrationSessionId] = useState<string>(() => crypto.randomUUID());
@@ -346,7 +353,7 @@ export function PatientOnboardingWizard({
     try {
       if (!validate()) return;
       setSubmitting(true);
-      await createPatient(creatorName, {
+      const saved = await createPatient(creatorName, {
         ...stripDraftOnlyFields(draft),
         tenantId,
         insuranceProviderFilter: draft.insuranceProvider,
@@ -360,6 +367,7 @@ export function PatientOnboardingWizard({
       setRegistrationSessionId(crypto.randomUUID());
       onOpenChange(false);
       onCreated?.();
+      if (canLinkCard) setCardFor(saved);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to create patient';
       toast.error(message);
@@ -607,7 +615,12 @@ export function PatientOnboardingWizard({
               {step === 5 && (
                 <div className="space-y-5">
                   <div className="rounded-2xl border border-gray-200 p-4 bg-gradient-to-br from-white to-gray-50">
-                    <p className="font-semibold text-gray-900 flex items-center gap-2"><Nfc className="w-4 h-4 text-royal-600" />NFC Assignment</p>
+                    <p className="font-semibold text-gray-900 flex items-center gap-2"><Nfc className="w-4 h-4 text-royal-600" />VitaCard</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {canLinkCard
+                        ? 'After you complete onboarding, the patient chooses their card PIN and you write the card link onto their card (or print it as a QR code).'
+                        : 'Enter the card’s chip number if the patient already has a card.'}
+                    </p>
                     <div className={`${grid2Class} mt-3`}>
                       <Input data-draft-field="nfcCardId" className={fieldClass('nfcCardId')} placeholder="NFC card ID (optional)" value={draft.nfcCardId} onChange={(e) => updateField('nfcCardId', e.target.value)} />
                       <select
@@ -796,6 +809,21 @@ export function PatientOnboardingWizard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={Boolean(cardFor)} onOpenChange={(next) => { if (!next) setCardFor(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-emerald-600" />{cardFor?.firstName} is registered · {cardFor?.switchId}</DialogTitle>
+            <DialogDescription>
+              Last step: set up their VitaCard. Anyone who taps or scans it sees the emergency profile; the patient’s PIN opens their full record.
+            </DialogDescription>
+          </DialogHeader>
+          {cardFor && <CardAccessPanel patient={cardFor} />}
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setCardFor(null)}>Done</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showDiscardDialog} onOpenChange={setShowDiscardDialog}>
         <AlertDialogContent>
