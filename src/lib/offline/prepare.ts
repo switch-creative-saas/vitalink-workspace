@@ -10,6 +10,7 @@
 //
 // It runs again in the background every 30 minutes while online, and when the connection returns,
 // so what's on the device is never more than about half an hour old. Low-data mode saves less.
+import { RECORDS_UNLOCKED_EVENT, recordsNeedCode } from '@/lib/supabase/mfa';
 import { requireSupabase } from '@/lib/supabase/client';
 import { getDataSaverPreference, isLowData } from '@/lib/network/dataSaver';
 import * as administration from '@/lib/supabase/administration';
@@ -59,17 +60,18 @@ export function offlineReadiness(): OfflineReadiness {
 }
 
 // Recent rows per table. Pages filter, search and page through these offline.
-const TABLES: Array<{ table: string; order: string; ascending?: boolean; limit: number; recentDays?: { column: string; back: number; ahead?: number } }> = [
+// records: clinical tables, opened only after two-step verification (if the person uses it).
+const TABLES: Array<{ table: string; order: string; ascending?: boolean; limit: number; records?: boolean; recentDays?: { column: string; back: number; ahead?: number } }> = [
   { table: 'patients', order: 'created_at', limit: 3000 },
   { table: 'appointments', order: 'starts_at', limit: 2000, recentDays: { column: 'starts_at', back: 60, ahead: 60 } },
-  { table: 'clinical_notes', order: 'updated_at', limit: 800 },
-  { table: 'vitals', order: 'recorded_at', limit: 1200 },
-  { table: 'lab_results', order: 'ordered_at', limit: 800 },
-  { table: 'prescriptions', order: 'created_at', limit: 800 },
+  { table: 'clinical_notes', order: 'updated_at', limit: 800, records: true },
+  { table: 'vitals', order: 'recorded_at', limit: 1200, records: true },
+  { table: 'lab_results', order: 'ordered_at', limit: 800, records: true },
+  { table: 'prescriptions', order: 'created_at', limit: 800, records: true },
   { table: 'drug_inventory', order: 'drug_name', ascending: true, limit: 1500 },
   { table: 'service_prices', order: 'name', ascending: true, limit: 600 },
   { table: 'departments', order: 'name', ascending: true, limit: 200 },
-  { table: 'patient_documents', order: 'created_at', limit: 600 },
+  { table: 'patient_documents', order: 'created_at', limit: 600, records: true },
 ];
 
 async function saveTable(organizationId: string, spec: (typeof TABLES)[number], share: number): Promise<number> {
@@ -104,8 +106,6 @@ function screenAnswers(organizationId: string, lowData: boolean): Array<() => Pr
     () => billing.listPayments(organizationId),
     () => billing.listPrices(organizationId),
     () => pharmacy.listInventory(organizationId),
-    () => pharmacy.listPrescriptions(organizationId),
-    () => lab.listLabOrders(organizationId),
     () => lab.listLabTemplates(organizationId),
     () => staff.listStaff(organizationId),
     () => diagnosis.listFindings(),
@@ -161,8 +161,18 @@ async function run(organizationId: string) {
     // The app files go first and in the background; data follows straight away.
     const files = getDataSaverPreference() === 'on' ? appFiles(false) : appFiles(true);
     let records = 0;
-    for (const spec of TABLES) records += await saveTable(organizationId, spec, lowData ? 0.25 : 1).catch(() => 0);
+    // Patient records only once they're open to this session (two-step verification), so an
+    // empty answer never replaces what this device already holds.
+    const recordsOpen = !(await recordsNeedCode().catch(() => false));
+    for (const spec of TABLES) {
+      if (spec.records && !recordsOpen) continue;
+      records += await saveTable(organizationId, spec, lowData ? 0.25 : 1).catch(() => 0);
+    }
     for (const ask of screenAnswers(organizationId, lowData)) await ask().catch(() => undefined);
+    if (recordsOpen) {
+      await pharmacy.listPrescriptions(organizationId).catch(() => undefined);
+      await lab.listLabOrders(organizationId).catch(() => undefined);
+    }
     const preparedAt = new Date().toISOString();
     try { localStorage.setItem(stateKey(organizationId), JSON.stringify({ preparedAt, records })); } catch { /* storage blocked */ }
     publish({ preparedAt, records, appFiles: await files });
@@ -194,5 +204,10 @@ export function startOfflinePreparation(organizationId: string) {
   const timer = window.setInterval(tick, 60_000);
   const online = () => void prepareOffline(organizationId);
   window.addEventListener('online', online);
-  return () => { window.clearTimeout(first); window.clearInterval(timer); window.removeEventListener('online', online); };
+  // Records were just opened with the code: download them for offline use now.
+  window.addEventListener(RECORDS_UNLOCKED_EVENT, online);
+  return () => {
+    window.clearTimeout(first); window.clearInterval(timer);
+    window.removeEventListener('online', online); window.removeEventListener(RECORDS_UNLOCKED_EVENT, online);
+  };
 }

@@ -78,7 +78,7 @@ export default function ConsoleApp() {
     let cancelled = false;
     resetPlatformAdminCheck();
     // Platform admins must pass two-step verification before the admin check (the database requires it).
-    waitForMfa()
+    waitForMfa('console')
       .then(() => amIPlatformAdmin())
       .catch(() => false)
       .then((value) => { if (!cancelled) setAdminCheck({ userId, isAdmin: value }); });

@@ -1,9 +1,12 @@
 // Two-step verification (TOTP authenticator apps) on Supabase Auth.
 //
 // Optional for workspace staff (the app shows a standing reminder until it's set up, see
-// <MfaReminder />); required for VitaLink platform admins. Once someone turns it on it's always
-// asked for, and the database enforces that: until their session is verified (aal2), role checks
-// fail. Sign-in flows call waitForMfa() before loading workspace data; <MfaGate /> collects the code.
+// <MfaReminder />); required for VitaLink platform admins. For people who use it, the code is asked
+// at the point of need, not at sign-in: the first time they open patient records
+// (ensureRecordAccess, called by record pages), and again when they come back after 30 minutes
+// away. The database enforces the first part: until the session is verified (aal2) or on a
+// remembered browser, clinical records stay closed (private.records_ok). The console still asks
+// at sign-in (waitForMfa('console')). <MfaGate /> collects the code.
 //
 // A browser where a code was entered is remembered: later sign-ins there skip the code until the
 // device goes 14 days unused (or 30 days after it was first trusted). Only a hash of the device
@@ -11,8 +14,10 @@
 import { requireSupabase } from './client';
 
 export type MfaNeed = 'none' | 'challenge' | 'enroll';
+/** Why the code is being asked for: signing in (console), opening records, or coming back after a break. */
+export type MfaReason = 'signin' | 'records' | 'idle';
 
-export interface MfaStatus { required: boolean; recommended: boolean; enrolled: boolean; aal: 'aal1' | 'aal2' }
+export interface MfaStatus { required: boolean; recommended: boolean; enrolled: boolean; recordsUnlocked: boolean; aal: 'aal1' | 'aal2' }
 
 /** Fired on window whenever this user's two-step setup changes (turned on or off). */
 export const MFA_CHANGED_EVENT = 'vitalink:mfa-changed';
@@ -28,9 +33,19 @@ export async function getMfaStatus(): Promise<MfaStatus> {
   return data as MfaStatus;
 }
 
-/** What this session still needs: nothing, the code from an enrolled app, or enrolment. */
-export async function mfaNeed(): Promise<MfaNeed> {
+/**
+ * What this session still needs before loading data. Workspace sign-in ('signin') needs nothing
+ * more (records ask later), except that VitaLink platform admins must have it set up; a remembered
+ * browser is checked so records open without a code. The console ('console') needs the code now.
+ */
+export async function mfaNeed(scope: 'signin' | 'console' = 'signin'): Promise<MfaNeed> {
   const db = requireSupabase();
+  if (scope === 'signin') {
+    const token = await storedDeviceToken();
+    if (token) await db.rpc('mfa_check_device', { p_token: token }).then(() => undefined, () => undefined);
+    const status = await getMfaStatus().catch(() => null);
+    return status?.required && !status.enrolled ? 'enroll' : 'none';
+  }
   const { data, error } = await db.auth.mfa.getAuthenticatorAssuranceLevel();
   if (error || !data) return 'none';
   const token = await storedDeviceToken();
@@ -166,32 +181,113 @@ export async function resetMfaByEmail(email: string) {
 
 type Waiter = { resolve: () => void; reject: (error: Error) => void };
 const waiters: Waiter[] = [];
-const listeners = new Set<(need: MfaNeed) => void>();
+const listeners = new Set<(need: MfaNeed, reason: MfaReason) => void>();
+let showing: { need: MfaNeed; reason: MfaReason } | null = null;
 
-export function onMfaRequest(listener: (need: MfaNeed) => void) {
+export function onMfaRequest(listener: (need: MfaNeed, reason: MfaReason) => void) {
   listeners.add(listener);
   return () => { listeners.delete(listener); };
+}
+
+function ask(need: MfaNeed, reason: MfaReason): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    waiters.push({ resolve, reject });
+    // An idle prompt already on screen also covers a record page opening underneath it.
+    if (!showing || (showing.reason === 'idle' && reason !== 'idle')) {
+      showing = { need, reason: showing?.reason === 'idle' ? 'idle' : reason };
+      listeners.forEach((listener) => listener(need, showing!.reason));
+    }
+  });
 }
 
 /**
  * Resolves once this session may load workspace data: at once if nothing more is needed,
  * otherwise after the user completes the step shown by <MfaGate />. Rejects if they sign out.
  */
-export async function waitForMfa(): Promise<void> {
-  const need = await mfaNeed();
+export async function waitForMfa(scope: 'signin' | 'console' = 'signin'): Promise<void> {
+  const need = await mfaNeed(scope);
   if (need === 'none') return;
-  return new Promise<void>((resolve, reject) => {
-    waiters.push({ resolve, reject });
-    listeners.forEach((listener) => listener(need));
-  });
+  return ask(need, 'signin');
 }
+
+/** Fired on window when patient records were unlocked (the code was entered). */
+export const RECORDS_UNLOCKED_EVENT = 'vitalink:records-unlocked';
+/** Fired on window when someone chose "Not now" instead of entering the code. */
+export const RECORDS_DECLINED_EVENT = 'vitalink:records-declined';
 
 export function finishMfa() {
+  idleLocked = false;
+  markActive();
+  showing = null;
   waiters.splice(0).forEach((w) => w.resolve());
-  listeners.forEach((listener) => listener('none'));
+  listeners.forEach((listener) => listener('none', 'signin'));
+  window.dispatchEvent(new Event(RECORDS_UNLOCKED_EVENT));
 }
 
-export function cancelMfa() {
-  waiters.splice(0).forEach((w) => w.reject(new Error('Signed out')));
-  listeners.forEach((listener) => listener('none'));
+export function cancelMfa(reason: 'signed-out' | 'declined' = 'signed-out') {
+  showing = null;
+  waiters.splice(0).forEach((w) => w.reject(new Error(reason === 'declined' ? 'Not verified' : 'Signed out')));
+  listeners.forEach((listener) => listener('none', 'signin'));
+  if (reason === 'declined') window.dispatchEvent(new Event(RECORDS_DECLINED_EVENT));
+}
+
+// ---------------------------------------------------------------------------
+// Patient records: the code once per sign-in, and again after a long break.
+
+const IDLE_MS = 30 * 60_000;
+const ACTIVE_KEY = 'vitalink-last-active';
+let idleLocked = false;
+let lastActive = Date.now();
+
+function markActive() {
+  lastActive = Date.now();
+  try { localStorage.setItem(ACTIVE_KEY, String(lastActive)); } catch { /* storage blocked */ }
+}
+
+/** Does opening patient records need the code now? Never offline (it can't be checked there). */
+export async function recordsNeedCode(): Promise<boolean> {
+  if (!navigator.onLine) return false;
+  const status = await getMfaStatus().catch(() => null);
+  if (!status?.enrolled) return false;
+  return idleLocked || !status.recordsUnlocked;
+}
+
+/** Called by pages that show patient records. Resolves when they may load; rejects on "Not now". */
+export async function ensureRecordAccess(): Promise<void> {
+  if (!(await recordsNeedCode())) return;
+  return ask('challenge', idleLocked ? 'idle' : 'records');
+}
+
+/**
+ * Watches for use of the app (signed-in workspace only). Coming back after 30 minutes or more
+ * asks for the code again, straight away, for people who use two-step verification.
+ * Returns a stop function.
+ */
+export function startIdleWatch(): () => void {
+  try {
+    const saved = Number(localStorage.getItem(ACTIVE_KEY));
+    if (saved && Date.now() - saved > IDLE_MS) idleLocked = true;
+  } catch { /* storage blocked */ }
+  markActive();
+  let throttle = 0;
+  const activity = () => {
+    const now = Date.now();
+    if (now - throttle < 5000) return;
+    throttle = now;
+    const away = now - lastActive > IDLE_MS;
+    markActive();
+    if (!away) return;
+    idleLocked = true;
+    void getMfaStatus().then((status) => { if (status.enrolled && navigator.onLine) void ask('challenge', 'idle').catch(() => undefined); }).catch(() => undefined);
+  };
+  const visible = () => { if (!document.hidden) activity(); };
+  const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const;
+  events.forEach((e) => window.addEventListener(e, activity, { passive: true }));
+  document.addEventListener('visibilitychange', visible);
+  // Opened after a long break (or the app was closed): ask once the workspace has loaded.
+  if (idleLocked) void getMfaStatus().then((status) => { if (status.enrolled && navigator.onLine) void ask('challenge', 'idle').catch(() => undefined); }).catch(() => undefined);
+  return () => {
+    events.forEach((e) => window.removeEventListener(e, activity));
+    document.removeEventListener('visibilitychange', visible);
+  };
 }

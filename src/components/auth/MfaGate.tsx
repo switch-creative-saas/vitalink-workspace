@@ -7,7 +7,7 @@ import { Copy, KeyRound, Loader2, LogOut, ShieldCheck, Smartphone } from 'lucide
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { requireSupabase } from '@/lib/supabase/client';
-import { cancelMfa, finishMfa, onMfaRequest, startTotpEnrollment, verifySignInCode, verifyTotp, type MfaNeed, type TotpEnrollment } from '@/lib/supabase/mfa';
+import { cancelMfa, finishMfa, onMfaRequest, startTotpEnrollment, verifySignInCode, verifyTotp, type MfaNeed, type MfaReason, type TotpEnrollment } from '@/lib/supabase/mfa';
 
 const errorText = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
@@ -122,8 +122,16 @@ function SignInCode({ onDone }: { onDone: () => void }) {
 /** Full-screen step shown while a sign-in waits on two-step verification. */
 export function MfaGate() {
   const [need, setNeed] = useState<MfaNeed>('none');
-  useEffect(() => onMfaRequest(setNeed), []);
+  const [reason, setReason] = useState<MfaReason>('signin');
+  useEffect(() => onMfaRequest((next, why) => { setNeed(next); setReason(why); }), []);
   if (need === 'none') return null;
+  const title = need === 'enroll' ? 'Set up two-step verification'
+    : reason === 'idle' ? 'Welcome back' : reason === 'records' ? 'Verify to open patient records' : 'Enter your verification code';
+  const intro = need === 'enroll'
+    ? 'Your role can see patient records, so VitaLink requires a code from your phone as well as your password.'
+    : reason === 'idle' ? 'You were away for a while. Enter the 6-digit code from your authenticator app to keep working with patient records.'
+    : reason === 'records' ? 'Patient records need the 6-digit code from your authenticator app. You stay verified while you keep working.'
+    : 'Open your authenticator app and enter the 6-digit code for VitaLink.';
 
   const signOut = async () => {
     await requireSupabase().auth.signOut({ scope: 'local' }).catch(() => undefined);
@@ -136,20 +144,23 @@ export function MfaGate() {
         <div className="mb-6 flex items-center gap-3">
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#1E4ED8] text-white">{need === 'enroll' ? <ShieldCheck className="h-6 w-6" /> : <Smartphone className="h-6 w-6" />}</div>
           <div>
-            <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{need === 'enroll' ? 'Set up two-step verification' : 'Enter your verification code'}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
-              {need === 'enroll'
-                ? 'Your role can see patient records, so VitaLink requires a code from your phone as well as your password.'
-                : 'Open your authenticator app and enter the 6-digit code for VitaLink.'}
-            </p>
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-white">{title}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{intro}</p>
           </div>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           {need === 'enroll' ? <TotpSetup onDone={finishMfa} /> : <SignInCode onDone={finishMfa} />}
         </div>
-        <button type="button" onClick={() => void signOut()} className="mx-auto mt-5 flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
-          <LogOut className="h-4 w-4" />Sign out
-        </button>
+        <div className="mt-5 flex items-center justify-center gap-6">
+          {reason !== 'signin' && (
+            <button type="button" onClick={() => cancelMfa('declined')} className="text-sm font-medium text-[#1E4ED8] hover:underline">
+              Not now
+            </button>
+          )}
+          <button type="button" onClick={() => void signOut()} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+            <LogOut className="h-4 w-4" />Sign out
+          </button>
+        </div>
         <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-slate-400"><KeyRound className="h-3.5 w-3.5" />Codes change every 30 seconds and work only on this account.</p>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LifeBuoy, Lock } from 'lucide-react';
 import { ResponsiveProvider } from '@/contexts/ResponsiveContext';
@@ -30,6 +30,8 @@ import { SessionGuard } from '@/components/security/SessionGuard';
 import { OfflineBanner } from '@/components/offline/OfflineStatus';
 import { ProfileSync } from '@/components/profile/ProfileSync';
 import { MfaGate } from '@/components/auth/MfaGate';
+import { RecordGate } from '@/components/auth/RecordGate';
+import { startIdleWatch } from '@/lib/supabase/mfa';
 import { MfaReminder } from '@/components/auth/MfaReminder';
 import { isLowData } from '@/lib/network/dataSaver';
 import { PageLoading, PageLoadBoundary } from '@/components/layout/PageLoading';
@@ -39,6 +41,9 @@ import { startOfflinePreparation } from '@/lib/offline/prepare';
 // Pages load on first use (one small file each), so the first visit on a slow connection only
 // downloads the sign-in screen and the shell. Once signed in on a good connection the rest are
 // fetched in the background so moving around is instant (skipped in low-data mode).
+// Pages that open patient records: two-step verification is asked when they open (see RecordGate).
+const RECORD_PAGES = new Set<PageType>(['emr', 'patient-identity', 'laboratory', 'pharmacy', 'telemedicine', 'ai-clinical-intelligence', 'switch-network']);
+
 const PAGE_LOADERS = {
   DashboardPage: () => import('@/pages/DashboardPage'),
   PatientIdentityPage: () => import('@/pages/PatientIdentityPage'),
@@ -134,6 +139,11 @@ function AppShell() {
     if (!isAuthenticated || !isSupabaseConfigured || !/^[0-9a-f-]{36}$/i.test(organization.id)) return;
     return startOfflinePreparation(organization.id);
   }, [isAuthenticated, organization.id]);
+  // Two-step verification: asked again when someone comes back after a long break.
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured) return;
+    return startIdleWatch();
+  }, [isAuthenticated]);
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
   const [vitaMindPanelOpen, setVitaMindPanelOpen] = useState(false);
   const [emrSwitchId, setEmrSwitchId] = useState<string | null>(null);
@@ -243,6 +253,8 @@ function AppShell() {
     window.history.pushState({}, '', `/emr/${encodeURIComponent(switchId)}`);
   };
 
+  const leaveRecords = useCallback(() => navigateToPage('dashboard'), []); // eslint-disable-line react-hooks/exhaustive-deps
+
   const renderPage = () => {
     if (!canAccessPage(currentPage)) {
       return (
@@ -266,6 +278,12 @@ function AppShell() {
     const gate = gatedPages[currentPage];
     if (gate && !hasModule(currentPage)) return <UpgradeGate {...gate} onBack={() => navigateToPage('dashboard')} />;
 
+    // Pages that show patient records: the two-step code is asked here, not at sign-in.
+    const page = pageContent();
+    return isSupabaseConfigured && RECORD_PAGES.has(currentPage) ? <RecordGate key={currentPage} onDecline={leaveRecords}>{page}</RecordGate> : page;
+  };
+
+  const pageContent = () => {
     switch (currentPage) {
       case 'dashboard':
         return <DashboardPage />;
