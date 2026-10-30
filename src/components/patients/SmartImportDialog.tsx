@@ -2,7 +2,7 @@
 // CSV from another EMR, FHIR / HL7 exports, or a photographed register page (read on this device).
 // Columns are matched automatically and can be changed; every row is checked before anything is
 // saved, and cells the reader wasn't sure of are highlighted. See lib/import/patientImport.ts.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Camera, CheckCircle2, ChevronDown, Download, FileSpreadsheet, Loader2, Lock, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { createPatient, type PatientTag } from '@/lib/patientRegistry';
+import { isLowData } from '@/lib/network/dataSaver';
 import {
   FIELD_LABELS, buildRows, detect, readImportFile, rowProblems,
   type ColumnMap, type Detected, type FieldKey, type ImportPatient, type ImportRow, type Sheet,
@@ -49,6 +50,13 @@ export function SmartImportDialog({ open, onOpenChange, tenantId, creatorName, c
   const fileInput = useRef<HTMLInputElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
+
+  // Get the on-device reader ready (and saved for offline use) while the user picks a file.
+  useEffect(() => {
+    if (!open || !canScan || !navigator.onLine || isLowData()) return;
+    const timer = window.setTimeout(() => { void import('@/lib/import/ocrRegister').then((m) => m.preloadReader()); }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [open, canScan]);
 
   const reset = () => {
     setStage('pick'); setFileName(''); setSheets([]); setDetected(null); setUncertainCells(undefined); setRows([]);

@@ -100,6 +100,9 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   // Supabase, payment and video providers are other origins and are left alone.
   if (url.origin !== self.location.origin) return;
+  // VitaCard links load their own page (card.html) and need the network: leave them alone, so the
+  // card page is never saved in place of the app.
+  if (url.pathname.startsWith('/card/') || url.pathname === '/card.html' || url.hostname.startsWith('card.')) return;
   if (request.mode === 'navigate') event.respondWith(navigation(request));
   else event.respondWith(asset(request));
 });

@@ -54,7 +54,7 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     roles: ['super-admin', 'hospital-admin', 'doctor', 'nurse', 'receptionist'],
     steps: [
       { page: 'dashboard', title: 'One visit, one record', body: 'Everything about a patient visit lands in a single record that every department can see. Let us follow one patient through VitaLink.' },
-      { page: 'patients', element: 'patients-add', side: 'bottom', title: '1. Register the patient', body: 'New patients are added here. Each one gets a VitaLink ID that stays with them, even at other hospitals on VitaLink. Moving from paper or another system? Use Import for spreadsheets, EMR exports or photos of register pages. Already registered? Search for them instead.' },
+      { page: 'patients', element: 'patients-add', side: 'bottom', title: '1. Register the patient', body: 'New patients are added here. Each one gets a VitaLink ID that stays with them, even at other hospitals on VitaLink. Moving from paper or another system? Use Import for spreadsheets, EMR exports or photos of register pages. Already registered? Search for them instead. On paid plans, the last step sets up the patient’s VitaCard: they choose a PIN and you write or print their card.' },
       { page: 'appointments', element: 'appointments-new', side: 'bottom', title: '2. Book the visit', body: "Book a consultation with a doctor. It shows on the doctor's schedule and on everyone's dashboard." },
       { page: 'patients', element: 'patients-table', card: true, side: 'top', title: '3. Open their record', body: "Click a patient to open their medical record: history, vitals, clinical notes, lab results and documents, all in one place. On the Growth plan, VitaMind Scribe can listen to the consultation and draft the note for the doctor." },
       { page: 'laboratory', element: 'lab-new-order', side: 'bottom', title: '4. Order tests', body: "Lab requests go straight to the lab's queue. When results are ready, they are added to the patient's record." },
@@ -82,9 +82,9 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
       { title: 'Patient registry', body: 'Every patient registered at your facility is here.' },
       { element: 'patients-search', side: 'bottom', title: 'Search', body: 'Type a name, phone number or VitaLink ID. Use Advanced Filters to narrow by doctor, insurer, age and more.' },
       { element: 'patients-add', side: 'bottom', title: 'Add a patient', body: 'Register a new patient in a few short steps. They get a VitaLink ID straight away.' },
-      { element: 'patients-scan', side: 'bottom', roles: REGISTRARS, title: 'Register from paper', body: 'Photograph patient cards, registration forms or a page of your register book (up to 4 photos at a time). VitaMind reads them, highlights anything hard to read, and you check each patient before they are added. Included from the Starter plan.' },
+      { element: 'patients-scan', side: 'bottom', roles: REGISTRARS, title: 'VitaMind scan', body: 'For hard handwriting and whole patient cards: photograph up to 4 cards, forms or register pages and VitaMind AI reads them. Anything unclear is highlighted, and you check each patient before they are added. Included from the Growth plan; on Starter, use Import to read register photos on this device.' },
       { element: 'patients-import', side: 'bottom', title: 'Bring in existing patients', body: 'Moving from paper or another system? Import your list as it is: Excel or CSV from any EMR, FHIR or HL7 exports, or a photo of a register page. Columns are matched for you, ages become estimated birth dates, and you check everything before it is saved.' },
-      { element: 'patients-export', side: 'bottom', title: 'Export', body: 'Download the list you are looking at as CSV, Excel or PDF.' },
+      { element: 'patients-export', side: 'bottom', title: 'Export', body: 'Download every patient matching your search and filters as CSV, Excel or a printable PDF. The columns import straight back into VitaLink.' },
       { element: 'patients-table', card: true, side: 'top', title: 'Open a record', body: "Click any patient to open their full medical record." },
     ],
   },
@@ -158,6 +158,7 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
       { element: 'pharmacy-add-stock', side: 'bottom', title: 'Add stock', body: 'Record new deliveries with batch numbers and expiry dates.' },
       { element: 'pharmacy-dispense', side: 'bottom', title: 'Dispense', body: 'Give out a prescription. The stock count goes down automatically.' },
       { element: 'pharmacy-tabs', side: 'bottom', title: 'Three views', body: "Inventory shows what's on the shelf and what's running low. Dispensation is the history. Purchase Orders tracks what you've ordered from suppliers." },
+      { element: 'pharmacy-export', side: 'bottom', title: 'Reports', body: 'Download the inventory with stock value, the dispensing log, or the expiry report (expired and expiring within 90 days) as CSV, Excel or a printable PDF.' },
     ],
   },
   {
@@ -165,6 +166,7 @@ export const WORKSPACE_TOURS: WorkspaceTour[] = [
     steps: [
       { title: 'Billing & insurance', body: "Visits, lab tests and dispensed drugs are added to each patient's running bill by themselves. Take payment, print receipts and claim from HMOs here." },
       { element: 'billing-new-invoice', side: 'bottom', title: 'New invoice', body: 'For anything billed outside a visit. Pick the patient and add services from your price list.' },
+      { title: 'Your price list', body: 'Under Prices, use “Import price list” to bring in your tariff sheet as it is (Excel or CSV, any layout). Amounts like ₦5,000 or 12.5k are read correctly, and each item is sorted into consultation, lab, imaging and so on.' },
       { element: 'billing-tabs', side: 'bottom', title: 'Five sections', body: "Open bills fill up live as the patient is seen; take a deposit or payment and finalize when they leave. All invoices lists every bill. Payments shows what was received, with a Print button for a receipt headed with your hospital's name. HMO Claims follows up insurers. Price List sets your prices." },
     ],
   },

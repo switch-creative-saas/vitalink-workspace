@@ -561,7 +561,7 @@ export function PharmacyPage() {
             )}
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="gap-2 rounded-xl border-[#1E4ED8]/20" disabled={!canExport}>
+                <Button data-tour-id="pharmacy-export" variant="outline" className="gap-2 rounded-xl border-[#1E4ED8]/20" disabled={!canExport}>
                   <Download className="w-4 h-4" />
                   Export
                 </Button>

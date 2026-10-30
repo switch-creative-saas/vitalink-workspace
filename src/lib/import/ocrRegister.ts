@@ -32,6 +32,14 @@ async function worker(onProgress?: (share: number) => void) {
 }
 let progressListener: ((share: number) => void) | null = null;
 
+/**
+ * Loads the reader in the background (about 7 MB the first time) so it is ready, and saved by the
+ * offline app, before anyone needs it. Called when the Import window opens.
+ */
+export function preloadReader() {
+  void worker().catch(() => undefined);
+}
+
 /** Larger, greyscale and a little sharper: what the reader does best with. */
 async function prepare(file: Blob): Promise<HTMLCanvasElement> {
   const bitmap = await createImageBitmap(file);

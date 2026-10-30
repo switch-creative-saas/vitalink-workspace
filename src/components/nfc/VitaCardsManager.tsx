@@ -43,6 +43,13 @@ export function VitaCardsManager() {
   const [searching, setSearching] = useState(false);
   const [open, setOpen] = useState<Holder | null>(null);
   const [now, setNow] = useState(0);
+  const [online, setOnline] = useState(() => navigator.onLine);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    window.addEventListener('online', update);
+    window.addEventListener('offline', update);
+    return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
+  }, []);
 
   const load = useCallback(() => {
     if (!allowed) return;
@@ -91,6 +98,11 @@ export function VitaCardsManager() {
 
   return (
     <div className="space-y-5">
+      {!online && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          You’re offline. Setting up cards, changing PINs and switching cards off need internet; patients’ cards still work on their phones.
+        </p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { label: 'Active cards', value: stats.active, icon: CreditCard },
