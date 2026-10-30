@@ -2,7 +2,7 @@
 // to sync or refused by the server, and the low-data switch) and the banner shown while offline.
 import { useEffect, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertTriangle, CloudOff, Gauge, Loader2, RefreshCw, Trash2, Wifi, WifiOff } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CloudOff, Gauge, Loader2, RefreshCw, Trash2, Wifi, WifiOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -10,6 +10,43 @@ import { discardEntry, flushOutbox, retryEntry } from '@/lib/offline/sync';
 import { useOfflineStatus } from '@/hooks/useOfflineStatus';
 import { Switch } from '@/components/ui/switch';
 import { getDataSaverPreference, setDataSaverPreference, useLowData } from '@/lib/network/dataSaver';
+import { OFFLINE_READY_EVENT, offlineReadiness, prepareOffline, type OfflineReadiness } from '@/lib/offline/prepare';
+import { useAuth } from '@/contexts/AuthContext';
+
+function useOfflineReadiness() {
+  const [ready, setReady] = useState<OfflineReadiness>(offlineReadiness);
+  useEffect(() => {
+    const update = (event: Event) => setReady({ ...(event as CustomEvent<OfflineReadiness>).detail });
+    window.addEventListener(OFFLINE_READY_EVENT, update);
+    return () => window.removeEventListener(OFFLINE_READY_EVENT, update);
+  }, []);
+  return ready;
+}
+
+/** Whether this device can work offline: every page downloaded, records saved, and how fresh. */
+function OfflineReadinessPanel() {
+  const ready = useOfflineReadiness();
+  const { organization } = useAuth();
+  const filesDone = ready.appFiles ? ready.appFiles.cached >= ready.appFiles.total : null;
+  const complete = Boolean(ready.preparedAt) && filesDone !== false;
+  return (
+    <div className="mt-3 rounded-lg border border-slate-100 px-3 py-2.5 text-xs dark:border-slate-800">
+      <p className="flex items-center gap-1.5 font-semibold text-slate-900 dark:text-slate-50">
+        {ready.running ? <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" /> : complete ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> : <CloudOff className="h-3.5 w-3.5 text-amber-600" />}
+        {ready.running ? 'Getting ready to work offline…' : complete ? 'Ready to work offline' : 'Not fully ready for offline yet'}
+      </p>
+      <ul className="mt-1.5 space-y-0.5 text-slate-600 dark:text-slate-400">
+        <li>App: {ready.appFiles ? (filesDone ? 'every page downloaded' : `${ready.appFiles.cached} of ${ready.appFiles.total} files downloaded`) : 'pages download after sign-in'}</li>
+        <li>Records: {ready.preparedAt ? `${ready.records.toLocaleString()} saved, updated ${formatDistanceToNow(new Date(ready.preparedAt), { addSuffix: true })}` : 'not saved yet'}</li>
+        {ready.persistent && <li>Protected: this browser won’t clear them to free space</li>}
+      </ul>
+      <button type="button" disabled={ready.running || !navigator.onLine} onClick={() => void prepareOffline(organization.id)}
+        className="mt-2 inline-flex items-center gap-1 font-semibold text-blue-700 disabled:opacity-50 dark:text-blue-300">
+        <RefreshCw className="h-3 w-3" />Update now
+      </button>
+    </div>
+  );
+}
 
 export function OfflineStatusChip() {
   const status = useOfflineStatus();
@@ -53,12 +90,13 @@ export function OfflineStatusChip() {
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
             {status.online
               ? status.lastSyncedAt ? `Last synced ${formatDistanceToNow(status.lastSyncedAt, { addSuffix: true })}.` : 'Changes save straight to VitaLink.'
-              : 'Pages show what was last loaded on this device. Patient registration, notes, vitals, appointments, lab and pharmacy changes are kept here and sent when you reconnect.'}
+              : 'Pages show what’s saved on this device. Patient registration, notes, vitals, appointments, lab and pharmacy changes are kept here and sent when you reconnect.'}
           </p>
           <label className="mt-3 flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:bg-slate-900 dark:text-slate-300">
             <span><span className="block font-semibold text-slate-900 dark:text-slate-50">Low-data mode</span>{getDataSaverPreference() === 'auto' ? 'Automatic: follows your connection' : 'Set by you on this device'}</span>
             <Switch checked={lowData} onCheckedChange={(on) => setDataSaverPreference(on ? 'on' : 'off')} />
           </label>
+          <OfflineReadinessPanel />
         </div>
         <div className="max-h-72 space-y-2 overflow-y-auto p-3">
           {waiting === 0 && <p className="px-1 py-2 text-xs text-slate-500 dark:text-slate-400">Nothing waiting to sync.</p>}

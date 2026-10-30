@@ -2,7 +2,11 @@
 //
 // Reads: tried on the network first. Successful responses are saved (encrypted)
 // on this device; with no connection the saved copy is returned instead, with
-// any changes still waiting to sync applied on top.
+// any changes still waiting to sync applied on top. A question never asked
+// before is answered from all the rows of that table saved on this device
+// (filters, simple either/or searches, sorting, paging and totals), and
+// lib/offline/prepare.ts saves each table's recent rows at sign-in, so pages
+// work offline even if they were never opened.
 //
 // Writes, for the workflows that work offline (patient registration, clinical
 // notes and vitals, appointments, lab and pharmacy): sent straight away when
@@ -252,13 +256,16 @@ async function handleRead(req: Parsed, input: RequestInfo | URL, init: RequestIn
   const queuedHere = activeEffects(req.table).some((effect) => effect.op === 'insert') || pendingIds(req.table)(req.url);
   if (!saved && local === undefined && !queuedHere) return offlineError();
   setStatus({ showingSaved: true });
-  const base = saved ? saved.value.body : local ?? [];
+  const base = saved ? saved.value.body : local?.rows ?? [];
   const body = await overlay(offlineUser, req, wantsObject(req.headers) && Array.isArray(base) ? base[0] ?? null : base);
-  if (req.method === 'HEAD') return json(undefined, { headers: saved?.value.range ? { 'content-range': saved.value.range } : {} });
+  // Totals for paged lists and counts ("1–10 of 240"), from the saved answer or the local query.
+  const range = saved?.value.range ?? (local ? (local.rows.length ? `${local.offset}-${local.offset + local.rows.length - 1}/${local.total}` : `*/${local.total}`) : null);
+  const headers: Record<string, string> = range ? { 'content-range': range } : {};
+  if (req.method === 'HEAD') return json(undefined, { headers });
   if (wantsObject(req.headers) && (body === null || body === undefined)) {
     return json({ code: 'PGRST116', message: 'The result contains 0 rows', details: null, hint: null }, { status: 406 });
   }
-  return json(body, { headers: saved?.value.range ? { 'content-range': saved.value.range } : {} });
+  return json(body, { headers });
 }
 
 async function saveResponse(response: Response, userId: string, cacheId: string, table: string) {
@@ -277,36 +284,62 @@ async function saveResponse(response: Response, userId: string, cacheId: string,
 type Filter = (row: Row) => boolean;
 const RESERVED = new Set(['select', 'order', 'limit', 'offset', 'columns', 'on_conflict', 'or', 'and']);
 
+/** One PostgREST condition (`column`, `op.value`) as a row test. */
+function condition(column: string, raw: string): Filter {
+  const negate = raw.startsWith('not.');
+  const rest = negate ? raw.slice(4) : raw;
+  const dot = rest.indexOf('.');
+  const test = cellTest(column, rest.slice(0, dot), rest.slice(dot + 1));
+  return negate ? (row) => !test(row) : test;
+}
+
+/** `or=(a.ilike.%x%,b.eq.1)` as a row test; undefined for nested and()/or() groups. */
+function orFilter(raw: string): Filter | undefined {
+  const inner = raw.replace(/^\(|\)$/g, '');
+  if (/\b(and|or)\(/.test(inner)) return undefined;
+  const parts = inner.split(',').map((part) => {
+    const first = part.indexOf('.');
+    return condition(part.slice(0, first), part.slice(first + 1));
+  });
+  return (row) => parts.some((test) => test(row));
+}
+
 function filtersFor(url: URL): Filter[] {
   const filters: Filter[] = [];
   url.searchParams.forEach((raw, column) => {
+    if (column === 'or') {
+      const either = orFilter(raw);
+      if (either) filters.push(either);
+      return;
+    }
     if (RESERVED.has(column)) return;
-    const dot = raw.indexOf('.');
-    const op = raw.slice(0, dot);
-    const value = raw.slice(dot + 1);
-    filters.push((row) => {
-      if (!(column in row)) return true;
-      const cell = row[column];
-      const text = cell === null || cell === undefined ? null : String(cell);
-      switch (op) {
-        case 'eq': return text === value;
-        case 'neq': return text !== value;
-        case 'gt': return text !== null && text > value;
-        case 'gte': return text !== null && text >= value;
-        case 'lt': return text !== null && text < value;
-        case 'lte': return text !== null && text <= value;
-        case 'is': return value === 'null' ? text === null : String(cell) === value;
-        case 'in': return text !== null && value.replace(/^\(|\)$/g, '').split(',').map((v) => v.replace(/^"|"$/g, '')).includes(text);
-        case 'like':
-        case 'ilike': {
-          const pattern = value.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/[%*]/g, '.*').replace(/_/g, '.');
-          return text !== null && new RegExp(`^${pattern}$`, op === 'ilike' ? 'i' : '').test(text);
-        }
-        default: return true;
-      }
-    });
+    filters.push(condition(column, raw));
   });
   return filters;
+}
+
+function cellTest(column: string, op: string, value: string): Filter {
+  return (row) => {
+    if (!(column in row)) return true;
+    const cell = row[column];
+    const text = cell === null || cell === undefined ? null : String(cell);
+    switch (op) {
+      case 'eq': return text === value;
+      case 'neq': return text !== value;
+      case 'gt': return text !== null && text > value;
+      case 'gte': return text !== null && text >= value;
+      case 'lt': return text !== null && text < value;
+      case 'lte': return text !== null && text <= value;
+      case 'is': return value === 'null' ? text === null : String(cell) === value;
+      case 'in': return text !== null && value.replace(/^\(|\)$/g, '').split(',').map((v) => v.replace(/^"|"$/g, '')).includes(text);
+      case 'like':
+      case 'ilike': {
+        const pattern = value.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/[%*]/g, '.*').replace(/_/g, '.');
+        return text !== null && new RegExp(`^${pattern}$`, op === 'ilike' ? 'i' : '').test(text);
+      }
+      default: return true;
+    }
+  };
 }
 
 const activeEffects = (table: string) => entries
@@ -364,11 +397,14 @@ async function withEmbeds(userId: string, url: URL, row: Row): Promise<Row> {
 }
 
 /**
- * Runs a simple query against the rows saved from earlier responses for the same table.
- * Undefined when it can't be answered faithfully (or/and conditions, nothing saved).
+ * Runs a query against the rows saved from earlier responses for the same table: filters, simple
+ * either/or searches, sorting, paging and the total. Undefined when it can't be answered
+ * faithfully (nested and()/or() groups, nothing saved).
  */
-async function localQuery(userId: string, req: Parsed): Promise<Row[] | undefined> {
-  if (req.method !== 'GET' || req.url.searchParams.has('or') || req.url.searchParams.has('and')) return undefined;
+async function localQuery(userId: string, req: Parsed): Promise<{ rows: Row[]; total: number; offset: number } | undefined> {
+  if ((req.method !== 'GET' && req.method !== 'HEAD') || req.url.searchParams.has('and')) return undefined;
+  const either = req.url.searchParams.get('or');
+  if (either !== null && !orFilter(either)) return undefined;
   const byId = new Map<string, Row>();
   for (const saved of await cacheScan<{ body: unknown }>(userId, req.table)) {
     const rows = Array.isArray(saved.body) ? saved.body as Row[] : saved.body ? [saved.body as Row] : [];
@@ -382,10 +418,13 @@ async function localQuery(userId: string, req: Parsed): Promise<Row[] | undefine
     const [column, direction] = order.split(',')[0].split('.');
     rows.sort((a, b) => String(a[column] ?? '').localeCompare(String(b[column] ?? '')) * (direction === 'desc' ? -1 : 1));
   }
-  const offset = Number(req.url.searchParams.get('offset') ?? 0);
-  const limit = Number(req.url.searchParams.get('limit') ?? rows.length);
+  const total = rows.length;
+  // .range() sends a Range header instead of offset/limit.
+  const rangeHeader = /^(\d+)-(\d+)$/.exec(req.headers.get('range') ?? '');
+  const offset = rangeHeader ? Number(rangeHeader[1]) : Number(req.url.searchParams.get('offset') ?? 0);
+  const limit = rangeHeader ? Number(rangeHeader[2]) - offset + 1 : Number(req.url.searchParams.get('limit') ?? rows.length);
   rows = rows.slice(offset, offset + limit);
-  return Promise.all(rows.map((row) => withEmbeds(userId, req.url, row)));
+  return { rows: await Promise.all(rows.map((row) => withEmbeds(userId, req.url, row))), total, offset };
 }
 
 async function overlay(userId: string, req: Parsed, base: unknown): Promise<unknown> {

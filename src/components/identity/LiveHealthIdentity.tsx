@@ -3,6 +3,7 @@
 // search; show their identity summary; link VitaCards; print ID cards. Free workspaces see a basic
 // profile and can't set up cards (the 'nfc-scanning' entitlement on paid plans; the database enforces linking).
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePatientPhoto } from '@/lib/supabase/patientPhotos';
 import QRCode from 'qrcode';
 import {
   AlertTriangle, ArrowUpRight, CalendarDays, Clock, CreditCard, Droplets, FileText, Link2, Nfc, Plus, Printer, QrCode,
@@ -83,6 +84,7 @@ export function LiveHealthIdentity() {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [patient, setPatient] = useState<RegistryPatient | null>(null);
+  const photoUrl = usePatientPhoto(patient?.profilePhoto);
   const [lastVisit, setLastVisit] = useState<{ at: string; type: string; status: string; department: string } | null>(null);
   const [qr, setQr] = useState('');
   const [scans, setScans] = useState<IdentityScan[] | null>(null);
@@ -438,8 +440,8 @@ export function LiveHealthIdentity() {
               <div className="p-6 bg-gradient-to-br from-royal-500 to-royal-700 text-white min-w-0">
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div className="flex items-center gap-4 min-w-0">
-                    {patient.profilePhoto ? (
-                      <img src={patient.profilePhoto} alt="" className="w-20 h-20 rounded-2xl object-cover border border-white/30 shrink-0" />
+                    {photoUrl ? (
+                      <img src={photoUrl} alt="" className="w-20 h-20 rounded-2xl object-cover border border-white/30 shrink-0" />
                     ) : (
                       <div className="w-20 h-20 rounded-2xl bg-white/20 flex items-center justify-center border border-white/30 shrink-0">
                         <User className="w-10 h-10 text-white" />

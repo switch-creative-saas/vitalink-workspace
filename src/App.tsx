@@ -32,7 +32,8 @@ import { ProfileSync } from '@/components/profile/ProfileSync';
 import { MfaGate } from '@/components/auth/MfaGate';
 import { MfaReminder } from '@/components/auth/MfaReminder';
 import { isLowData } from '@/lib/network/dataSaver';
-import { PageLoading } from '@/components/layout/PageLoading';
+import { PageLoading, PageLoadBoundary } from '@/components/layout/PageLoading';
+import { startOfflinePreparation } from '@/lib/offline/prepare';
 
 // The VitaLink Console is its own app (own sign-in, own layout); only its code is downloaded at /console.
 // Pages load on first use (one small file each), so the first visit on a slow connection only
@@ -124,6 +125,11 @@ function AppShell() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => !isSupabaseConfigured && Boolean(localStorage.getItem('vitalink-auth-session')));
   // Signed in: fetch the other pages in the background (good connections only).
   useEffect(() => { if (isAuthenticated) prefetchPages(); }, [isAuthenticated]);
+  // Signed in: get this device ready to work offline (every page and recent records), then keep it fresh.
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured || !/^[0-9a-f-]{36}$/i.test(organization.id)) return;
+    return startOfflinePreparation(organization.id);
+  }, [isAuthenticated, organization.id]);
   const [currentPage, setCurrentPage] = useState<PageType>('dashboard');
   const [vitaMindPanelOpen, setVitaMindPanelOpen] = useState(false);
   const [emrSwitchId, setEmrSwitchId] = useState<string | null>(null);
@@ -461,7 +467,7 @@ function AppShell() {
           {isSupabaseConfigured && <OfflineBanner />}
           <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 page-transition">
             <PageContainer className="py-4 md:py-5 lg:py-6">
-              <Suspense fallback={<PageLoading />}>{renderPage()}</Suspense>
+              <PageLoadBoundary key={currentPage}><Suspense fallback={<PageLoading />}>{renderPage()}</Suspense></PageLoadBoundary>
             </PageContainer>
           </main>
         </div>

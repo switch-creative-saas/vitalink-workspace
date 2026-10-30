@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, ChevronRight, Clock, FileText, Loader2, Nfc, Save, Trash2, UploadCloud, WifiOff } from 'lucide-react';
+import { PatientPhotoInput } from '@/components/patients/PatientPhotoInput';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -535,7 +536,7 @@ export function PatientOnboardingWizard({
                       <Input data-draft-field="address" placeholder="Address *" value={draft.address} onChange={(e) => updateField('address', e.target.value)} className={fieldClass('address')} />
                     </div>
                     <div className="mb-4">
-                      <Input data-draft-field="profilePhoto" placeholder="Profile photo URL" value={draft.profilePhoto} onChange={(e) => updateField('profilePhoto', e.target.value)} className={fieldClass('profilePhoto')} />
+                      <PatientPhotoInput organizationId={tenantId} value={draft.profilePhoto ?? ''} onChange={(value) => updateField('profilePhoto', value)} />
                     </div>
                   </div>
                 </div>

@@ -5,10 +5,12 @@
  * opens with no connection. Patient data never goes through here: the app keeps
  * it encrypted in IndexedDB (src/lib/offline).
  *
- * Installing downloads only the core (PRECACHE). The other files (pages, charts,
- * maps) are cached the first time they're used, and all at once in the
- * background when the app says the connection is good (message "warm"), one
- * file at a time so it never competes with real work on a slow line. */
+ * Installing downloads only the core (PRECACHE), so the app opens fast. Right
+ * after sign-in the app asks for everything else (message "warm",
+ * src/lib/offline/prepare.ts): every page is downloaded, one file at a time so
+ * it never competes with real work on a slow line, and the app can then work
+ * offline without any page having been opened first. "status" reports how many
+ * of the app's files are saved. Both reply on the message's port. */
 const VERSION = '__VERSION__';
 const PRECACHE = __PRECACHE__;
 const WARM = __WARM__;
@@ -33,29 +35,39 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-let warming = false;
-async function warm() {
-  if (warming) return;
-  warming = true;
-  try {
-    const cache = await caches.open(CACHE);
-    for (const file of WARM) {
-      const url = scoped(file);
-      if (await cache.match(url)) continue;
-      try {
-        const response = await fetch(url);
-        if (response.ok) await cache.put(url, response);
-      } catch {
-        return; // went offline or the connection dropped: try again next time
+let warming = null;
+function warm() {
+  if (!warming) {
+    warming = (async () => {
+      const cache = await caches.open(CACHE);
+      for (const file of WARM) {
+        const url = scoped(file);
+        if (await cache.match(url)) continue;
+        try {
+          const response = await fetch(url);
+          if (response.ok) await cache.put(url, response);
+        } catch {
+          return; // went offline or the connection dropped: carry on next time
+        }
       }
-    }
-  } finally {
-    warming = false;
+    })().finally(() => { warming = null; });
   }
+  return warming;
+}
+
+async function status() {
+  const cache = await caches.open(CACHE);
+  const all = [...PRECACHE, ...WARM];
+  let cached = 0;
+  for (const file of all) if (await cache.match(scoped(file))) cached += 1;
+  return { cached, total: all.length };
 }
 
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'warm') event.waitUntil(warm());
+  const type = event.data && event.data.type;
+  if (type !== 'warm' && type !== 'status') return;
+  const reply = (type === 'warm' ? warm() : Promise.resolve()).then(status).then((result) => event.ports[0] && event.ports[0].postMessage(result));
+  event.waitUntil(reply);
 });
 
 async function navigation(request) {
